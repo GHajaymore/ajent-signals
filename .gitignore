@@ -7,6 +7,10 @@ node_modules/
 mobile-www/
 ios/App/Pods/
 ios/App/build/
+ios/App/build-sim/
+ios/App/build-release/
+ios/App/*.xcarchive/
+ios/App/ExportOptions.plist
 ios/App/App.xcworkspace/xcuserdata/
 ios/App/App.xcodeproj/xcuserdata/
 ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
