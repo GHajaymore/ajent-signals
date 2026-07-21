@@ -1,4 +1,4 @@
-import { fmtPrice, fmtPct, verdictColorVar, verdictChipClass, stateColorVar } from './format.js';
+import { fmtPrice, fmtPct, verdictColorVar, verdictChipClass, stateColorVar, countryFlag } from './format.js';
 
 export function sparklineSvg(history, color, w = 56, h = 28) {
   const pts = history.slice(-24);
@@ -30,7 +30,11 @@ export function confidenceRing(confidence, color, size = 132, r = 52) {
 }
 
 export function symTile(symbol, size = 42) {
-  return `<div class="sym-tile" style="width:${size}px;height:${size}px;font-size:${size <= 36 ? 11 : 13}px">${symbol}</div>`;
+  const base = size <= 36 ? 11 : 13;
+  const shrink = symbol.length >= 6 ? 4 : symbol.length === 5 ? 2.5 : symbol.length === 4 ? 1.5 : 0;
+  const fontSize = Math.max(7, base - shrink);
+  const tracking = symbol.length >= 5 ? '-0.03em' : 'normal';
+  return `<div class="sym-tile" style="width:${size}px;height:${size}px;font-size:${fontSize}px;letter-spacing:${tracking};overflow:hidden">${symbol}</div>`;
 }
 
 export function verdictChip(verdict) {
@@ -64,7 +68,7 @@ export function heroCard(market, verdict) {
           ${symTile(market.symbol)}
           <div>
             <div class="sym-name">${market.name}</div>
-            <div class="sym-sub">${market.exchange} · ${market.signal.timeframe} · ${dataTag(market)}</div>
+            <div class="sym-sub">${countryFlag(market.country)} ${market.exchange} · ${market.signal.timeframe} · ${dataTag(market)}</div>
           </div>
         </div>
         <div class="hero-price">
@@ -112,7 +116,7 @@ export function marketRow(market, verdict) {
     ${symTile(market.symbol, 36)}
     <div class="mkt-body">
       <div class="mkt-name">${market.name}</div>
-      <div class="mkt-ex">${market.exchange} · ${dataTag(market)}</div>
+      <div class="mkt-ex">${countryFlag(market.country)} ${market.exchange} · ${dataTag(market)}</div>
     </div>
     <div class="mkt-price">
       <div class="px tabular">${fmtPrice(market.price, market.decimals)}</div>

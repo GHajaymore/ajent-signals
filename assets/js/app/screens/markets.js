@@ -4,6 +4,7 @@ import { marketRow } from '../components.js';
 
 const CAT_COLOR = {
   Index: 'var(--accent-300)',
+  'Global Index': '#9b8afb',
   Energy: 'var(--flat)',
   Metals: 'var(--accent-200)',
   Rates: 'var(--neutral-300)',
@@ -36,11 +37,11 @@ export function render(container) {
   container.innerHTML = `
   <div class="fade-in">
     <h1 class="h-title">Markets</h1>
-    <p class="text-muted" style="font-size:13px;margin:4px 0 16px">${engine.markets.length} US futures contracts</p>
+    <p class="text-muted" style="font-size:13px;margin:4px 0 16px">${engine.markets.length} global futures &amp; index markets</p>
 
     <div class="search-input-wrap">
       <i class="ph ph-magnifying-glass"></i>
-      <input id="mkt-search" class="search-input" placeholder="Search CME, CBOT, NYMEX, COMEX..." value="${query}">
+      <input id="mkt-search" class="search-input" placeholder="Search CME, NSE, LSE, ASX..." value="${query}">
     </div>
 
     <div id="market-list-wrap">${listHtml()}</div>

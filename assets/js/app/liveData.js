@@ -15,6 +15,9 @@ const YAHOO_SYMBOL = {
   BTC: 'BTC-USD', ETH: 'ETH-USD',
   VIX: '^VIX',
   ZC: 'ZC=F', ZS: 'ZS=F', ZW: 'ZW=F', KC: 'KC=F', SB: 'SB=F', CT: 'CT=F',
+  NIFTY: '^NSEI', BNF: '^NSEBANK', SENSEX: '^BSESN',
+  FTSE: '^FTSE', DAX: '^GDAXI', N225: '^N225', HSI: '^HSI', SSE: '000001.SS',
+  XJO: '^AXJO', TSX: '^GSPTSE', BVSP: '^BVSP', STI: '^STI', SX5E: '^STOXX50E',
 };
 
 const LIVE_STALE_MS = 5 * 60 * 1000;

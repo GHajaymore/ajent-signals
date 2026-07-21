@@ -20,7 +20,7 @@ export function render(container) {
       ${logoMark(46)}
       <div>
         <div style="font:700 18px var(--font-heading)"><span style="color:var(--buy)">Aj</span><span style="color:var(--neutral-300)">ent</span> Signals</div>
-        <div style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted)">US Futures Intelligence</div>
+        <div style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted)">Global Markets Intelligence</div>
       </div>
     </div>
     <h1 style="font-size:24px;margin-bottom:8px">Before you begin</h1>
@@ -40,7 +40,7 @@ export function render(container) {
     </div>
 
     <button id="gate-submit" class="btn btn-primary btn-block" style="height:52px;font-size:15px" ${allChecked ? '' : 'disabled'}>I Agree &amp; Continue</button>
-    <p class="text-faint" style="text-align:center;font-size:11px;margin-top:14px">CFTC Rule 4.41 · Not affiliated with CME Group</p>
+    <p class="text-faint" style="text-align:center;font-size:11px;margin-top:14px">CFTC Rule 4.41 · Not affiliated with any exchange listed in-app</p>
   </div>`;
 
   container.querySelectorAll('.checkrow').forEach((row) => {

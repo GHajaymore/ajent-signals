@@ -1,5 +1,5 @@
 import { state } from '../state.js';
-import { fmtPrice, fmtCountdown, verdictColorVar } from '../format.js';
+import { fmtPrice, fmtCountdown, verdictColorVar, countryFlag } from '../format.js';
 import { confidenceRing, verdictIcon, indicatorRow, planRow, dataTag } from '../components.js';
 
 function chartSvg(market, color) {
@@ -156,7 +156,7 @@ export function render(container) {
       <button class="back-btn" data-back><i class="ph-bold ph-arrow-left"></i></button>
       <div class="detail-title-block">
         <div class="detail-title">${market.symbol} · ${market.name}</div>
-        <div class="detail-sub" id="signal-detail-sub">${market.exchange} · ${market.signal.timeframe} · ${dataTag(market)}</div>
+        <div class="detail-sub" id="signal-detail-sub">${countryFlag(market.country)} ${market.exchange} · ${market.signal.timeframe} · ${dataTag(market)}</div>
       </div>
       <button class="star-btn" id="fav-btn"><i class="${market.favorite ? 'ph-fill' : 'ph'} ph-star"></i></button>
     </div>
@@ -189,7 +189,7 @@ export function refresh(container) {
   const tab = state.detailTab;
 
   const subEl = container.querySelector('#signal-detail-sub');
-  if (subEl) subEl.innerHTML = `${market.exchange} · ${market.signal.timeframe} · ${dataTag(market)}`;
+  if (subEl) subEl.innerHTML = `${countryFlag(market.country)} ${market.exchange} · ${market.signal.timeframe} · ${dataTag(market)}`;
 
   wrap.innerHTML = tabContentHtml(market, verdict, color, tab);
 }

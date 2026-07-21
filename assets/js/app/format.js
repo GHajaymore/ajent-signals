@@ -1,3 +1,9 @@
+export function countryFlag(code) {
+  if (!code || code.length !== 2) return '';
+  const points = [...code.toUpperCase()].map((c) => 127397 + c.charCodeAt(0));
+  return String.fromCodePoint(...points);
+}
+
 export function fmtPrice(value, decimals) {
   return value.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }

@@ -1,7 +1,6 @@
 import { state } from '../state.js';
 import { heroCard, watchlistRow } from '../components.js';
 
-const WATCHLIST = ['ES', 'NQ', 'CL', 'GC', 'BTC', 'RTY'];
 const TODAY_WINS = 5;
 const TODAY_LOSSES = 2;
 
@@ -23,7 +22,7 @@ function computeDerived() {
     : 0;
   const bullish = markets.filter((m) => m.signal.direction > 0).length;
   const riskOn = bullish >= markets.length / 2;
-  const featured = engine.get('ES');
+  const featured = engine.get(state.homeSymbol) || engine.get('ES');
   const featuredVerdict = featured.verdict(threshold);
   const nextEvent = engine.calendar.find((e) => e.impact === 'HIGH') || engine.calendar[0];
 
@@ -73,7 +72,7 @@ export function render(container) {
 
     <div class="section-label">Watchlist<a data-nav="#/markets">All markets &rsaquo;</a></div>
     <div class="card" style="padding:4px 12px">
-      <div id="watchlist-wrap">${WATCHLIST.map((sym) => {
+      <div id="watchlist-wrap">${state.homeWatchlist.map((sym) => {
         const m = engine.get(sym);
         return watchlistRow(m, m.verdict(threshold));
       }).join('')}</div>
@@ -108,7 +107,7 @@ export function refresh(container) {
   }
 
   heroWrap.innerHTML = heroCard(featured, featuredVerdict);
-  watchlistWrap.innerHTML = WATCHLIST.map((sym) => {
+  watchlistWrap.innerHTML = state.homeWatchlist.map((sym) => {
     const m = engine.get(sym);
     return watchlistRow(m, m.verdict(threshold));
   }).join('');

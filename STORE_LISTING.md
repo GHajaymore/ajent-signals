@@ -11,8 +11,8 @@ See "What you still have to do yourself" at the bottom.
 | Field | Value |
 |---|---|
 | App name | **Ajent Signals** |
-| Subtitle (Apple, 30 char max) | **US Futures Trading Signals** (27) |
-| Short description (Google, 80 char max) | **Educational confluence signals for 22 US futures markets.** (61) |
+| Subtitle (Apple, 30 char max) | **Global Futures Signals** (22) |
+| Short description (Google, 80 char max) | **Educational confluence signals for 35 global futures & index markets.** (68) |
 | Category | Finance (primary) · Business (secondary, optional) |
 | Age rating | Likely 4+ / Everyone via questionnaire — flag to counsel given CFTC-adjacent content (see note below) |
 | Price | Free download, in-app subscription |
@@ -26,12 +26,12 @@ See "What you still have to do yourself" at the bottom.
 
 ## Promotional text (Apple only — 170 char max, editable anytime without review)
 
-> 7-day free trial. Confluence-scored BUY/SELL signals across 22 US futures markets — entry, stop, targets and R:R included. Educational only, never executes trades.
+> 7-day free trial. Confluence-scored BUY/SELL signals across 35 global futures & index markets — entry, stop, targets and R:R included. Educational only, never executes trades.
 
 ## Full description (Apple + Google, 4000 char max — same copy works for both)
 
 ```
-Ajent Signals delivers educational buy/sell signals for US futures markets — E-mini S&P 500 by default, with 21 more contracts across index, energy, metals, rates, crypto, volatility and ags.
+Ajent Signals delivers educational buy/sell signals for 35 global futures & index markets — defaulting to a popular index for your region (E-mini S&P 500 in the US, Nifty 50 in India, FTSE 100 in the UK, and more), across US index, energy, metals, rates, crypto and ags futures plus major global indices.
 
 HOW IT WORKS
 Ajent scores 40+ trusted technical indicators — EMAs, VWAP, RSI, MACD, Supertrend, Ichimoku, order flow and smart-money concepts — into one weighted confluence score, confirmed across multiple timeframes. A BUY or SELL only appears once confidence clears your threshold (default 75%, adjustable). Below that, Ajent tells you plainly: "No trade — waiting for a high-probability setup."
@@ -54,7 +54,7 @@ Win rate, average reward:risk, drawdown, and every closed signal — wins and lo
 
 Free for 7 days, then continue with Ajent Pro ($39.90/mo or $39.90/yr).
 
-IMPORTANT: Ajent Signals is an educational and informational tool only. It does not provide investment, financial, legal, or tax advice, and it does not execute trades or connect to any brokerage account. Trading futures involves substantial risk of loss and is not suitable for every investor. Past performance and any hypothetical results do not guarantee future returns. You are solely responsible for your own trading decisions. Not affiliated with CME Group, CBOT, NYMEX, or COMEX. CFTC Rule 4.41.
+IMPORTANT: Ajent Signals is an educational and informational tool only. It does not provide investment, financial, legal, or tax advice, and it does not execute trades or connect to any brokerage account. Trading futures involves substantial risk of loss and is not suitable for every investor. Past performance and any hypothetical results do not guarantee future returns. You are solely responsible for your own trading decisions. Not affiliated with CME Group, CBOT, NYMEX, COMEX, NSE, BSE, LSE, or any other exchange referenced in-app. CFTC Rule 4.41.
 ```
 
 ## Keywords (Apple, 100 char max, comma-separated, no spaces needed)
@@ -79,7 +79,7 @@ Recommended shots, in order: Home dashboard → Signal detail → Breakdown → 
 ## Apple App Review notes (paste into "Notes for Review")
 
 ```
-Ajent Signals is an educational app that surfaces algorithmically-generated technical-analysis signals for US futures markets. It does NOT execute trades, does NOT connect to any brokerage or exchange account, and does NOT hold funds — it is informational only.
+Ajent Signals is an educational app that surfaces algorithmically-generated technical-analysis signals for global futures and index markets (US, India, UK, Europe, Asia-Pacific, and more). It does NOT execute trades, does NOT connect to any brokerage or exchange account, and does NOT hold funds — it is informational only.
 
 A mandatory disclaimer + 4-point risk acknowledgement gate blocks all access until accepted (first screen after launch). Full risk disclosure and no-liability copy is in Settings and at [yourdomain.com/terms.html].
 
@@ -97,7 +97,8 @@ Subscription: 7-day free trial via StoreKit, then $39.90/mo or $39.90/yr, cancel
 | App activity / interactions | Yes | No | Analytics, app functionality |
 | Crash logs, diagnostics | Yes | No | App functionality |
 | Financial info (bank/card) | **No** — billing handled entirely by Apple/Google | — | — |
-| Precise/approximate location | No | — | — |
+| Approximate location (country, from IP) | Yes — via a third-party IP-geolocation lookup | Yes, to that lookup provider | Sets the default featured market/watchlist to a popular index for your country |
+| Precise (GPS) location | No | — | — |
 
 All data encrypted in transit. Users can request account deletion (list the in-app or email path).
 

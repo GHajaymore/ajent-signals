@@ -9,6 +9,7 @@ import * as alertsScreen from './screens/alerts.js';
 import * as settingsScreen from './screens/settings.js';
 import * as paywall from './screens/paywall.js';
 import { startLiveDataLoop } from './liveData.js';
+import { applyGeoDefaults } from './geo.js';
 
 const TABS = [
   { key: 'home', label: 'Home', icon: 'ph-house' },
@@ -134,6 +135,7 @@ function refreshRoute() {
 window.addEventListener('hashchange', renderRoute);
 renderRoute();
 startLiveDataLoop(state.engine);
+applyGeoDefaults(state);
 
 setInterval(() => {
   const beforeAlerts = state.engine.alerts.length;

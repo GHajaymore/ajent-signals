@@ -1,7 +1,7 @@
 {
   "name": "Ajent Signals",
   "short_name": "Ajent",
-  "description": "Educational confluence-based buy/sell signals for US futures markets.",
+  "description": "Educational confluence-based buy/sell signals for global futures and index markets.",
   "start_url": "./app/",
   "scope": "./",
   "display": "standalone",
