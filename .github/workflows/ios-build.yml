@@ -1,9 +1,20 @@
 name: iOS Build
 
-# Manual trigger only — this never runs on push, so nothing gets built or
-# submitted without someone deliberately clicking "Run workflow" on GitHub.
+# Runs on every push that touches mobile/iOS files (no GitHub UI button-hunting
+# required), plus still available as a manual "Run workflow" button. It only
+# ever builds/exports artifacts for download — nothing here submits to Apple.
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ios-build.yml'
+      - 'app/**'
+      - 'assets/**'
+      - 'capacitor.config.json'
+      - 'package.json'
+      - 'scripts/build-mobile-www.js'
+      - 'ios/**'
 
 permissions:
   contents: write
