@@ -73,7 +73,9 @@ jobs:
           KEYCHAIN_PATH=$RUNNER_TEMP/signing.keychain-db
           KEYCHAIN_PASSWORD=$(uuidgen)
 
-          echo "${{ secrets.IOS_DIST_CERT_P12 }}" | base64 --decode > $RUNNER_TEMP/cert.p12
+          echo "${{ secrets.IOS_DIST_CERT_P12 }}" | tr -d '[:space:]' | base64 --decode > $RUNNER_TEMP/cert.p12
+          echo "p12 size: $(wc -c < $RUNNER_TEMP/cert.p12) bytes"
+          file $RUNNER_TEMP/cert.p12
 
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
@@ -83,7 +85,8 @@ jobs:
           security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed 's/"//g')
 
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "${{ secrets.IOS_PROVISION_PROFILE }}" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+          echo "${{ secrets.IOS_PROVISION_PROFILE }}" | tr -d '[:space:]' | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+          echo "profile size: $(wc -c < ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision) bytes"
 
       - name: Archive and export signed .ipa
         if: ${{ env.HAS_SIGNING == 'true' }}
