@@ -1,3 +1,5 @@
+import { startUpdateWatcher } from './app/updateCheck.js';
+
 const BUY = 'var(--buy)', SELL = 'var(--sell)';
 
 const months = [
@@ -54,3 +56,5 @@ function setBilling(annual) {
 
 btnMonthly.addEventListener('click', () => setBilling(false));
 btnAnnual.addEventListener('click', () => setBilling(true));
+
+startUpdateWatcher();
