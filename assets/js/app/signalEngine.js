@@ -3,20 +3,24 @@
 // statistically calibrated probability of a winning trade: no combination of
 // technical indicators guarantees a given win rate, and none is claimed here.
 import { ema, rsi, macd, atr, bollingerBands, sessionVwap, supertrend, marketStructure } from './indicators.js';
+import { summarizeNews } from './news.js';
 
 // Weights sum to 100. Kept to a small, deliberately non-redundant set — one
 // indicator per information type (trend, momentum, volatility-position,
-// intraday reference, trend-following overlay, price-action structure) —
-// rather than stacking multiple indicators that tend to move together
-// (e.g. RSI and Stoch RSI, or MACD and a second EMA crossover).
+// intraday reference, trend-following overlay, price-action structure,
+// news sentiment) — rather than stacking multiple indicators that tend to
+// move together (e.g. RSI and Stoch RSI, or MACD and a second EMA crossover).
+// The technical indicators were scaled down 10% to make room for News
+// Sentiment rather than letting the total exceed 100.
 const WEIGHTS = {
-  'EMA Stack': 20,
-  Supertrend: 15,
-  MACD: 13,
-  'Market Structure': 15,
-  'RSI (14)': 12,
-  'Bollinger Bands': 10,
-  VWAP: 15,
+  'EMA Stack': 18,
+  Supertrend: 13.5,
+  MACD: 11.7,
+  'Market Structure': 13.5,
+  'RSI (14)': 10.8,
+  'Bollinger Bands': 9,
+  VWAP: 13.5,
+  'News Sentiment': 10,
 };
 
 const HOLD_BY_VOLATILITY = {
@@ -27,7 +31,7 @@ const HOLD_BY_VOLATILITY = {
 
 function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
 
-export function computeRealSignal(candles, def, rng) {
+export function computeRealSignal(candles, def, rng, news = []) {
   const closes = candles.map((c) => c.c);
   const n = closes.length;
   const price = closes[n - 1];
@@ -103,6 +107,21 @@ export function computeRealSignal(candles, def, rng) {
     indicators.push({ name: 'VWAP', state, detail, weight: WEIGHTS.VWAP });
   }
 
+  // 8. News Sentiment — real recent headlines (48h), keyword-scored. Not
+  // insider or non-public information, and not a licensed NLP sentiment feed.
+  const newsSummary = summarizeNews(news);
+  {
+    const { avg, headlines } = newsSummary;
+    const state = avg >= 0.4 ? 'bull' : avg <= -0.4 ? 'bear' : 'neutral';
+    const top = headlines[0];
+    const detail = headlines.length === 0
+      ? 'No market-moving headlines in the last 48h'
+      : state === 'neutral'
+        ? `Mixed/quiet coverage — "${top.title}"`
+        : `${state === 'bull' ? 'Net bullish' : 'Net bearish'} coverage — "${top.title}"`;
+    indicators.push({ name: 'News Sentiment', state, detail, weight: WEIGHTS['News Sentiment'] });
+  }
+
   const bullWeight = indicators.filter((i) => i.state === 'bull').reduce((s, i) => s + i.weight, 0);
   const bearWeight = indicators.filter((i) => i.state === 'bear').reduce((s, i) => s + i.weight, 0);
   const direction = bullWeight >= bearWeight ? 1 : -1;
@@ -133,8 +152,10 @@ export function computeRealSignal(candles, def, rng) {
   const agreeing = indicators.filter((i) => i.state === agreeState).sort((a, b) => b.weight - a.weight);
   let reasons;
   if (confidence >= 60) {
-    reasons = agreeing.slice(0, 3).map((i) => REASON_TEXT[i.name]?.[agreeState]).filter(Boolean);
-    reasons.push('Computed from real 5-minute candles over the trailing 5 days — not a random or simulated score.');
+    reasons = agreeing.slice(0, 3).map((i) => (
+      i.name === 'News Sentiment' ? `Recent headlines lean ${agreeState === 'bull' ? 'bullish' : 'bearish'} — ${i.detail}.` : REASON_TEXT[i.name]?.[agreeState]
+    )).filter(Boolean);
+    reasons.push('Computed from real 5-minute candles and recent headlines over the trailing 5 days — not a random or simulated score.');
   } else {
     reasons = [
       `Confidence of ${confidence}% falls short of the confidence threshold.`,

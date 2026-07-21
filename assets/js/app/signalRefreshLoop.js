@@ -3,6 +3,7 @@
 // payload — indicators on 1h bars don't need second-by-second refresh anyway.
 import { YAHOO_SYMBOL } from './liveData.js';
 import { fetchCandles } from './candles.js';
+import { fetchNews } from './news.js';
 import { computeRealSignal } from './signalEngine.js';
 import { COUNTRY_DEFAULTS } from './geo.js';
 
@@ -28,7 +29,8 @@ function refreshAll(engine, stagger) {
     setTimeout(async () => {
       try {
         const candles = await fetchCandles(ySym);
-        const signal = computeRealSignal(candles, market, market.rng);
+        const news = await fetchNews(ySym).catch(() => []); // news is optional — never blocks a signal
+        const signal = computeRealSignal(candles, market, market.rng, news);
         market.applyRealSignal(signal);
       } catch (e) {
         market.markSignalUnavailable(SIGNAL_STALE_MS);
