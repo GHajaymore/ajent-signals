@@ -1,0 +1,80 @@
+---
+path:            '/Applications/Xcode_15.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator/prebuilt-modules/17.5/CoreData.swiftmodule/x86_64-apple-ios-simulator.swiftmodule'
+dependencies:
+  - mtime:           1782705747985204311
+    path:            '/Applications/Xcode_15.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphonesimulator/prebuilt-modules/17.5/CoreData.swiftmodule/x86_64-apple-ios-simulator.swiftmodule'
+    size:            111584
+  - mtime:           1782705747679079936
+    path:            'usr/lib/swift/Swift.swiftmodule/x86_64-apple-ios-simulator.swiftinterface'
+    size:            2097215
+    sdk_relative:    true
+  - mtime:           1782705572654430936
+    path:            'usr/include/Darwin.apinotes'
+    size:            1133
+    sdk_relative:    true
+  - mtime:           1782705747580905894
+    path:            'usr/lib/swift/Darwin.swiftmodule/x86_64-apple-ios-simulator.swiftinterface'
+    size:            31005
+    sdk_relative:    true
+  - mtime:           1782705747669823936
+    path:            'usr/lib/swift/_Concurrency.swiftmodule/x86_64-apple-ios-simulator.swiftinterface'
+    size:            154006
+    sdk_relative:    true
+  - mtime:           1782705747604742394
+    path:            'usr/lib/swift/_StringProcessing.swiftmodule/x86_64-apple-ios-simulator.swiftinterface'
+    size:            21929
+    sdk_relative:    true
+  - mtime:           1782705747571226686
+    path:            'System/Library/Frameworks/Combine.framework/Modules/Combine.swiftmodule/x86_64-apple-ios-simulator.swiftinterface'
+    size:            169324
+    sdk_relative:    true
+  - mtime:           1782705610765175478
+    path:            'usr/include/objc/ObjectiveC.apinotes'
+    size:            11147
+    sdk_relative:    true
+  - mtime:           1782705583862473478
+    path:            'usr/include/dispatch/Dispatch.apinotes'
+    size:            19
+    sdk_relative:    true
+  - mtime:           1782705618468915144
+    path:            'System/Library/Frameworks/Security.framework/Headers/Security.apinotes'
+    size:            162
+    sdk_relative:    true
+  - mtime:           1782705584692355269
+    path:            'System/Library/Frameworks/Foundation.framework/Headers/Foundation.apinotes'
+    size:            81098
+    sdk_relative:    true
+  - mtime:           1782705563752694728
+    path:            'System/Library/Frameworks/CoreData.framework/Headers/CoreData.apinotes'
+    size:            7789
+    sdk_relative:    true
+  - mtime:           1782705747566433978
+    path:            'usr/lib/swift/ObjectiveC.swiftmodule/x86_64-apple-ios-simulator.swiftinterface'
+    size:            4537
+    sdk_relative:    true
+  - mtime:           1782705747588947227
+    path:            'usr/lib/swift/Dispatch.swiftmodule/x86_64-apple-ios-simulator.swiftinterface'
+    size:            56317
+    sdk_relative:    true
+  - mtime:           1782705747657194477
+    path:            'usr/lib/swift/CoreFoundation.swiftmodule/x86_64-apple-ios-simulator.swiftinterface'
+    size:            22266
+    sdk_relative:    true
+  - mtime:           1782705747564212728
+    path:            'usr/lib/swift/XPC.swiftmodule/x86_64-apple-ios-simulator.swiftinterface'
+    size:            31423
+    sdk_relative:    true
+  - mtime:           1782705747669714102
+    path:            'usr/lib/swift/Observation.swiftmodule/x86_64-apple-ios-simulator.swiftinterface'
+    size:            3553
+    sdk_relative:    true
+  - mtime:           1782705747661735727
+    path:            'System/Library/Frameworks/Foundation.framework/Modules/Foundation.swiftmodule/x86_64-apple-ios-simulator.swiftinterface'
+    size:            898039
+    sdk_relative:    true
+  - mtime:           1782705747571683394
+    path:            'System/Library/Frameworks/CoreData.framework/Modules/CoreData.swiftmodule/x86_64-apple-ios-simulator.swiftinterface'
+    size:            41914
+    sdk_relative:    true
+version:         1
+...
