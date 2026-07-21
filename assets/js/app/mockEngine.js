@@ -134,7 +134,29 @@ class MarketModel {
     this.changePct = ((this.price - this.openPrice) / this.openPrice) * 100;
     this.age = Math.floor(this.rng() * 40);
     this.favorite = def.symbol === 'ES';
+    this.liveSource = 'sim';
+    this.lastLiveAt = 0;
     this._genSignal();
+  }
+
+  applyLiveQuote(price, prevClose) {
+    this.price = price;
+    if (prevClose) this.openPrice = prevClose;
+    this.changePct = ((this.price - this.openPrice) / this.openPrice) * 100;
+    this.history.push(this.price);
+    if (this.history.length > 96) this.history.shift();
+    this.liveSource = 'live';
+    this.lastLiveAt = Date.now();
+  }
+
+  markLiveUnavailable(staleMs) {
+    if (!this.lastLiveAt || Date.now() - this.lastLiveAt > staleMs) {
+      this.liveSource = 'sim';
+    }
+  }
+
+  get isLiveFresh() {
+    return this.liveSource === 'live' && this.lastLiveAt && (Date.now() - this.lastLiveAt < 6 * 60 * 1000);
   }
 
   _seedHistory(n) {
@@ -224,13 +246,15 @@ class MarketModel {
 
   tick(threshold, onAlert) {
     const rng = this.rng;
-    const jitter = (rng() - 0.5) * this.atrPct * 0.045;
-    this.price = Math.max(this.price * (1 + jitter), this.price * 0.5);
-    this.changePct = ((this.price - this.openPrice) / this.openPrice) * 100;
+    if (!this.isLiveFresh) {
+      const jitter = (rng() - 0.5) * this.atrPct * 0.045;
+      this.price = Math.max(this.price * (1 + jitter), this.price * 0.5);
+      this.changePct = ((this.price - this.openPrice) / this.openPrice) * 100;
 
-    if (rng() > 0.55) {
-      this.history.push(this.price);
-      if (this.history.length > 96) this.history.shift();
+      if (rng() > 0.55) {
+        this.history.push(this.price);
+        if (this.history.length > 96) this.history.shift();
+      }
     }
 
     this.age += 1;

@@ -12,7 +12,7 @@ function greeting() {
   return 'Good evening';
 }
 
-export function render(container) {
+function computeDerived() {
   const engine = state.engine;
   const threshold = state.settings.threshold;
   const markets = engine.markets;
@@ -23,10 +23,15 @@ export function render(container) {
     : 0;
   const bullish = markets.filter((m) => m.signal.direction > 0).length;
   const riskOn = bullish >= markets.length / 2;
-
   const featured = engine.get('ES');
   const featuredVerdict = featured.verdict(threshold);
   const nextEvent = engine.calendar.find((e) => e.impact === 'HIGH') || engine.calendar[0];
+
+  return { engine, threshold, openSignals, avgConf, riskOn, featured, featuredVerdict, nextEvent };
+}
+
+export function render(container) {
+  const { engine, threshold, openSignals, avgConf, riskOn, featured, featuredVerdict, nextEvent } = computeDerived();
 
   container.innerHTML = `
   <div class="fade-in">
@@ -52,26 +57,26 @@ export function render(container) {
       </div>
       <div class="stat-card">
         <div class="stat-label">Open signals</div>
-        <div class="stat-value">${openSignals.length}</div>
-        <div class="stat-sub">avg ${avgConf}%</div>
+        <div class="stat-value" id="stat-open-signals">${openSignals.length}</div>
+        <div class="stat-sub" id="stat-avg-conf">avg ${avgConf}%</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Daily trend</div>
-        <div class="stat-value" style="font-size:15px;color:${riskOn ? 'var(--buy)' : 'var(--sell)'};display:flex;align-items:center;gap:5px">
+        <div class="stat-value" id="stat-daily-trend" style="font-size:15px;color:${riskOn ? 'var(--buy)' : 'var(--sell)'};display:flex;align-items:center;gap:5px">
           <i class="ph-bold ${riskOn ? 'ph-trend-up' : 'ph-trend-down'}"></i>${riskOn ? 'Risk-on' : 'Risk-off'}
         </div>
       </div>
     </div>
 
     <div class="section-label">Top signal</div>
-    ${heroCard(featured, featuredVerdict)}
+    <div id="hero-wrap">${heroCard(featured, featuredVerdict)}</div>
 
     <div class="section-label">Watchlist<a data-nav="#/markets">All markets &rsaquo;</a></div>
     <div class="card" style="padding:4px 12px">
-      ${WATCHLIST.map((sym) => {
+      <div id="watchlist-wrap">${WATCHLIST.map((sym) => {
         const m = engine.get(sym);
         return watchlistRow(m, m.verdict(threshold));
-      }).join('')}
+      }).join('')}</div>
     </div>
 
     <div class="calendar-banner" data-nav="#/calendar">
@@ -83,4 +88,28 @@ export function render(container) {
       <i class="ph-bold ph-caret-right arrow"></i>
     </div>
   </div>`;
+}
+
+export function refresh(container) {
+  const heroWrap = container.querySelector('#hero-wrap');
+  const watchlistWrap = container.querySelector('#watchlist-wrap');
+  if (!heroWrap || !watchlistWrap) return;
+
+  const { engine, threshold, openSignals, avgConf, riskOn, featured, featuredVerdict } = computeDerived();
+
+  const openSignalsEl = container.querySelector('#stat-open-signals');
+  const avgConfEl = container.querySelector('#stat-avg-conf');
+  const trendEl = container.querySelector('#stat-daily-trend');
+  if (openSignalsEl) openSignalsEl.textContent = String(openSignals.length);
+  if (avgConfEl) avgConfEl.textContent = `avg ${avgConf}%`;
+  if (trendEl) {
+    trendEl.style.color = riskOn ? 'var(--buy)' : 'var(--sell)';
+    trendEl.innerHTML = `<i class="ph-bold ${riskOn ? 'ph-trend-up' : 'ph-trend-down'}"></i>${riskOn ? 'Risk-on' : 'Risk-off'}`;
+  }
+
+  heroWrap.innerHTML = heroCard(featured, featuredVerdict);
+  watchlistWrap.innerHTML = WATCHLIST.map((sym) => {
+    const m = engine.get(sym);
+    return watchlistRow(m, m.verdict(threshold));
+  }).join('');
 }

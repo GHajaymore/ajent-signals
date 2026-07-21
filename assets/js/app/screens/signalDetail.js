@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { fmtPrice, fmtCountdown, verdictColorVar } from '../format.js';
-import { confidenceRing, verdictIcon, indicatorRow, planRow } from '../components.js';
+import { confidenceRing, verdictIcon, indicatorRow, planRow, dataTag } from '../components.js';
 
 function chartSvg(market, color) {
   const w = 500, h = 160;
@@ -137,6 +137,12 @@ function renderChartTab(market, color) {
   </div>`;
 }
 
+function tabContentHtml(market, verdict, color, tab) {
+  return tab === 'breakdown' ? renderBreakdownTab(market, color)
+    : tab === 'chart' ? renderChartTab(market, color)
+    : renderSignalTab(market, verdict, color);
+}
+
 export function render(container) {
   const market = state.engine.get(state.selectedSymbol);
   if (!market) { location.hash = '#/home'; return; }
@@ -150,7 +156,7 @@ export function render(container) {
       <button class="back-btn" data-back><i class="ph-bold ph-arrow-left"></i></button>
       <div class="detail-title-block">
         <div class="detail-title">${market.symbol} · ${market.name}</div>
-        <div class="detail-sub">${market.exchange} · ${market.signal.timeframe}</div>
+        <div class="detail-sub" id="signal-detail-sub">${market.exchange} · ${market.signal.timeframe} · ${dataTag(market)}</div>
       </div>
       <button class="star-btn" id="fav-btn"><i class="${market.favorite ? 'ph-fill' : 'ph'} ph-star"></i></button>
     </div>
@@ -161,7 +167,7 @@ export function render(container) {
       <button class="seg-btn ${tab === 'chart' ? 'active' : ''}" data-tab="chart">Chart</button>
     </div>
 
-    ${tab === 'breakdown' ? renderBreakdownTab(market, color) : tab === 'chart' ? renderChartTab(market, color) : renderSignalTab(market, verdict, color)}
+    <div id="signal-tab-content">${tabContentHtml(market, verdict, color, tab)}</div>
   </div>`;
 
   container.querySelectorAll('.seg-btn').forEach((btn) => {
@@ -171,4 +177,19 @@ export function render(container) {
     market.favorite = !market.favorite;
     render(container);
   });
+}
+
+export function refresh(container) {
+  const wrap = container.querySelector('#signal-tab-content');
+  if (!wrap) return;
+  const market = state.engine.get(state.selectedSymbol);
+  if (!market) return;
+  const verdict = market.verdict(state.settings.threshold);
+  const color = verdictColorVar(verdict);
+  const tab = state.detailTab;
+
+  const subEl = container.querySelector('#signal-detail-sub');
+  if (subEl) subEl.innerHTML = `${market.exchange} · ${market.signal.timeframe} · ${dataTag(market)}`;
+
+  wrap.innerHTML = tabContentHtml(market, verdict, color, tab);
 }

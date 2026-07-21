@@ -8,6 +8,7 @@ import * as calendarScreen from './screens/calendar.js';
 import * as alertsScreen from './screens/alerts.js';
 import * as settingsScreen from './screens/settings.js';
 import * as paywall from './screens/paywall.js';
+import { startLiveDataLoop } from './liveData.js';
 
 const TABS = [
   { key: 'home', label: 'Home', icon: 'ph-house' },
@@ -105,15 +106,34 @@ function renderRoute() {
 
 function wireGlobalNav() {
   contentEl.querySelectorAll('[data-nav]').forEach((el) => {
+    if (el.dataset.navWired) return;
+    el.dataset.navWired = '1';
     el.addEventListener('click', () => { location.hash = el.dataset.nav; });
   });
   contentEl.querySelectorAll('[data-back]').forEach((el) => {
+    if (el.dataset.navWired) return;
+    el.dataset.navWired = '1';
     el.addEventListener('click', () => { history.back(); });
   });
 }
 
+// Lightweight, in-place update for the currently visible screen — driven by the 1s
+// tick and by live-quote refreshes. Never touches scroll position or replays the
+// screen's entrance animation (unlike renderRoute, which is only for navigation).
+function refreshRoute() {
+  const route = parseHash();
+  switch (route[0]) {
+    case 'home': home.refresh?.(contentEl); break;
+    case 'markets': marketsScreen.refresh?.(contentEl); break;
+    case 'signal': signalDetail.refresh?.(contentEl); break;
+    default: return;
+  }
+  wireGlobalNav();
+}
+
 window.addEventListener('hashchange', renderRoute);
 renderRoute();
+startLiveDataLoop(state.engine);
 
 setInterval(() => {
   const beforeAlerts = state.engine.alerts.length;
@@ -122,9 +142,8 @@ setInterval(() => {
     state.hasUnreadAlerts = true;
   }
   const route = parseHash();
+  renderTabbar(route);
   if (LIVE_SCREENS.has(route[0])) {
-    renderRoute();
-  } else {
-    renderTabbar(route);
+    refreshRoute();
   }
 }, 1000);

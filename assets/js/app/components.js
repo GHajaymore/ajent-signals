@@ -44,6 +44,12 @@ export function verdictIcon(verdict) {
   return '<i class="ph-bold ph-minus"></i>';
 }
 
+export function dataTag(market) {
+  return market.isLiveFresh
+    ? '<span class="data-tag live">LIVE</span>'
+    : '<span class="data-tag sim">SIM</span>';
+}
+
 export function heroCard(market, verdict) {
   const color = verdictColorVar(verdict);
   const s = market.signal;
@@ -58,7 +64,7 @@ export function heroCard(market, verdict) {
           ${symTile(market.symbol)}
           <div>
             <div class="sym-name">${market.name}</div>
-            <div class="sym-sub">${market.exchange} · ${market.signal.timeframe}</div>
+            <div class="sym-sub">${market.exchange} · ${market.signal.timeframe} · ${dataTag(market)}</div>
           </div>
         </div>
         <div class="hero-price">
@@ -90,7 +96,7 @@ export function watchlistRow(market, verdict) {
   <div class="wl-row" data-nav="#/signal/${market.symbol}">
     ${symTile(market.symbol, 36)}
     <div class="wl-name-block">
-      <div class="wl-name">${market.name}</div>
+      <div class="wl-name">${market.name} ${dataTag(market)}</div>
       <div class="wl-price tabular">${fmtPrice(market.price, market.decimals)}</div>
     </div>
     <div class="wl-spark">${sparklineSvg(market.history, chgColor)}</div>
@@ -106,7 +112,7 @@ export function marketRow(market, verdict) {
     ${symTile(market.symbol, 36)}
     <div class="mkt-body">
       <div class="mkt-name">${market.name}</div>
-      <div class="mkt-ex">${market.exchange}</div>
+      <div class="mkt-ex">${market.exchange} · ${dataTag(market)}</div>
     </div>
     <div class="mkt-price">
       <div class="px tabular">${fmtPrice(market.price, market.decimals)}</div>

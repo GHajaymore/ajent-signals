@@ -90,7 +90,7 @@ export function render(container) {
       </div>
     </div>
 
-    <div class="footer-note">Ajent Signals is an educational tool and does not execute trades.<br>Market data delayed for demo · v1.0.0</div>
+    <div class="footer-note">Ajent Signals is an educational tool and does not execute trades.<br>Markets tagged LIVE use a free public feed (unofficial, best-effort); SIM markets are simulated for demo purposes · v1.0.0</div>
   </div>`;
 
   const thresholdRange = document.getElementById('threshold-range');

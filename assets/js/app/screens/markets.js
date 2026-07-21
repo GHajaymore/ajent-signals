@@ -14,13 +14,24 @@ const CAT_COLOR = {
 
 let query = '';
 
-export function render(container) {
+function listHtml() {
   const engine = state.engine;
   const threshold = state.settings.threshold;
   const q = query.trim().toUpperCase();
 
   const filtered = engine.markets.filter((m) => !q || m.symbol.includes(q) || m.name.toUpperCase().includes(q) || m.exchange.includes(q));
   const byCategory = CATEGORY_ORDER.map((cat) => ({ cat, list: filtered.filter((m) => m.category === cat) })).filter((g) => g.list.length);
+
+  return byCategory.map((g) => `
+    <div class="cat-label" style="color:${CAT_COLOR[g.cat]}">${g.cat.toUpperCase()}<span class="cat-count">${g.list.length}</span></div>
+    <div class="card" style="padding:2px 12px">
+      ${g.list.map((m) => marketRow(m, m.verdict(threshold))).join('')}
+    </div>
+  `).join('') || '<p class="text-muted" style="text-align:center;margin-top:40px">No contracts match your search.</p>';
+}
+
+export function render(container) {
+  const engine = state.engine;
 
   container.innerHTML = `
   <div class="fade-in">
@@ -32,21 +43,18 @@ export function render(container) {
       <input id="mkt-search" class="search-input" placeholder="Search CME, CBOT, NYMEX, COMEX..." value="${query}">
     </div>
 
-    ${byCategory.map((g) => `
-      <div class="cat-label" style="color:${CAT_COLOR[g.cat]}">${g.cat.toUpperCase()}<span class="cat-count">${g.list.length}</span></div>
-      <div class="card" style="padding:2px 12px">
-        ${g.list.map((m) => marketRow(m, m.verdict(threshold))).join('')}
-      </div>
-    `).join('') || '<p class="text-muted" style="text-align:center;margin-top:40px">No contracts match your search.</p>'}
+    <div id="market-list-wrap">${listHtml()}</div>
   </div>`;
 
   const input = document.getElementById('mkt-search');
   input.addEventListener('input', () => {
     query = input.value;
-    const pos = input.selectionStart;
-    render(container);
-    const newInput = document.getElementById('mkt-search');
-    newInput.focus();
-    newInput.setSelectionRange(pos, pos);
+    document.getElementById('market-list-wrap').innerHTML = listHtml();
   });
+}
+
+export function refresh(container) {
+  const wrap = container.querySelector('#market-list-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = listHtml();
 }
