@@ -1,6 +1,7 @@
 import { state } from '../state.js';
 import { CATEGORY_ORDER } from '../mockEngine.js';
 import { marketRow } from '../components.js';
+import { escapeHtml } from '../format.js';
 
 const CAT_COLOR = {
   Index: 'var(--accent-300)',
@@ -41,7 +42,7 @@ export function render(container) {
 
     <div class="search-input-wrap">
       <i class="ph ph-magnifying-glass"></i>
-      <input id="mkt-search" class="search-input" placeholder="Search CME, NSE, LSE, ASX..." value="${query}">
+      <input id="mkt-search" class="search-input" placeholder="Search CME, NSE, LSE, ASX..." value="${escapeHtml(query)}">
     </div>
 
     <div id="market-list-wrap">${listHtml()}</div>

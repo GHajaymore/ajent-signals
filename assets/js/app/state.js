@@ -6,7 +6,12 @@ const LS_SETTINGS = 'ajent_settings_v1';
 function loadSettings() {
   try {
     const raw = localStorage.getItem(LS_SETTINGS);
-    if (raw) return JSON.parse(raw);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Number.isFinite(parsed.accountBalance)) delete parsed.accountBalance;
+    if (!Number.isFinite(parsed.threshold)) delete parsed.threshold;
+    if (!Number.isFinite(parsed.riskPct)) delete parsed.riskPct;
+    return parsed;
   } catch (e) { /* ignore malformed local storage */ }
   return null;
 }
