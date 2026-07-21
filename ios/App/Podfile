@@ -21,4 +21,15 @@ end
 
 post_install do |installer|
   assertDeploymentTarget(installer)
+
+  # Pod targets are libraries, not apps — they must never be manually signed
+  # or provisioned, even though the archive command sets manual signing for
+  # the App target. Without this, xcodebuild rejects the whole archive with
+  # "does not support provisioning profiles".
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+      config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
+    end
+  end
 end
