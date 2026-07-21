@@ -1,4 +1,4 @@
-name: iOS Simulator Build
+name: iOS Build
 
 # Manual trigger only — this never runs on push, so nothing gets built or
 # submitted without someone deliberately clicking "Run workflow" on GitHub.
@@ -39,12 +39,12 @@ jobs:
           cd ios/App
           pod install --repo-update
 
-      - name: Build for iOS Simulator (no signing required)
+      - name: Build for iOS Simulator (sanity check, no signing needed)
         run: |
           cd ios/App
           xcodebuild -workspace App.xcworkspace -scheme App \
             -configuration Debug -sdk iphonesimulator \
-            -derivedDataPath build build
+            -derivedDataPath build-sim build
 
       - name: Commit generated native project if new
         run: |
@@ -53,3 +53,67 @@ jobs:
           git add ios
           git diff --cached --quiet || git commit -m "Add/update generated Capacitor iOS project [ci]"
           git push
+
+      - name: Import signing certificate and provisioning profile
+        if: ${{ secrets.IOS_DIST_CERT_P12 != '' && secrets.IOS_PROVISION_PROFILE != '' }}
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/signing.keychain-db
+          KEYCHAIN_PASSWORD=$(uuidgen)
+
+          echo "${{ secrets.IOS_DIST_CERT_P12 }}" | base64 --decode > $RUNNER_TEMP/cert.p12
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import $RUNNER_TEMP/cert.p12 -P "${{ secrets.IOS_DIST_CERT_PASSWORD }}" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed 's/"//g')
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "${{ secrets.IOS_PROVISION_PROFILE }}" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+
+      - name: Archive and export signed .ipa
+        if: ${{ secrets.IOS_DIST_CERT_P12 != '' && secrets.IOS_PROVISION_PROFILE != '' }}
+        run: |
+          cd ios/App
+          cat > ExportOptions.plist <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>376A6B2QLU</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.AjMore.ajentsignals</key>
+              <string>Ajent Signals App Store</string>
+            </dict>
+          </dict>
+          </plist>
+          EOF
+
+          xcodebuild -workspace App.xcworkspace -scheme App \
+            -configuration Release -sdk iphoneos \
+            -archivePath build-release/App.xcarchive \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="Ajent Signals App Store" \
+            DEVELOPMENT_TEAM=376A6B2QLU \
+            archive
+
+          xcodebuild -exportArchive \
+            -archivePath build-release/App.xcarchive \
+            -exportPath build-release/export \
+            -exportOptionsPlist ExportOptions.plist
+
+      - name: Upload signed .ipa
+        if: ${{ secrets.IOS_DIST_CERT_P12 != '' && secrets.IOS_PROVISION_PROFILE != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: AjentSignals-ipa
+          path: ios/App/build-release/export/*.ipa
+          retention-days: 30
