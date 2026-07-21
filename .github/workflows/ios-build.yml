@@ -155,7 +155,11 @@ jobs:
           IPA_PATH=$(find ios/App/build-release/export -name "*.ipa" | head -1)
           echo "Uploading $IPA_PATH to TestFlight..."
 
+          set -o pipefail
           xcrun altool --upload-app -f "$IPA_PATH" -t ios \
             --apiKey "${{ secrets.APP_STORE_CONNECT_KEY_ID }}" \
             --apiIssuer "${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}" \
-            --verbose 2>&1 | tail -100
+            --verbose 2>&1 | tee /tmp/altool.log | tail -100
+          RESULT=$?
+          echo "altool exit code: $RESULT"
+          exit $RESULT
