@@ -49,9 +49,9 @@ const priceSub = document.getElementById('price-sub');
 function setBilling(annual) {
   btnMonthly.classList.toggle('active', !annual);
   btnAnnual.classList.toggle('active', annual);
-  priceNum.textContent = '$39.90';
+  priceNum.textContent = annual ? '$399.00' : '$39.90';
   pricePer.textContent = annual ? '/ yr' : '/ mo';
-  priceSub.textContent = annual ? 'Billed $39.90 yearly · best value' : 'Billed monthly · cancel anytime';
+  priceSub.textContent = annual ? 'Billed $399.00 yearly · 2 months free ($33.25/mo)' : 'Billed monthly · cancel anytime';
 }
 
 btnMonthly.addEventListener('click', () => setBilling(false));

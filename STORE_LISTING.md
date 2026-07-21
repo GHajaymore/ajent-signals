@@ -52,7 +52,7 @@ Opt-in push alerts for buy/sell signals, stops hit, targets reached, trend rever
 TRACK RECORD, NOT MARKETING
 Win rate, average reward:risk, drawdown, and every closed signal — wins and losses — logged in your performance dashboard.
 
-Free for 7 days, then continue with Ajent Pro ($39.90/mo or $39.90/yr).
+Free for 7 days, then continue with Ajent Pro ($39.90/mo or $399.00/yr (2 months free)).
 
 IMPORTANT: Ajent Signals is an educational and informational tool only. It does not provide investment, financial, legal, or tax advice, and it does not execute trades or connect to any brokerage account. Trading futures involves substantial risk of loss and is not suitable for every investor. Past performance and any hypothetical results do not guarantee future returns. You are solely responsible for your own trading decisions. Not affiliated with CME Group, CBOT, NYMEX, COMEX, NSE, BSE, LSE, or any other exchange referenced in-app. CFTC Rule 4.41.
 ```
@@ -85,7 +85,7 @@ A mandatory disclaimer + 4-point risk acknowledgement gate blocks all access unt
 
 Market data and signals shown are illustrative pending our licensed real-time data vendor integration — this is disclosed in-app ("Market data delayed for demo") and will be replaced before this build is promoted from review/TestFlight to full release.
 
-Subscription: 7-day free trial via StoreKit, then $39.90/mo or $39.90/yr, cancel anytime in App Store settings.
+Subscription: 7-day free trial via StoreKit, then $39.90/mo or $399.00/yr (2 months free), cancel anytime in App Store settings.
 ```
 
 ## Data safety / privacy questionnaire answers (Google Play "Data safety" section)

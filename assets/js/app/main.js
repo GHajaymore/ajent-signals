@@ -11,6 +11,8 @@ import * as paywall from './screens/paywall.js';
 import { startLiveDataLoop } from './liveData.js';
 import { applyGeoDefaults } from './geo.js';
 import { startUpdateWatcher } from './updateCheck.js';
+import { startSignalRefreshLoop } from './signalRefreshLoop.js';
+import { maybeOpenPositions, checkOpenPositions } from './paperTrading.js';
 
 const TABS = [
   { key: 'home', label: 'Home', icon: 'ph-house' },
@@ -136,12 +138,18 @@ function refreshRoute() {
 window.addEventListener('hashchange', renderRoute);
 renderRoute();
 startLiveDataLoop(state.engine);
+startSignalRefreshLoop(state.engine);
 applyGeoDefaults(state);
 startUpdateWatcher();
 
 setInterval(() => {
   const beforeAlerts = state.engine.alerts.length;
   state.engine.tick(state.settings.threshold);
+  maybeOpenPositions(state.engine, state.settings.threshold);
+  checkOpenPositions(state.engine, (alert) => {
+    state.engine.alerts.unshift(alert);
+    if (state.engine.alerts.length > 40) state.engine.alerts.pop();
+  });
   if (state.engine.alerts.length > beforeAlerts && state.lastTab !== 'alerts' && parseHash()[0] !== 'alerts') {
     state.hasUnreadAlerts = true;
   }

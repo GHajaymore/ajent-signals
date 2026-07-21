@@ -99,7 +99,10 @@ function renderBreakdownTab(market, color) {
   ${market.signal.indicators.map((ind) => indicatorRow(ind)).join('')}
 
   <div class="text-muted" style="font-size:11.5px;line-height:1.6;margin-top:8px;padding:0 4px">
-    A BUY/SELL only fires once the weighted score clears your confidence threshold (currently ${state.settings.threshold}%, adjustable in Settings). Weights adapt from historical performance without overfitting to any single indicator.
+    A BUY/SELL only fires once the weighted score clears your confidence threshold (currently ${state.settings.threshold}%, adjustable in Settings).
+    ${market.signalIsReal
+      ? 'These indicators are computed from real 5-minute price candles over the trailing 5 days. This is a fixed rule-based weighting, not a statistically calibrated probability — no indicator combination guarantees a given win rate.'
+      : 'A real-data computation for this market is temporarily unavailable, so this breakdown is a simulated placeholder — not based on current price action.'}
   </div>`;
 }
 

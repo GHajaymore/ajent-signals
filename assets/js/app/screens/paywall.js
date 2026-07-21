@@ -30,8 +30,8 @@ export function render(container) {
       <div class="price">$39.90<div class="per">/mo</div></div>
     </div>
     <div class="plan-option ${billing === 'annual' ? 'selected' : ''}" data-plan="annual">
-      <div><div class="t">Annual · best value</div><div class="s">Billed $39.90 yearly</div></div>
-      <div class="price">$39.90<div class="per">/yr</div></div>
+      <div><div class="t">Annual · 2 months free</div><div class="s">Billed $399.00 yearly ($33.25/mo)</div></div>
+      <div class="price">$399.00<div class="per">/yr</div></div>
     </div>
 
     <button class="btn btn-primary btn-block" style="height:52px;font-size:15px;margin-top:8px">Start 7-day free trial</button>

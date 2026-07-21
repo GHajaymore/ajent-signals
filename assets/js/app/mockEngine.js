@@ -71,7 +71,7 @@ const REASONS = {
   'Stoch RSI': { bull: 'Stochastic RSI is turning up out of oversold territory.', bear: 'Stochastic RSI is turning down out of overbought territory.' },
 };
 
-const MTF_REASON = 'Confirmed across the 15m, 1H and 4H timeframes before firing.';
+const MTF_REASON = 'Simulated placeholder signal — real-data analysis for this market is temporarily unavailable.';
 
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -149,7 +149,23 @@ class MarketModel {
     this.favorite = def.symbol === 'ES';
     this.liveSource = 'sim';
     this.lastLiveAt = 0;
+    this.signalIsReal = false;
+    this.lastRealSignalAt = 0;
     this._genSignal();
+  }
+
+  applyRealSignal(signal) {
+    this.signal = signal;
+    this.signalIsReal = true;
+    this.lastRealSignalAt = Date.now();
+    this.age = 0;
+    this.nextUpdateSec = 90;
+  }
+
+  markSignalUnavailable(staleMs) {
+    if (!this.lastRealSignalAt || Date.now() - this.lastRealSignalAt > staleMs) {
+      this.signalIsReal = false;
+    }
   }
 
   applyLiveQuote(price, prevClose) {
@@ -273,6 +289,13 @@ class MarketModel {
     this.age += 1;
     this.nextUpdateSec -= 1;
     if (this.nextUpdateSec <= 0) {
+      if (this.signalIsReal) {
+        // A real signal is in place; the external signalRefreshLoop owns
+        // recomputing it on its own slower cadence. Just hold the countdown
+        // steady until the next real refresh actually lands.
+        this.nextUpdateSec = 30;
+        return;
+      }
       const prevVerdict = this.verdict(threshold);
       this._genSignal();
       const newVerdict = this.verdict(threshold);

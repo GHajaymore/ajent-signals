@@ -63,4 +63,4 @@ export function startLiveDataLoop(engine, { intervalMs = 15000, stagger = 200 } 
   return setInterval(() => refreshAll(engine, stagger), intervalMs);
 }
 
-export { LIVE_STALE_MS };
+export { LIVE_STALE_MS, YAHOO_SYMBOL };

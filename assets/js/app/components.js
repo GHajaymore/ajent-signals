@@ -48,10 +48,13 @@ export function verdictIcon(verdict) {
   return '<i class="ph-bold ph-minus"></i>';
 }
 
+// Reflects whether THIS signal is real (indicators computed from real 1h/5d
+// candles) vs. the simulator fallback — the more important trust signal than
+// price alone, since price is now live for nearly every symbol regardless.
 export function dataTag(market) {
-  return market.isLiveFresh
-    ? '<span class="data-tag live">LIVE</span>'
-    : '<span class="data-tag sim">SIM</span>';
+  return market.signalIsReal
+    ? '<span class="data-tag live" title="Indicators computed from real price history">REAL</span>'
+    : '<span class="data-tag sim" title="Simulated — real analysis unavailable right now">SIM</span>';
 }
 
 export function heroCard(market, verdict) {
