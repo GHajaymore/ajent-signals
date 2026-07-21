@@ -1,0 +1,17 @@
+{
+  "name": "ajent-signals-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Capacitor native wrapper around the Ajent Signals web app for iOS/Android app store distribution.",
+  "scripts": {
+    "build:www": "node scripts/build-mobile-www.js",
+    "sync:ios": "npm run build:www && npx cap sync ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/ios": "^6.1.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2"
+  }
+}

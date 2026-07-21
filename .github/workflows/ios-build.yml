@@ -1,0 +1,55 @@
+name: iOS Simulator Build
+
+# Manual trigger only — this never runs on push, so nothing gets built or
+# submitted without someone deliberately clicking "Run workflow" on GitHub.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install npm dependencies
+        run: npm install
+
+      - name: Build mobile web assets
+        run: npm run build:www
+
+      - name: Add or sync iOS platform
+        run: |
+          if [ ! -d "ios" ]; then
+            npx cap add ios
+          else
+            npx cap sync ios
+          fi
+
+      - name: Install CocoaPods dependencies
+        run: |
+          cd ios/App
+          pod install --repo-update
+
+      - name: Build for iOS Simulator (no signing required)
+        run: |
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace -scheme App \
+            -configuration Debug -sdk iphonesimulator \
+            -derivedDataPath build build
+
+      - name: Commit generated native project if new
+        run: |
+          git config user.name "GHajaymore"
+          git config user.email "GHajaymore@users.noreply.github.com"
+          git add ios
+          git diff --cached --quiet || git commit -m "Add/update generated Capacitor iOS project [ci]"
+          git push

@@ -1,0 +1,10 @@
+{
+  "appId": "com.Ajmore.ajentsignals",
+  "appName": "Ajent Signals",
+  "webDir": "mobile-www",
+  "backgroundColor": "#161826",
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#161826"
+  }
+}

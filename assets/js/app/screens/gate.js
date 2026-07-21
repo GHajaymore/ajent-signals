@@ -6,7 +6,7 @@ const CHECK_SVG = '<svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L1
 const ROWS = [
   { key: 'read', label: 'I have read the full disclaimer above' },
   { key: 'risk', label: 'I understand futures trading carries substantial risk of loss' },
-  { key: 'terms', label: 'I accept the <a href="../terms/" target="_blank" rel="noopener" style="color:var(--accent-300)">Terms of Use</a> and <a href="../privacy/" target="_blank" rel="noopener" style="color:var(--accent-300)">Privacy Policy</a>' },
+  { key: 'terms', label: 'I accept the <a href="https://ghajaymore.github.io/ajent-signals/terms/" target="_blank" rel="noopener" style="color:var(--accent-300)">Terms of Use</a> and <a href="https://ghajaymore.github.io/ajent-signals/privacy/" target="_blank" rel="noopener" style="color:var(--accent-300)">Privacy Policy</a>' },
   { key: 'age', label: 'I am at least 18 years old (or the age of majority where I live)' },
 ];
 
