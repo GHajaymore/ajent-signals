@@ -39,6 +39,10 @@ try {
         continue
       }
 
+      if ((Test-Path $filePath -PathType Container) -and (Test-Path (Join-Path $filePath 'index.html') -PathType Leaf)) {
+        $filePath = Join-Path $filePath 'index.html'
+      }
+
       if (Test-Path $filePath -PathType Leaf) {
         $ext = [System.IO.Path]::GetExtension($filePath).ToLower()
         $contentType = $mime[$ext]
