@@ -11,6 +11,8 @@ permissions:
 jobs:
   build:
     runs-on: macos-14
+    env:
+      HAS_SIGNING: ${{ secrets.IOS_DIST_CERT_P12 != '' && secrets.IOS_PROVISION_PROFILE != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -55,7 +57,7 @@ jobs:
           git push
 
       - name: Import signing certificate and provisioning profile
-        if: ${{ secrets.IOS_DIST_CERT_P12 != '' && secrets.IOS_PROVISION_PROFILE != '' }}
+        if: ${{ env.HAS_SIGNING == 'true' }}
         run: |
           KEYCHAIN_PATH=$RUNNER_TEMP/signing.keychain-db
           KEYCHAIN_PASSWORD=$(uuidgen)
@@ -73,7 +75,7 @@ jobs:
           echo "${{ secrets.IOS_PROVISION_PROFILE }}" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
 
       - name: Archive and export signed .ipa
-        if: ${{ secrets.IOS_DIST_CERT_P12 != '' && secrets.IOS_PROVISION_PROFILE != '' }}
+        if: ${{ env.HAS_SIGNING == 'true' }}
         run: |
           cd ios/App
           cat > ExportOptions.plist <<'EOF'
@@ -111,7 +113,7 @@ jobs:
             -exportOptionsPlist ExportOptions.plist
 
       - name: Upload signed .ipa
-        if: ${{ secrets.IOS_DIST_CERT_P12 != '' && secrets.IOS_PROVISION_PROFILE != '' }}
+        if: ${{ env.HAS_SIGNING == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: AjentSignals-ipa
