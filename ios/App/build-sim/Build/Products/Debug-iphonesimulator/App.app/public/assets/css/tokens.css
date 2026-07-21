@@ -1,0 +1,230 @@
+/* Ajent Signals — Nocturne design tokens (see design_handoff_ajent/README.md) */
+:root {
+  color-scheme: dark;
+
+  --bg: #161826;
+  --surface: #232532;
+  --surface-2: #191b28;
+  --text: #e9e9ed;
+  --text-muted: rgba(233, 233, 237, 0.55);
+  --text-faint: rgba(233, 233, 237, 0.35);
+
+  --neutral-900: #292b31;
+  --neutral-800: #3f424d;
+  --neutral-700: #565a68;
+  --neutral-500: #9397ab;
+  --neutral-300: #cfd3e5;
+
+  --divider: rgba(233, 233, 237, 0.16);
+
+  --accent: #5aa0f2;
+  --accent-100: #eef4ff;
+  --accent-200: #cfe2ff;
+  --accent-300: #a7ccff;
+  --accent-400: #74acf7;
+  --accent-600: #3f7dcf;
+  --accent-700: #2f5fa0;
+  --accent-800: #243f68;
+  --accent-900: #16233c;
+
+  --buy: #35d6a0;
+  --buy-dim: #0e3b30;
+  --sell: #f26483;
+  --sell-dim: #3d1524;
+  --flat: #d8ac5c;
+  --flat-dim: #3a2f15;
+
+  --section: #262a60;
+  --section-glow: #353b80;
+
+  --font-heading: 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+
+  --radius-lg: 18px;
+  --radius-md: 14px;
+  --radius-sm: 11px;
+  --radius-chip: 9px;
+  --radius-pill: 20px;
+
+  --shadow-elev: 0 6px 18px rgba(0, 0, 0, 0.55);
+  --edge: clamp(20px, 5vw, 72px);
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+h1, h2, h3, h4 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+  margin: 0;
+}
+p { margin: 0; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-300); }
+img, svg { display: block; max-width: 100%; }
+button, input, select, textarea { font-family: inherit; color: inherit; }
+button { cursor: pointer; }
+.tabular { font-variant-numeric: tabular-nums; }
+.text-muted { color: var(--text-muted); }
+.text-faint { color: var(--text-faint); }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--neutral-800); border-radius: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font: 600 14px var(--font-body);
+  transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease;
+  white-space: nowrap;
+}
+.btn:active { transform: scale(0.98); }
+.btn-primary { background: var(--accent); color: #0b0c15; }
+.btn-primary:hover { background: var(--accent-400); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-primary:disabled:active { transform: none; }
+.btn-ghost { background: transparent; border-color: var(--accent-700); color: var(--accent-200); }
+.btn-ghost:hover { background: var(--accent-900); }
+.btn-block { width: 100%; }
+
+/* Card */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--neutral-800);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elev);
+}
+
+/* Chips / verdict badges */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  font: 700 12px var(--font-heading);
+  letter-spacing: 0.01em;
+}
+.chip-buy { background: var(--buy-dim); color: var(--buy); }
+.chip-sell { background: var(--sell-dim); color: var(--sell); }
+.chip-flat { background: var(--flat-dim); color: var(--flat); }
+
+.dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.dot-buy { background: var(--buy); }
+.dot-sell { background: var(--sell); }
+.dot-flat { background: var(--flat); }
+.dot-pulse { animation: ajPulse 2s infinite; }
+
+/* Form controls */
+.checkrow {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 12px 0;
+  border-top: 1px solid var(--divider);
+  cursor: pointer;
+  user-select: none;
+}
+.checkrow:first-of-type { border-top: none; }
+.checkbox {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 1.5px solid var(--neutral-700);
+  background: var(--neutral-900);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  margin-top: 1px;
+}
+.checkbox.checked { background: var(--accent); border-color: var(--accent); color: #0b0c15; }
+.checkbox svg { width: 13px; height: 13px; opacity: 0; transform: scale(0.6); transition: all 0.15s ease; }
+.checkbox.checked svg { opacity: 1; transform: scale(1); }
+
+.range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 4px;
+  background: var(--neutral-900);
+  outline: none;
+}
+.range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 3px solid #0b0c15;
+  box-shadow: 0 0 0 1px var(--accent);
+  cursor: pointer;
+}
+.range::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--accent); border: 3px solid #0b0c15; cursor: pointer;
+}
+
+.switch {
+  position: relative;
+  width: 42px;
+  height: 25px;
+  border-radius: 20px;
+  background: var(--neutral-800);
+  flex: none;
+  transition: background 0.2s ease;
+}
+.switch.on { background: var(--accent); }
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 19px; height: 19px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+.switch.on::after { transform: translateX(17px); }
+
+.text-input {
+  width: 100%;
+  background: var(--neutral-900);
+  border: 1px solid var(--neutral-800);
+  border-radius: var(--radius-chip);
+  color: var(--text);
+  font: 600 15px var(--font-heading);
+  padding: 10px 12px;
+  outline: none;
+}
+.text-input:focus { border-color: var(--accent-700); }
+
+/* Animations */
+@keyframes ajPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes ajFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+@keyframes ajRise { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes ajFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.fade-in { animation: ajFadeIn 0.28s ease both; }
+
+/* Icons (Phosphor) */
+.i { display: inline-flex; }
