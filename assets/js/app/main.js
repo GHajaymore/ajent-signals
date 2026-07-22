@@ -13,6 +13,7 @@ import { applyGeoDefaults } from './geo.js';
 import { startUpdateWatcher } from './updateCheck.js';
 import { startSignalRefreshLoop } from './signalRefreshLoop.js';
 import { maybeOpenPositions, checkOpenPositions } from './paperTrading.js';
+import { initIap } from './iap.js';
 
 const TABS = [
   { key: 'home', label: 'Home', icon: 'ph-house' },
@@ -141,6 +142,11 @@ startLiveDataLoop(state.engine);
 startSignalRefreshLoop(state.engine);
 applyGeoDefaults(state);
 startUpdateWatcher();
+// Native in-app purchases (inert on web/PWA). Re-render the paywall if the
+// entitlement changes so a completed purchase/restore reflects immediately.
+initIap(() => {
+  if (parseHash()[0] === 'paywall') renderRoute();
+});
 
 setInterval(() => {
   const beforeAlerts = state.engine.alerts.length;

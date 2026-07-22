@@ -9,7 +9,8 @@
   },
   "dependencies": {
     "@capacitor/core": "^6.1.2",
-    "@capacitor/ios": "^6.1.2"
+    "@capacitor/ios": "^6.1.2",
+    "cordova-plugin-purchase": "^13.11.1"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.1.2"
