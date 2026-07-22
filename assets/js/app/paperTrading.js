@@ -12,10 +12,16 @@ function load() {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') return { open: parsed.open || {}, closed: Array.isArray(parsed.closed) ? parsed.closed : [] };
+      if (parsed && typeof parsed === 'object') {
+        return {
+          open: parsed.open || {},
+          closed: Array.isArray(parsed.closed) ? parsed.closed : [],
+          lastClosedSignalAt: parsed.lastClosedSignalAt || {},
+        };
+      }
     }
   } catch (e) { /* ignore malformed storage */ }
-  return { open: {}, closed: [] };
+  return { open: {}, closed: [], lastClosedSignalAt: {} };
 }
 
 const store = load();
@@ -31,6 +37,11 @@ export function maybeOpenPositions(engine, threshold) {
     const verdict = market.verdict(threshold);
     if (verdict === 'NO_TRADE') continue;
     const s = market.signal;
+    // A position can only be opened once per signal generation — otherwise a
+    // stale signal (unchanged for up to 5 min between real recomputes) whose
+    // price has already reached its target/stop would reopen and immediately
+    // re-close on every single tick, spamming alerts and fabricating wins.
+    if (store.lastClosedSignalAt[market.symbol] === s.createdAt) continue;
     store.open[market.symbol] = {
       symbol: market.symbol,
       name: market.name,
@@ -42,6 +53,7 @@ export function maybeOpenPositions(engine, threshold) {
       confidence: s.confidence,
       decimals: market.decimals,
       openedAt: Date.now(),
+      signalCreatedAt: s.createdAt,
     };
   }
   save();
@@ -67,6 +79,7 @@ export function checkOpenPositions(engine, onAlert) {
       resultR, outcome, holdMin, decimals: pos.decimals, closedAt: Date.now(),
     });
     if (store.closed.length > MAX_CLOSED) store.closed.length = MAX_CLOSED;
+    store.lastClosedSignalAt[symbol] = pos.signalCreatedAt;
     delete store.open[symbol];
 
     if (onAlert) {
