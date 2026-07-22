@@ -7,7 +7,7 @@ const PROXIES = [
   (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
 ];
 
-export async function fetchCandles(yahooSymbol, { interval = '5m', range = '5d' } = {}) {
+export async function fetchCandles(yahooSymbol, { interval = '5m', range = '5d', minCandles = 30 } = {}) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=${interval}&range=${range}`;
   let lastErr;
   for (const wrap of PROXIES) {
@@ -24,7 +24,7 @@ export async function fetchCandles(yahooSymbol, { interval = '5m', range = '5d' 
         if (q.close[i] == null || q.open[i] == null || q.high[i] == null || q.low[i] == null) continue;
         candles.push({ t: ts[i], o: q.open[i], h: q.high[i], l: q.low[i], c: q.close[i], v: q.volume[i] || 0 });
       }
-      if (candles.length < 30) throw new Error('too few usable candles');
+      if (candles.length < minCandles) throw new Error('too few usable candles');
       return candles;
     } catch (e) {
       lastErr = e;

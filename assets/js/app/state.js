@@ -20,9 +20,19 @@ const defaultSettings = {
   threshold: 75,
   riskPct: 1,
   accountBalance: 25000,
+  chartRange: '1D',
   notifications: { buy: true, sell: true, stop: true, target: true, reversal: true, volatility: true, news: true },
   subscription: { tier: 'trial' },
 };
+
+// Dollars risked on each paper trade — the user's account balance times their
+// chosen risk-per-trade %. This is what turns a signal outcome into a plain
+// dollar gain/loss instead of an abstract "R" multiple.
+export function perTradeRisk() {
+  const bal = Number(state.settings.accountBalance) || 0;
+  const pct = Number(state.settings.riskPct) || 0;
+  return Math.max(1, Math.round(bal * (pct / 100)));
+}
 
 export const state = {
   engine: createEngine(),

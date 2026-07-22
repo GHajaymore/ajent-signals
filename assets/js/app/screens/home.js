@@ -1,8 +1,11 @@
 import { state } from '../state.js';
 import { heroCard, watchlistRow } from '../components.js';
+import { getPerformanceSummary } from '../paperTrading.js';
 
-const TODAY_WINS = 5;
-const TODAY_LOSSES = 2;
+function money(n) {
+  const sign = n >= 0 ? '+$' : '-$';
+  return sign + Math.abs(Math.round(n)).toLocaleString('en-US');
+}
 
 function greeting() {
   const h = new Date().getHours();
@@ -31,6 +34,7 @@ function computeDerived() {
 
 export function render(container) {
   const { engine, threshold, openSignals, avgConf, riskOn, featured, featuredVerdict, nextEvent } = computeDerived();
+  const perf = getPerformanceSummary();
 
   container.innerHTML = `
   <div class="fade-in">
@@ -49,10 +53,10 @@ export function render(container) {
     </div>
 
     <div class="stat-row">
-      <div class="stat-card">
-        <div class="stat-label">Win rate today</div>
-        <div class="stat-value" style="color:var(--buy)">${Math.round((TODAY_WINS / (TODAY_WINS + TODAY_LOSSES)) * 100)}%</div>
-        <div class="stat-sub">${TODAY_WINS}W / ${TODAY_LOSSES}L</div>
+      <div class="stat-card" data-nav="#/track">
+        <div class="stat-label">Paper P&amp;L</div>
+        <div class="stat-value" style="color:${perf && perf.totalPnl < 0 ? 'var(--sell)' : 'var(--buy)'};font-size:19px">${perf ? money(perf.totalPnl) : '$0'}</div>
+        <div class="stat-sub">${perf ? `${perf.winRate}% win rate` : 'no trades yet'}</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Open signals</div>

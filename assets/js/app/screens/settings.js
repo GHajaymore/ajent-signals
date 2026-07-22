@@ -1,5 +1,6 @@
-import { state, saveSettings } from '../state.js';
+import { state, saveSettings, perTradeRisk } from '../state.js';
 import { fmtMoney } from '../format.js';
+import { resetPaperTrades } from '../paperTrading.js';
 
 const NOTIF_ROWS = [
   { key: 'buy', label: 'Buy signals', icon: 'ph-arrow-up-right', color: 'var(--buy)' },
@@ -21,11 +22,11 @@ function computeRisk(market, balance, riskPct) {
 
 function patchRiskCalc() {
   const market = state.engine.get(state.selectedSymbol);
-  const { threshold, riskPct, accountBalance } = state.settings;
+  const { riskPct, accountBalance } = state.settings;
   const { contracts, riskPerContract } = computeRisk(market, accountBalance, riskPct);
+  document.getElementById('calc-stake').textContent = fmtMoney(perTradeRisk());
   document.getElementById('calc-contracts').textContent = String(Math.max(0, contracts));
-  document.getElementById('calc-contracts-label').textContent = `contracts of ${market.symbol}`;
-  document.getElementById('calc-atrisk').textContent = fmtMoney(Math.max(0, contracts) * riskPerContract);
+  document.getElementById('calc-contracts-label').textContent = `${market.symbol} contracts`;
   const warnEl = document.getElementById('risk-warning');
   if (contracts < 1) {
     warnEl.style.display = 'block';
@@ -60,22 +61,29 @@ export function render(container) {
     </div>
 
     <div class="panel setting-block">
-      <div class="panel-title">Position-size calculator</div>
+      <div class="panel-title">Account &amp; risk</div>
       <div class="risk-grid">
         <div>
-          <div class="risk-label">Account ($)</div>
+          <div class="risk-label">Account size ($)</div>
           <input id="balance-input" class="text-input" type="number" min="0" step="500" value="${accountBalance}">
         </div>
         <div>
-          <div class="risk-label">Risk % <span id="risk-val" style="color:var(--accent-300)">${riskPct}</span></div>
+          <div class="risk-label">Risk per trade <span id="risk-val" style="color:var(--accent-300)">${riskPct}%</span></div>
           <input id="risk-range" class="range" type="range" min="0.25" max="3" step="0.25" value="${riskPct}" style="margin-top:12px">
         </div>
       </div>
       <div class="risk-result-grid">
-        <div class="risk-result-cell"><div class="v" id="calc-contracts">${Math.max(0, contracts)}</div><div class="k" id="calc-contracts-label">contracts of ${market.symbol}</div></div>
-        <div class="risk-result-cell"><div class="v" id="calc-atrisk">${fmtMoney(Math.max(0, contracts) * riskPerContract)}</div><div class="k">at risk ($${riskPerContract.toFixed(0)}/ct)</div></div>
+        <div class="risk-result-cell"><div class="v" id="calc-stake">${fmtMoney(perTradeRisk())}</div><div class="k">staked per trade</div></div>
+        <div class="risk-result-cell"><div class="v" id="calc-contracts">${Math.max(0, contracts)}</div><div class="k" id="calc-contracts-label">${market.symbol} contracts</div></div>
       </div>
+      <div class="setting-help">This is what each paper trade risks, and sizes the position calculator on every signal.</div>
       <div class="risk-warning" id="risk-warning" style="display:${contracts < 1 ? 'block' : 'none'}"></div>
+    </div>
+
+    <div class="panel setting-block">
+      <div class="panel-title">Paper trading</div>
+      <div class="setting-help" style="margin-top:0">Ajent tests its signals with virtual money on the Paper tab. Clearing history starts your track record fresh.</div>
+      <button class="btn btn-ghost btn-block" id="reset-paper" style="height:44px;font-size:13px;margin-top:10px;color:var(--sell)">Reset paper-trading history</button>
     </div>
 
     <div class="setting-block">
@@ -103,7 +111,7 @@ export function render(container) {
   const riskRange = document.getElementById('risk-range');
   riskRange.addEventListener('input', () => {
     state.settings.riskPct = Number(riskRange.value);
-    document.getElementById('risk-val').textContent = state.settings.riskPct;
+    document.getElementById('risk-val').textContent = `${state.settings.riskPct}%`;
     patchRiskCalc();
     saveSettings();
   });
@@ -123,6 +131,17 @@ export function render(container) {
       saveSettings();
     });
   });
+
+  const resetBtn = document.getElementById('reset-paper');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      if (confirm('Clear all paper-trading history and open positions? This cannot be undone.')) {
+        resetPaperTrades();
+        resetBtn.textContent = 'History cleared';
+        resetBtn.disabled = true;
+      }
+    });
+  }
 
   patchRiskCalc();
 }

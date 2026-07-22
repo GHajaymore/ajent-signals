@@ -1,4 +1,4 @@
-import { state } from './state.js';
+import { state, perTradeRisk } from './state.js';
 import * as gate from './screens/gate.js';
 import * as home from './screens/home.js';
 import * as signalDetail from './screens/signalDetail.js';
@@ -18,7 +18,7 @@ import { initIap } from './iap.js';
 const TABS = [
   { key: 'home', label: 'Home', icon: 'ph-house' },
   { key: 'markets', label: 'Markets', icon: 'ph-chart-bar' },
-  { key: 'track', label: 'Track', icon: 'ph-trophy' },
+  { key: 'track', label: 'Paper', icon: 'ph-flask' },
   { key: 'alerts', label: 'Alerts', icon: 'ph-bell' },
   { key: 'settings', label: 'Settings', icon: 'ph-gear' },
 ];
@@ -151,7 +151,7 @@ initIap(() => {
 setInterval(() => {
   const beforeAlerts = state.engine.alerts.length;
   state.engine.tick(state.settings.threshold);
-  maybeOpenPositions(state.engine, state.settings.threshold);
+  maybeOpenPositions(state.engine, state.settings.threshold, perTradeRisk());
   checkOpenPositions(state.engine, (alert) => {
     state.engine.alerts.unshift(alert);
     if (state.engine.alerts.length > 40) state.engine.alerts.pop();
