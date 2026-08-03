@@ -30,8 +30,10 @@ function save() {
   try { localStorage.setItem(LS_KEY, JSON.stringify(store)); } catch (e) { /* storage full/unavailable — keep running in-memory */ }
 }
 
-export function maybeOpenPositions(engine, threshold, riskDollars = 250) {
+export function maybeOpenPositions(engine, threshold, riskDollars = 250, enabled = null) {
   for (const market of engine.markets) {
+    // Only auto-trade markets the user opted into (null = all markets).
+    if (enabled && !enabled.has(market.symbol)) continue;
     if (!market.signalIsReal) continue;
     if (store.open[market.symbol]) continue;
     const verdict = market.verdict(threshold);

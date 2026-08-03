@@ -1,5 +1,80 @@
 import { getClosedTrades, getPerformanceSummary, getOpenPositions, tradePnl } from '../paperTrading.js';
 import { fmtPrice } from '../format.js';
+import { state, getEnabledPaperMarkets, setPaperMarketEnabled, setAllPaperMarkets } from '../state.js';
+import { CATEGORY_ORDER } from '../mockEngine.js';
+
+function marketSelector() {
+  const engine = state.engine;
+  const all = engine.markets.map((m) => m.symbol);
+  const enabled = getEnabledPaperMarkets(all);
+  const byCat = {};
+  for (const m of engine.markets) (byCat[m.category] = byCat[m.category] || []).push(m);
+  const cats = CATEGORY_ORDER.filter((c) => byCat[c]);
+  return `
+  <div class="panel" style="padding:14px 16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div>
+        <div class="panel-title" style="margin-bottom:2px">Auto-traded markets</div>
+        <div class="text-muted" style="font-size:12px" id="pm-count">${enabled.size} of ${all.length} · only these auto-trade signals</div>
+      </div>
+      <button class="btn btn-ghost" id="pm-toggle" style="height:34px;padding:0 16px;font-size:13px;flex:none">Edit</button>
+    </div>
+    <div id="pm-list" style="display:none;margin-top:14px">
+      <div style="display:flex;gap:8px;margin-bottom:6px">
+        <button class="chip" id="pm-all" style="cursor:pointer;background:var(--accent-800);color:var(--accent-100)">Select all</button>
+        <button class="chip" id="pm-none" style="cursor:pointer;background:var(--neutral-900);color:var(--text-muted)">Clear all</button>
+      </div>
+      ${cats.map((cat) => `
+        <div class="eyebrow" style="margin:12px 0 2px">${cat}</div>
+        ${byCat[cat].map((m) => `
+          <div class="notif-row">
+            <div class="notif-label" style="display:flex;align-items:center;gap:10px">
+              <span style="font:700 11px var(--font-heading)">${m.symbol}</span>
+              <span class="text-muted" style="font-size:12.5px">${m.name}</span>
+            </div>
+            <div class="switch ${enabled.has(m.symbol) ? 'on' : ''}" data-pm-sym="${m.symbol}"></div>
+          </div>`).join('')}
+      `).join('')}
+    </div>
+  </div>`;
+}
+
+function wireSelector(container) {
+  const toggleBtn = container.querySelector('#pm-toggle');
+  const list = container.querySelector('#pm-list');
+  if (toggleBtn && list) {
+    toggleBtn.addEventListener('click', () => {
+      const isOpen = list.style.display !== 'none';
+      list.style.display = isOpen ? 'none' : 'block';
+      toggleBtn.textContent = isOpen ? 'Edit' : 'Done';
+    });
+  }
+  const all = state.engine.markets.map((m) => m.symbol);
+  const updateCount = () => {
+    const el = container.querySelector('#pm-count');
+    if (el) el.textContent = `${getEnabledPaperMarkets(all).size} of ${all.length} · only these auto-trade signals`;
+  };
+  container.querySelectorAll('[data-pm-sym]').forEach((sw) => {
+    sw.addEventListener('click', () => {
+      const on = !sw.classList.contains('on');
+      sw.classList.toggle('on', on);
+      setPaperMarketEnabled(sw.dataset.pmSym, on, all);
+      updateCount();
+    });
+  });
+  const allBtn = container.querySelector('#pm-all');
+  const noneBtn = container.querySelector('#pm-none');
+  if (allBtn) allBtn.addEventListener('click', () => {
+    setAllPaperMarkets(true, all);
+    container.querySelectorAll('[data-pm-sym]').forEach((sw) => sw.classList.add('on'));
+    updateCount();
+  });
+  if (noneBtn) noneBtn.addEventListener('click', () => {
+    setAllPaperMarkets(false, all);
+    container.querySelectorAll('[data-pm-sym]').forEach((sw) => sw.classList.remove('on'));
+    updateCount();
+  });
+}
 
 // Plain-dollar formatter, e.g. +$1,240 / -$250
 function money(n) {
@@ -41,6 +116,7 @@ function emptyState() {
   return `
   <div class="fade-in">
     ${intro()}
+    ${marketSelector()}
     ${openList()}
     <div class="panel" style="text-align:center;padding:38px 20px;margin-top:12px">
       <i class="ph ph-chart-line-up" style="font-size:32px;color:var(--text-muted)"></i>
@@ -56,7 +132,7 @@ function emptyState() {
 
 export function render(container) {
   const perf = getPerformanceSummary();
-  if (!perf) { container.innerHTML = emptyState(); return; }
+  if (!perf) { container.innerHTML = emptyState(); wireSelector(container); return; }
 
   const closed = getClosedTrades();
   const maxAbs = Math.max(...perf.monthlyPnl.map((m) => Math.abs(m.value)), 1);
@@ -65,6 +141,7 @@ export function render(container) {
   container.innerHTML = `
   <div class="fade-in">
     ${intro()}
+    ${marketSelector()}
 
     <div class="panel" style="text-align:center;padding:20px 16px 18px">
       <div class="stat-label">Net virtual profit &amp; loss</div>
@@ -121,4 +198,6 @@ export function render(container) {
 
     <p class="text-faint" style="text-align:center;font-size:11px;margin-top:14px">Virtual money only · educational · past results don't guarantee future performance.</p>
   </div>`;
+
+  wireSelector(container);
 }

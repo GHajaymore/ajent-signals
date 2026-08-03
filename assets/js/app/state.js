@@ -34,6 +34,26 @@ export function perTradeRisk() {
   return Math.max(1, Math.round(bal * (pct / 100)));
 }
 
+// Which markets the user has opted into for auto paper-trading. When the
+// setting is absent (default), every market is eligible.
+export function getEnabledPaperMarkets(allSymbols) {
+  const pm = state.settings.paperMarkets;
+  if (!Array.isArray(pm)) return new Set(allSymbols);
+  return new Set(pm.filter((s) => allSymbols.includes(s)));
+}
+
+export function setPaperMarketEnabled(symbol, on, allSymbols) {
+  const cur = getEnabledPaperMarkets(allSymbols);
+  if (on) cur.add(symbol); else cur.delete(symbol);
+  state.settings.paperMarkets = [...cur];
+  saveSettings();
+}
+
+export function setAllPaperMarkets(on, allSymbols) {
+  state.settings.paperMarkets = on ? [...allSymbols] : [];
+  saveSettings();
+}
+
 export const state = {
   engine: createEngine(),
   accepted: localStorage.getItem(LS_ACCEPT) === '1',

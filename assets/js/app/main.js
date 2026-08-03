@@ -1,4 +1,4 @@
-import { state, perTradeRisk } from './state.js';
+import { state, perTradeRisk, getEnabledPaperMarkets } from './state.js';
 import * as gate from './screens/gate.js';
 import * as home from './screens/home.js';
 import * as signalDetail from './screens/signalDetail.js';
@@ -151,7 +151,8 @@ initIap(() => {
 setInterval(() => {
   const beforeAlerts = state.engine.alerts.length;
   state.engine.tick(state.settings.threshold);
-  maybeOpenPositions(state.engine, state.settings.threshold, perTradeRisk());
+  const enabledPaper = getEnabledPaperMarkets(state.engine.markets.map((m) => m.symbol));
+  maybeOpenPositions(state.engine, state.settings.threshold, perTradeRisk(), enabledPaper);
   checkOpenPositions(state.engine, (alert) => {
     state.engine.alerts.unshift(alert);
     if (state.engine.alerts.length > 40) state.engine.alerts.pop();
