@@ -82,12 +82,12 @@ export function startLiveDataLoop(engine, { intervalMs = 15000, stagger = 120 } 
   return setInterval(() => refreshAll(engine, stagger), intervalMs);
 }
 
-// Fast, targeted refresh for just the symbols the user is currently looking at
-// (the open detail chart, or the Home watchlist). Refetching a handful of
-// symbols every few seconds makes the visible screen feel live without
-// hammering the free proxies with all ~43 markets. getFocusSymbols() is a
-// callback so the caller can return whatever the current route is showing.
-export function startFocusDataLoop(engine, getFocusSymbols, { intervalMs = 4000 } = {}) {
+// Targeted refresh for just the symbols the user is currently looking at (the
+// open detail chart, or the Home watchlist). Runs on ~15s — matched to how often
+// the free feed actually refreshes a quote, so we don't spam the proxies with
+// requests that return the same value. getFocusSymbols() is a callback so the
+// caller can return whatever the current route is showing.
+export function startFocusDataLoop(engine, getFocusSymbols, { intervalMs = 15000 } = {}) {
   const pump = () => {
     const syms = getFocusSymbols() || [];
     for (const sym of syms) {
