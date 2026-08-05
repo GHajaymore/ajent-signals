@@ -2,25 +2,32 @@
 // random signal generator. This is a rule-based weighted score, NOT a
 // statistically calibrated probability of a winning trade: no combination of
 // technical indicators guarantees a given win rate, and none is claimed here.
-import { ema, rsi, macd, atr, bollingerBands, sessionVwap, supertrend, marketStructure } from './indicators.js';
+import { ema, rsi, macd, atr, bollingerBands, sessionVwap, supertrend, marketStructure, adx, obv } from './indicators.js';
 import { summarizeNews } from './news.js';
 
-// Weights sum to 100. Kept to a small, deliberately non-redundant set — one
-// indicator per information type (trend, momentum, volatility-position,
-// intraday reference, trend-following overlay, price-action structure,
-// news sentiment) — rather than stacking multiple indicators that tend to
-// move together (e.g. RSI and Stoch RSI, or MACD and a second EMA crossover).
-// The technical indicators were scaled down 10% to make room for News
-// Sentiment rather than letting the total exceed 100.
+// Weights sum to 100. Deliberately non-redundant — one indicator per distinct
+// information type so we're not double-counting the same signal:
+//   trend direction ....... EMA Stack, Supertrend
+//   trend strength ........ ADX / DMI            (new)
+//   momentum .............. MACD, RSI
+//   price-action structure  Market Structure
+//   volatility position ... Bollinger Bands
+//   intraday reference .... VWAP
+//   volume confirmation ... OBV                  (new)
+//   external catalyst ..... News Sentiment
+// We intentionally avoid piling on redundant oscillators (e.g. Stochastic RSI
+// on top of RSI) — more indicators that move together add noise, not edge.
 const WEIGHTS = {
-  'EMA Stack': 18,
-  Supertrend: 13.5,
-  MACD: 11.7,
-  'Market Structure': 13.5,
-  'RSI (14)': 10.8,
-  'Bollinger Bands': 9,
-  VWAP: 13.5,
-  'News Sentiment': 10,
+  'EMA Stack': 13,
+  Supertrend: 11,
+  ADX: 12,
+  MACD: 10,
+  'Market Structure': 12,
+  'RSI (14)': 9,
+  'Bollinger Bands': 7,
+  VWAP: 10,
+  Volume: 9,
+  'News Sentiment': 7,
 };
 
 const HOLD_BY_VOLATILITY = {
@@ -44,6 +51,8 @@ export function computeRealSignal(candles, def, rng, news = []) {
   const vwap = sessionVwap(candles);
   const st = supertrend(candles, 10, 3);
   const structure = marketStructure(candles, 6);
+  const adxVals = adx(candles, 14);
+  const obvVals = obv(candles);
 
   const atrNow = atrVals[n - 1] ?? price * 0.006;
   const atrPctNow = atrNow / price;
@@ -67,7 +76,20 @@ export function computeRealSignal(candles, def, rng, news = []) {
     indicators.push({ name: 'Supertrend', state, detail, weight: WEIGHTS.Supertrend });
   }
 
-  // 3. MACD — momentum confirmation via histogram direction/expansion.
+  // 3. ADX / DMI — trend STRENGTH gate. Only counts as directional when a real
+  //    trend is present (ADX >= 20); otherwise stays neutral to avoid chop.
+  {
+    const a = Math.round(adxVals.adx[n - 1] ?? 0);
+    const pdi = adxVals.plusDI[n - 1] ?? 0, mdi = adxVals.minusDI[n - 1] ?? 0;
+    const strong = a >= 20;
+    const state = strong && pdi > mdi ? 'bull' : strong && mdi > pdi ? 'bear' : 'neutral';
+    const detail = !strong ? `ADX ${a} — weak/ranging trend`
+      : state === 'bull' ? `ADX ${a} — strong uptrend (+DI leads)`
+      : `ADX ${a} — strong downtrend (−DI leads)`;
+    indicators.push({ name: 'ADX', state, detail, weight: WEIGHTS.ADX });
+  }
+
+  // 4. MACD — momentum confirmation via histogram direction/expansion.
   {
     const h = histogram[n - 1], hPrev = histogram[n - 2] ?? h;
     const state = h > 0 && h >= hPrev ? 'bull' : h < 0 && h <= hPrev ? 'bear' : 'neutral';
@@ -107,6 +129,18 @@ export function computeRealSignal(candles, def, rng, news = []) {
     indicators.push({ name: 'VWAP', state, detail, weight: WEIGHTS.VWAP });
   }
 
+  // 8. Volume (OBV) — is volume confirming the move? Compares OBV now vs. ~12
+  //    bars ago. Rising = accumulation (bullish), falling = distribution.
+  {
+    const back = Math.min(12, n - 1);
+    const cur = obvVals[n - 1], prev = obvVals[n - 1 - back] ?? cur;
+    const denom = Math.max(Math.abs(cur), Math.abs(prev), 1);
+    const chg = (cur - prev) / denom;
+    const state = chg > 0.05 ? 'bull' : chg < -0.05 ? 'bear' : 'neutral';
+    const detail = state === 'bull' ? 'OBV rising — buyers accumulating' : state === 'bear' ? 'OBV falling — sellers distributing' : 'Flat volume flow';
+    indicators.push({ name: 'Volume', state, detail, weight: WEIGHTS.Volume });
+  }
+
   // 8. News Sentiment — real recent headlines (48h), keyword-scored. Not
   // insider or non-public information, and not a licensed NLP sentiment feed.
   const newsSummary = summarizeNews(news);
@@ -143,11 +177,13 @@ export function computeRealSignal(candles, def, rng, news = []) {
   const REASON_TEXT = {
     'EMA Stack': { bull: 'Price is trading above a rising EMA stack, confirming an established uptrend.', bear: 'Price is trading below a falling EMA stack, confirming an established downtrend.' },
     Supertrend: { bull: 'Supertrend has flipped bullish, adding trend confirmation.', bear: 'Supertrend has flipped bearish, adding trend confirmation.' },
+    ADX: { bull: 'ADX confirms a strong uptrend with +DI leading, not a choppy range.', bear: 'ADX confirms a strong downtrend with −DI leading, not a choppy range.' },
     MACD: { bull: 'MACD histogram is expanding to the upside on rising momentum.', bear: 'MACD histogram is expanding to the downside on falling momentum.' },
     'Market Structure': { bull: 'Market structure shows higher highs and higher lows — a bullish break of structure.', bear: 'Market structure shows lower highs and lower lows — a bearish break of structure.' },
     'RSI (14)': { bull: 'RSI is firmly bullish without being overbought, leaving room to run.', bear: 'RSI is firmly bearish without being oversold, leaving room to fall.' },
     'Bollinger Bands': { bull: 'Price is riding the upper Bollinger Band on expanding volatility.', bear: 'Price is riding the lower Bollinger Band on expanding volatility.' },
     VWAP: { bull: 'Price is holding above session VWAP, favoring continuation higher.', bear: 'Price is being rejected below session VWAP, favoring continuation lower.' },
+    Volume: { bull: 'On-balance volume is rising, so buyers are confirming the move.', bear: 'On-balance volume is falling, so sellers are confirming the move.' },
   };
   const agreeing = indicators.filter((i) => i.state === agreeState).sort((a, b) => b.weight - a.weight);
   let reasons;

@@ -30,6 +30,15 @@ function save() {
   try { localStorage.setItem(LS_KEY, JSON.stringify(store)); } catch (e) { /* storage full/unavailable — keep running in-memory */ }
 }
 
+// A trade is "high conviction" when a strong majority of the eight indicators
+// line up with the direction (>=5 of 8) — not just a bare threshold clear.
+function isHighConviction(signal, verdict) {
+  const c = signal.confluence || {};
+  const total = (c.bull || 0) + (c.bear || 0) + (c.neutral || 0) || 1;
+  const agree = verdict === 'BUY' ? (c.bull || 0) : (c.bear || 0);
+  return agree / total >= 0.6;
+}
+
 export function maybeOpenPositions(engine, threshold, riskDollars = 250, enabled = null) {
   for (const market of engine.markets) {
     // Only auto-trade markets the user opted into (null = all markets).
@@ -39,6 +48,11 @@ export function maybeOpenPositions(engine, threshold, riskDollars = 250, enabled
     const verdict = market.verdict(threshold);
     if (verdict === 'NO_TRADE') continue;
     const s = market.signal;
+    // Selectivity: only take high-conviction setups where a strong majority of
+    // the indicators agree with the trade direction. This isn't a guarantee of
+    // profit — no signal is — it just avoids paper-trading marginal, conflicted
+    // setups that barely cleared the threshold.
+    if (!isHighConviction(s, verdict)) continue;
     // A position can only be opened once per signal generation — otherwise a
     // stale signal (unchanged for up to 5 min between real recomputes) whose
     // price has already reached its target/stop would reopen and immediately
@@ -52,6 +66,9 @@ export function maybeOpenPositions(engine, threshold, riskDollars = 250, enabled
       stop: s.plan.stop,
       target1: s.plan.target1,
       riskReward: s.plan.riskReward,
+      // Initial risk distance and a break-even flag drive stop management below.
+      risk: Math.abs(s.plan.entry - s.plan.stop),
+      beMoved: false,
       confidence: s.confidence,
       decimals: market.decimals,
       // Virtual dollars staked on this trade — captured at open so the recorded
@@ -71,14 +88,27 @@ export function checkOpenPositions(engine, onAlert) {
     if (!market) continue;
     const price = market.price;
     const isLong = pos.side === 'LONG';
+    const risk = pos.risk || Math.abs(pos.entry - pos.stop) || 1e-9;
+
+    // Break-even management: once the trade is +1R in our favor, pull the stop
+    // up to entry so a winner that reverses scratches at ~$0 instead of a full
+    // loss. Genuine risk management — it lowers the damage of failed trades.
+    if (!pos.beMoved) {
+      const oneRLevel = isLong ? pos.entry + risk : pos.entry - risk;
+      const reached = isLong ? price >= oneRLevel : price <= oneRLevel;
+      if (reached) { pos.stop = pos.entry; pos.beMoved = true; }
+    }
+
     const hitTarget = isLong ? price >= pos.target1 : price <= pos.target1;
     const hitStop = isLong ? price <= pos.stop : price >= pos.stop;
     if (!hitTarget && !hitStop) continue;
 
-    const outcome = hitTarget ? 'Win' : 'Loss';
-    const resultR = hitTarget ? pos.riskReward : -1;
+    let outcome, resultR;
+    if (hitTarget) { outcome = 'Win'; resultR = pos.riskReward; }
+    else if (pos.beMoved) { outcome = 'Break-even'; resultR = 0; }
+    else { outcome = 'Loss'; resultR = -1; }
+
     const riskDollars = pos.riskDollars || 250;
-    // Win pays reward:risk × the amount staked; a loss forfeits the stake.
     const pnl = Math.round(resultR * riskDollars);
     const holdMin = Math.max(1, Math.round((Date.now() - pos.openedAt) / 60000));
 
@@ -92,10 +122,11 @@ export function checkOpenPositions(engine, onAlert) {
 
     if (onAlert) {
       const money = `${pnl >= 0 ? '+$' : '-$'}${Math.abs(pnl).toLocaleString('en-US')}`;
+      const title = hitTarget ? 'Target hit' : (pos.beMoved ? 'Closed at break-even' : 'Stopped out');
       onAlert({
         type: hitTarget ? 'TARGET' : 'STOP',
         symbol,
-        title: `${hitTarget ? 'Target hit' : 'Stopped out'} · ${symbol}`,
+        title: `${title} · ${symbol}`,
         body: `${pos.name} paper ${pos.side.toLowerCase()} closed for ${money} (virtual). No real money involved.`,
         ts: Date.now(),
       });
@@ -128,10 +159,11 @@ export function getPerformanceSummary() {
   if (closed.length === 0) return null;
 
   const winTrades = closed.filter((c) => tradePnl(c) > 0);
-  const lossTrades = closed.filter((c) => tradePnl(c) <= 0);
+  const lossTrades = closed.filter((c) => tradePnl(c) < 0);
   const wins = winTrades.length;
   const losses = lossTrades.length;
-  const winRate = Math.round((wins / closed.length) * 100);
+  const decisive = wins + losses; // break-even scratches don't count for/against
+  const winRate = decisive ? Math.round((wins / decisive) * 100) : 0;
   const totalPnl = closed.reduce((s, c) => s + tradePnl(c), 0);
   const avgWin = wins ? Math.round(winTrades.reduce((s, c) => s + tradePnl(c), 0) / wins) : 0;
   const avgLoss = losses ? Math.round(Math.abs(lossTrades.reduce((s, c) => s + tradePnl(c), 0)) / losses) : 0;

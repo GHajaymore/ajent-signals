@@ -128,6 +128,69 @@ export function supertrend(candles, period = 10, multiplier = 3) {
   return { dir, line };
 }
 
+// ADX / DMI (Wilder) — measures TREND STRENGTH (not direction) plus the
+// directional +DI/-DI. ADX >= ~20-25 means a real trend is present; below that
+// the market is ranging/choppy. This is the classic institutional trend filter.
+export function adx(candles, period = 14) {
+  const n = candles.length;
+  const plusDM = new Array(n).fill(0), minusDM = new Array(n).fill(0), tr = new Array(n).fill(0);
+  for (let i = 1; i < n; i++) {
+    const up = candles[i].h - candles[i - 1].h;
+    const down = candles[i - 1].l - candles[i].l;
+    plusDM[i] = (up > down && up > 0) ? up : 0;
+    minusDM[i] = (down > up && down > 0) ? down : 0;
+    const pc = candles[i - 1].c;
+    tr[i] = Math.max(candles[i].h - candles[i].l, Math.abs(candles[i].h - pc), Math.abs(candles[i].l - pc));
+  }
+  const wilder = (arr) => {
+    const out = new Array(n).fill(null);
+    if (n <= period) return out;
+    let sum = 0;
+    for (let i = 1; i <= period; i++) sum += arr[i];
+    out[period] = sum;
+    for (let i = period + 1; i < n; i++) out[i] = out[i - 1] - out[i - 1] / period + arr[i];
+    return out;
+  };
+  const trS = wilder(tr), pdmS = wilder(plusDM), mdmS = wilder(minusDM);
+  const plusDI = new Array(n).fill(null), minusDI = new Array(n).fill(null), dx = new Array(n).fill(null);
+  for (let i = period; i < n; i++) {
+    if (!trS[i]) continue;
+    plusDI[i] = 100 * (pdmS[i] / trS[i]);
+    minusDI[i] = 100 * (mdmS[i] / trS[i]);
+    const s = plusDI[i] + minusDI[i];
+    dx[i] = s ? 100 * Math.abs(plusDI[i] - minusDI[i]) / s : 0;
+  }
+  const adxArr = new Array(n).fill(null);
+  const start = period * 2;
+  if (start < n) {
+    let sum = 0, count = 0;
+    for (let i = period; i < start; i++) { if (dx[i] != null) { sum += dx[i]; count++; } }
+    if (count) {
+      adxArr[start - 1] = sum / count;
+      for (let i = start; i < n; i++) {
+        if (dx[i] == null || adxArr[i - 1] == null) continue;
+        adxArr[i] = (adxArr[i - 1] * (period - 1) + dx[i]) / period;
+      }
+    }
+  }
+  return { adx: adxArr, plusDI, minusDI };
+}
+
+// On-Balance Volume — a running total that adds the bar's volume on up-closes
+// and subtracts it on down-closes. A rising OBV means volume is confirming the
+// move (accumulation); falling OBV means distribution. Adds a volume dimension
+// the price-only indicators can't see.
+export function obv(candles) {
+  const out = new Array(candles.length).fill(0);
+  for (let i = 1; i < candles.length; i++) {
+    const v = candles[i].v || 0;
+    if (candles[i].c > candles[i - 1].c) out[i] = out[i - 1] + v;
+    else if (candles[i].c < candles[i - 1].c) out[i] = out[i - 1] - v;
+    else out[i] = out[i - 1];
+  }
+  return out;
+}
+
 // Simple swing-based market structure: compares the two most recent swing highs
 // and swing lows (fractal pivots) to call a break of structure up/down/ranging.
 export function marketStructure(candles, lookback = 3) {
