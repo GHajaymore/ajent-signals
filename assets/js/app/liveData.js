@@ -3,9 +3,12 @@
 // Every symbol falls back to the existing simulator automatically if this is unavailable.
 import { COUNTRY_DEFAULTS } from './geo.js';
 
+// corsproxy first — it's the reliable one; allorigins is a fallback that is
+// frequently unreachable. Order matters: the first that succeeds wins, so a
+// dead proxy up front just adds a failed round-trip to every poll.
 const PROXIES = [
-  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
   (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
 ];
 
 const YAHOO_SYMBOL = {
@@ -30,7 +33,9 @@ async function fetchYahooQuote(yahooSymbol) {
   let lastErr;
   for (const wrap of PROXIES) {
     try {
-      const res = await fetch(wrap(url));
+      // no-store is essential: without it the browser serves a cached response
+      // and the price appears frozen (every poll returns the same quote).
+      const res = await fetch(wrap(url), { cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const meta = data?.chart?.result?.[0]?.meta;

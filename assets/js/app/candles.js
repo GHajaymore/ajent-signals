@@ -5,8 +5,8 @@
 // unofficial and best-effort, not a licensed data source.
 
 const PROXIES = [
-  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
   (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
 ];
 
 export async function fetchCandles(yahooSymbol, { interval = '15m', range = '1mo', minCandles = 30 } = {}) {
@@ -14,7 +14,7 @@ export async function fetchCandles(yahooSymbol, { interval = '15m', range = '1mo
   let lastErr;
   for (const wrap of PROXIES) {
     try {
-      const res = await fetch(wrap(url));
+      const res = await fetch(wrap(url), { cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const result = data?.chart?.result?.[0];
