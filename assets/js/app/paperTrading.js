@@ -32,10 +32,23 @@ function save() {
   try { localStorage.setItem(LS_KEY, JSON.stringify(store)); } catch (e) { /* storage full/unavailable — keep running in-memory */ }
 }
 
+// Each indicator's independent information group. Agreement concentrated in a
+// single group (e.g. three trend indicators that always move together) is weak
+// confluence; real confluence spans multiple groups.
+const FACTOR_GROUP = {
+  'EMA Stack': 'trend', Supertrend: 'trend', ADX: 'trend', Ichimoku: 'trend',
+  MACD: 'momentum', 'RSI (14)': 'momentum', CCI: 'momentum',
+  'Market Structure': 'structure',
+  'Bollinger Bands': 'volatility', VWAP: 'volatility',
+  Volume: 'volume',
+  'News Sentiment': 'catalyst',
+};
+
 // A trade is "high conviction" only when (a) a strong majority of indicators
-// agree with the direction, AND (b) ADX confirms a real trend is present in
-// that direction. Chop — where tight stops bleed — is filtered out. This is a
-// quality gate, not a profit guarantee.
+// agree, (b) that agreement spans at least two independent factor groups,
+// (c) it's with the higher-timeframe trend, and (d) ADX confirms a real trend.
+// Chop and one-dimensional agreement — where tight stops bleed — are filtered.
+// A quality gate, not a profit guarantee.
 function isHighConviction(signal, verdict) {
   const c = signal.confluence || {};
   const total = (c.bull || 0) + (c.bear || 0) + (c.neutral || 0) || 1;
@@ -44,10 +57,16 @@ function isHighConviction(signal, verdict) {
   // Don't trade against the higher-timeframe trend (flat is allowed).
   if (signal.htfTrend === 'up' && verdict === 'SELL') return false;
   if (signal.htfTrend === 'down' && verdict === 'BUY') return false;
+  const wantState = verdict === 'BUY' ? 'bull' : 'bear';
   // Require the trend-strength gauge (ADX) to confirm the direction, not range.
   const adxInd = (signal.indicators || []).find((i) => i.name === 'ADX');
-  const wantState = verdict === 'BUY' ? 'bull' : 'bear';
-  return !!adxInd && adxInd.state === wantState;
+  if (!adxInd || adxInd.state !== wantState) return false;
+  // Cross-group confluence: the agreeing factors must span >=2 groups.
+  const groups = new Set();
+  for (const i of signal.indicators || []) {
+    if (i.state === wantState && FACTOR_GROUP[i.name]) groups.add(FACTOR_GROUP[i.name]);
+  }
+  return groups.size >= 2;
 }
 
 export function maybeOpenPositions(engine, threshold, riskDollars = 250, enabled = null) {

@@ -12,9 +12,13 @@
 // sample before it influences anything.
 
 const LS_KEY = 'ajent_adaptive_v1';
-const MIN_SAMPLE = 20;     // trades an indicator must have taken a side on first
+const MIN_SAMPLE = 20;     // effective (decayed) samples before a factor influences weight
 const MIN_MULT = 0.6;      // a weak factor can be cut to 60% of its base weight
 const MAX_MULT = 1.4;      // a strong factor can be boosted to 140%
+// Recency decay: each new outcome fades prior history so the learning tracks
+// the CURRENT market regime instead of being anchored to stale performance.
+// 0.985 gives roughly a ~46-trade half-life and a steady-state memory of ~67.
+const DECAY = 0.985;
 
 const MKT_WINDOW = 25;     // rolling outcomes kept per market
 const MKT_MIN = 15;        // trades before a market can be benched
@@ -41,8 +45,9 @@ export function recordOutcome(indicators, side, won, symbol) {
   for (const i of indicators || []) {
     if (i.state !== wantState) continue; // only judge factors that took this side
     const s = store.ind[i.name] || (store.ind[i.name] = { agreed: 0, wins: 0 });
-    s.agreed += 1;
-    if (won) s.wins += 1;
+    // Decay prior history first, then add this outcome — recent trades dominate.
+    s.agreed = s.agreed * DECAY + 1;
+    s.wins = s.wins * DECAY + (won ? 1 : 0);
   }
   if (symbol) {
     const m = store.mkt[symbol] || (store.mkt[symbol] = { recent: [] });
@@ -88,7 +93,7 @@ export function getMultipliers() {
 export function getAdaptiveStats() {
   return Object.entries(store.ind).map(([name, s]) => ({
     name,
-    samples: s.agreed,
+    samples: Math.round(s.agreed),
     accuracy: s.agreed ? Math.round((s.wins / s.agreed) * 100) : null,
     calibrated: s.agreed >= MIN_SAMPLE,
   })).sort((a, b) => (b.accuracy ?? -1) - (a.accuracy ?? -1));
