@@ -4,6 +4,8 @@
 // entry/stop/target1. It's closed the moment live price actually reaches
 // either level, and the outcome is recorded permanently. This is what lets
 // the app report a genuine, evolving win rate instead of an illustrative one.
+import { recordOutcome } from './adaptiveWeights.js';
+
 const LS_KEY = 'ajent_paper_trades_v1';
 const MAX_CLOSED = 300;
 
@@ -83,6 +85,9 @@ export function maybeOpenPositions(engine, threshold, riskDollars = 250, enabled
       // Virtual dollars staked on this trade — captured at open so the recorded
       // outcome is a real dollar figure, not an abstract multiple.
       riskDollars: Math.max(1, Math.round(riskDollars)),
+      // Snapshot each factor's stance at entry so the adaptive layer can credit
+      // or blame it when this trade eventually closes.
+      indicatorSnapshot: (s.indicators || []).map((i) => ({ name: i.name, state: i.state })),
       openedAt: Date.now(),
       signalCreatedAt: s.createdAt,
     };
@@ -127,6 +132,9 @@ export function checkOpenPositions(engine, onAlert) {
     });
     if (store.closed.length > MAX_CLOSED) store.closed.length = MAX_CLOSED;
     store.lastClosedSignalAt[symbol] = pos.signalCreatedAt;
+    // Feed the result back into the self-tuning weights (skip break-even scratches).
+    if (outcome === 'Win') recordOutcome(pos.indicatorSnapshot, pos.side, true);
+    else if (outcome === 'Loss') recordOutcome(pos.indicatorSnapshot, pos.side, false);
     delete store.open[symbol];
 
     if (onAlert) {

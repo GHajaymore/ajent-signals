@@ -4,6 +4,7 @@
 // technical indicators guarantees a given win rate, and none is claimed here.
 import { ema, rsi, macd, atr, bollingerBands, sessionVwap, supertrend, marketStructure, adx, obv, cci, ichimoku } from './indicators.js';
 import { summarizeNews } from './news.js';
+import { getMultipliers } from './adaptiveWeights.js';
 
 // Weights sum to 100. Deliberately non-redundant — one indicator per distinct
 // information type so we're not double-counting the same signal:
@@ -181,6 +182,13 @@ export function computeRealSignal(candles, def, rng, news = []) {
         : `${state === 'bull' ? 'Net bullish' : 'Net bearish'} coverage — "${top.title}"`;
     indicators.push({ name: 'News Sentiment', state, detail, weight: WEIGHTS['News Sentiment'] });
   }
+
+  // Self-tuning: scale each factor's weight by how well it has actually been
+  // predicting in real paper trades, then renormalise so the total stays 100.
+  const mult = getMultipliers();
+  let wtotal = 0;
+  for (const ind of indicators) { ind.weight = ind.weight * (mult[ind.name] || 1); wtotal += ind.weight; }
+  if (wtotal > 0) for (const ind of indicators) ind.weight = (ind.weight * 100) / wtotal;
 
   const bullWeight = indicators.filter((i) => i.state === 'bull').reduce((s, i) => s + i.weight, 0);
   const bearWeight = indicators.filter((i) => i.state === 'bear').reduce((s, i) => s + i.weight, 0);
