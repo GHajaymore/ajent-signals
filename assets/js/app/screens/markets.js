@@ -6,6 +6,7 @@ import { escapeHtml } from '../format.js';
 const CAT_COLOR = {
   Index: 'var(--accent-300)',
   'Global Index': '#9b8afb',
+  Currencies: '#4fd1c5',
   Energy: 'var(--flat)',
   Metals: 'var(--accent-200)',
   Rates: 'var(--neutral-300)',
@@ -39,7 +40,7 @@ export function render(container) {
   <div class="fade-in glow-wrap">
     <div class="dash-glow"></div>
     <h1 class="h-title">Markets</h1>
-    <p class="text-muted" style="font-size:13px;margin:4px 0 16px">${engine.markets.length} global futures &amp; index markets</p>
+    <p class="text-muted" style="font-size:13px;margin:4px 0 16px">${engine.markets.length} global markets — futures, indexes, FX &amp; crypto</p>
 
     <div class="search-input-wrap">
       <i class="ph ph-magnifying-glass"></i>

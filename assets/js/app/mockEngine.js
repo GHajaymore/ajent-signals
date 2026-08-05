@@ -1,7 +1,7 @@
 // Mock signal-engine — mirrors the shapes in design_handoff_ajent/API_AND_DATA_MODEL.md.
 // Illustrative only: replace with a licensed real-time feed + real confluence engine in production.
 
-export const CATEGORY_ORDER = ['Index', 'Global Index', 'Energy', 'Metals', 'Rates', 'Crypto', 'Volatility', 'Ags'];
+export const CATEGORY_ORDER = ['Index', 'Global Index', 'Currencies', 'Energy', 'Metals', 'Rates', 'Crypto', 'Volatility', 'Ags'];
 
 const MARKET_DEFS = [
   { symbol: 'ES', name: 'E-mini S&P 500', category: 'Index', exchange: 'CME', country: 'US', decimals: 2, pointValue: 50, basePrice: 5921.75, atrPct: 0.006 },
@@ -23,6 +23,14 @@ const MARKET_DEFS = [
   { symbol: 'BVSP', name: 'Bovespa', category: 'Global Index', exchange: 'B3', country: 'BR', decimals: 0, pointValue: 1, basePrice: 128000, atrPct: 0.014 },
   { symbol: 'STI', name: 'Straits Times Index', category: 'Global Index', exchange: 'SGX', country: 'SG', decimals: 2, pointValue: 10, basePrice: 3350, atrPct: 0.007 },
   { symbol: 'SX5E', name: 'Euro Stoxx 50', category: 'Global Index', exchange: 'Eurex', country: 'EU', decimals: 1, pointValue: 10, basePrice: 4950, atrPct: 0.009 },
+  { symbol: 'EURUSD', name: 'Euro / US Dollar', category: 'Currencies', exchange: 'FX', country: 'EU', decimals: 4, pointValue: 10000, basePrice: 1.085, atrPct: 0.005 },
+  { symbol: 'GBPUSD', name: 'British Pound / US Dollar', category: 'Currencies', exchange: 'FX', country: 'GB', decimals: 4, pointValue: 10000, basePrice: 1.268, atrPct: 0.006 },
+  { symbol: 'USDJPY', name: 'US Dollar / Japanese Yen', category: 'Currencies', exchange: 'FX', country: 'JP', decimals: 3, pointValue: 100, basePrice: 150.25, atrPct: 0.005 },
+  { symbol: 'USDCHF', name: 'US Dollar / Swiss Franc', category: 'Currencies', exchange: 'FX', country: 'CH', decimals: 4, pointValue: 10000, basePrice: 0.882, atrPct: 0.005 },
+  { symbol: 'AUDUSD', name: 'Australian Dollar / US Dollar', category: 'Currencies', exchange: 'FX', country: 'AU', decimals: 4, pointValue: 10000, basePrice: 0.655, atrPct: 0.006 },
+  { symbol: 'USDCAD', name: 'US Dollar / Canadian Dollar', category: 'Currencies', exchange: 'FX', country: 'CA', decimals: 4, pointValue: 10000, basePrice: 1.398, atrPct: 0.005 },
+  { symbol: 'NZDUSD', name: 'New Zealand Dollar / US Dollar', category: 'Currencies', exchange: 'FX', country: 'NZ', decimals: 4, pointValue: 10000, basePrice: 0.592, atrPct: 0.006 },
+  { symbol: 'USDINR', name: 'US Dollar / Indian Rupee', category: 'Currencies', exchange: 'FX', country: 'IN', decimals: 3, pointValue: 100, basePrice: 84.45, atrPct: 0.003 },
   { symbol: 'CL', name: 'Crude Oil', category: 'Energy', exchange: 'NYMEX', country: 'US', decimals: 2, pointValue: 1000, basePrice: 71.89, atrPct: 0.018 },
   { symbol: 'NG', name: 'Natural Gas', category: 'Energy', exchange: 'NYMEX', country: 'US', decimals: 3, pointValue: 10000, basePrice: 3.142, atrPct: 0.03 },
   { symbol: 'GC', name: 'Gold', category: 'Metals', exchange: 'COMEX', country: 'US', decimals: 1, pointValue: 100, basePrice: 2648.4, atrPct: 0.009 },
