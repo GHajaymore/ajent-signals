@@ -42,17 +42,26 @@ function marketSelector() {
         <button class="chip" id="pm-all" style="cursor:pointer;background:var(--accent-800);color:var(--accent-100)">Select all</button>
         <button class="chip" id="pm-none" style="cursor:pointer;background:var(--neutral-900);color:var(--text-muted)">Clear all</button>
       </div>
-      ${cats.map((cat) => `
-        <div class="eyebrow" style="margin:12px 0 2px">${cat}</div>
-        ${byCat[cat].map((m) => `
-          <div class="notif-row">
-            <div class="notif-label" style="display:flex;align-items:center;gap:10px">
-              <span style="font:700 11px var(--font-heading)">${m.symbol}</span>
-              <span class="text-muted" style="font-size:12.5px">${m.name}</span>
-            </div>
-            <div class="switch ${enabled.has(m.symbol) ? 'on' : ''}" data-pm-sym="${m.symbol}"></div>
-          </div>`).join('')}
-      `).join('')}
+      ${cats.map((cat) => {
+        const list = byCat[cat];
+        const on = list.filter((m) => enabled.has(m.symbol)).length;
+        return `
+        <details class="pm-group" data-cat="${cat}">
+          <summary>
+            <span class="pm-cat-name">${cat}</span>
+            <span class="pm-cat-count">${on}/${list.length}</span>
+            <i class="ph ph-caret-down"></i>
+          </summary>
+          ${list.map((m) => `
+            <div class="notif-row">
+              <div class="notif-label" style="display:flex;align-items:center;gap:10px">
+                <span style="font:700 11px var(--font-heading)">${m.symbol}</span>
+                <span class="text-muted" style="font-size:12.5px">${m.name}</span>
+              </div>
+              <div class="switch ${enabled.has(m.symbol) ? 'on' : ''}" data-pm-sym="${m.symbol}"></div>
+            </div>`).join('')}
+        </details>`;
+      }).join('')}
     </div>
   </div>`;
 }
@@ -71,6 +80,12 @@ function wireSelector(container) {
   const updateCount = () => {
     const el = container.querySelector('#pm-count');
     if (el) el.textContent = `${getEnabledPaperMarkets(all).size} of ${all.length} · only these auto-trade signals`;
+    // Keep each collapsible group's "on/total" badge in sync.
+    container.querySelectorAll('.pm-group[data-cat]').forEach((g) => {
+      const sw = [...g.querySelectorAll('[data-pm-sym]')];
+      const badge = g.querySelector('.pm-cat-count');
+      if (badge) badge.textContent = `${sw.filter((s) => s.classList.contains('on')).length}/${sw.length}`;
+    });
   };
   container.querySelectorAll('[data-pm-sym]').forEach((sw) => {
     sw.addEventListener('click', () => {
