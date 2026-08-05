@@ -175,7 +175,7 @@ class MarketModel {
     }
   }
 
-  applyLiveQuote(price, prevClose, marketState) {
+  applyLiveQuote(price, prevClose, marketState, quoteTime) {
     this.price = price;
     if (prevClose) this.openPrice = prevClose;
     this.changePct = ((this.price - this.openPrice) / this.openPrice) * 100;
@@ -184,6 +184,14 @@ class MarketModel {
     this.liveSource = 'live';
     this.lastLiveAt = Date.now();
     if (marketState) this.marketState = marketState;
+    // Exchange timestamp of the quote (seconds). Lets the UI tell a truly live
+    // quote from a delayed one (free CME futures data lags ~15-25 min).
+    if (quoteTime) this.quoteTime = quoteTime;
+  }
+
+  // Age of the latest real quote, in seconds, or null if we have no real quote.
+  get quoteAgeSec() {
+    return this.quoteTime ? Math.max(0, Math.floor(Date.now() / 1000 - this.quoteTime)) : null;
   }
 
   // True when the exchange is shut (weekend / overnight for cash indexes). The

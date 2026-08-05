@@ -41,7 +41,10 @@ async function fetchYahooQuote(yahooSymbol) {
       const meta = data?.chart?.result?.[0]?.meta;
       if (!meta || typeof meta.regularMarketPrice !== 'number') throw new Error('no quote in response');
       const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? meta.regularMarketPrice;
-      return { price: meta.regularMarketPrice, prevClose, marketState: meta.marketState };
+      // regularMarketTime is the exchange timestamp of the quote. For free CME
+      // futures data it's typically 15–25 min behind — we surface that as a
+      // "Delayed" label rather than pretending it's live.
+      return { price: meta.regularMarketPrice, prevClose, marketState: meta.marketState, quoteTime: meta.regularMarketTime };
     } catch (e) {
       lastErr = e;
     }
@@ -68,8 +71,8 @@ function refreshAll(engine, stagger) {
     const delay = i++ * stagger;
     setTimeout(async () => {
       try {
-        const { price, prevClose, marketState } = await fetchYahooQuote(ySym);
-        market.applyLiveQuote(price, prevClose, marketState);
+        const { price, prevClose, marketState, quoteTime } = await fetchYahooQuote(ySym);
+        market.applyLiveQuote(price, prevClose, marketState, quoteTime);
       } catch (e) {
         market.markLiveUnavailable(LIVE_STALE_MS);
       }
@@ -94,7 +97,7 @@ export function startFocusDataLoop(engine, getFocusSymbols, { intervalMs = 15000
       const ySym = YAHOO_SYMBOL[sym];
       if (!ySym) continue;
       fetchYahooQuote(ySym)
-        .then(({ price, prevClose, marketState }) => { const m = engine.get(sym); if (m) m.applyLiveQuote(price, prevClose, marketState); })
+        .then(({ price, prevClose, marketState, quoteTime }) => { const m = engine.get(sym); if (m) m.applyLiveQuote(price, prevClose, marketState, quoteTime); })
         .catch(() => { /* slow sweep will retry / mark unavailable */ });
     }
   };

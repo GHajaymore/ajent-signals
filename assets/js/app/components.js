@@ -73,6 +73,13 @@ export function dataTag(market) {
 // card is streaming, instead of a climbing "updated Ns ago" that reads as stale.
 export function liveTag(market) {
   if (market.isClosed) return '<span class="live-dot off"></span>Market closed';
+  // Honest freshness: free CME-futures quotes lag ~15–25 min, so a quote older
+  // than ~2 min is labelled Delayed rather than pretending it's real-time.
+  const age = market.quoteAgeSec;
+  if (age != null && age > 120) {
+    const mins = Math.max(1, Math.round(age / 60));
+    return `<span class="live-dot off"></span>Delayed ~${mins}m`;
+  }
   if (market.isLiveFresh) return '<span class="live-dot"></span>Live';
   return '<span class="live-dot off"></span>Simulated';
 }
