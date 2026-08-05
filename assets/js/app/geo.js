@@ -50,7 +50,9 @@ export async function applyGeoDefaults(state) {
   const code = await detectCountry();
   const { symbol, watchlist } = defaultsFor(code);
   state.homeSymbol = symbol;
-  state.homeWatchlist = watchlist;
+  // Respect a user-curated watchlist (the star) — only seed the geo default
+  // when the user hasn't starred anything yet.
+  if (!state.watchlistCustomized) state.homeWatchlist = watchlist;
   state.selectedSymbol = symbol;
   state.geoCountry = code || 'US';
 }

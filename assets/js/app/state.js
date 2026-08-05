@@ -61,6 +61,7 @@ export const state = {
   selectedSymbol: 'ES',
   homeSymbol: 'ES',
   homeWatchlist: ['ES', 'NQ', 'CL', 'GC', 'BTC', 'RTY'],
+  watchlistCustomized: false,
   geoCountry: null,
   detailTab: 'signal',
   billing: 'annual',
@@ -69,22 +70,31 @@ export const state = {
   hasUnreadAlerts: true,
 };
 
-// Favorites (the star) — persisted so a user's starred markets survive reloads.
-const LS_FAV = 'ajent_favorites_v1';
+// The star = the Home watchlist. Starring a market adds it to the watchlist;
+// un-starring removes it. Persisted so the user's list survives reloads, and
+// once customised it takes precedence over the geo-based default list.
+const LS_WATCHLIST = 'ajent_watchlist_v1';
 try {
-  const favs = JSON.parse(localStorage.getItem(LS_FAV));
-  if (Array.isArray(favs)) favs.forEach((sym) => { const m = state.engine.get(sym); if (m) m.favorite = true; });
+  const wl = JSON.parse(localStorage.getItem(LS_WATCHLIST));
+  if (Array.isArray(wl)) {
+    const valid = wl.filter((s) => state.engine.get(s));
+    if (valid.length) { state.homeWatchlist = valid; state.watchlistCustomized = true; }
+  }
 } catch (e) { /* ignore */ }
 
-export function toggleFavorite(symbol) {
-  const m = state.engine.get(symbol);
-  if (!m) return false;
-  m.favorite = !m.favorite;
-  try {
-    const favs = state.engine.markets.filter((x) => x.favorite).map((x) => x.symbol);
-    localStorage.setItem(LS_FAV, JSON.stringify(favs));
-  } catch (e) { /* ignore */ }
-  return m.favorite;
+export function isInWatchlist(symbol) {
+  return state.homeWatchlist.includes(symbol);
+}
+
+export function toggleWatchlist(symbol) {
+  if (!state.engine.get(symbol)) return false;
+  const i = state.homeWatchlist.indexOf(symbol);
+  const nowIn = i < 0;
+  if (nowIn) state.homeWatchlist.push(symbol);
+  else state.homeWatchlist.splice(i, 1);
+  state.watchlistCustomized = true;
+  try { localStorage.setItem(LS_WATCHLIST, JSON.stringify(state.homeWatchlist)); } catch (e) { /* ignore */ }
+  return nowIn;
 }
 
 export function acceptDisclaimer() {

@@ -1,4 +1,13 @@
 import { fmtPrice, fmtPct, verdictColorVar, verdictChipClass, stateColorVar, countryFlag } from './format.js';
+import { isInWatchlist } from './state.js';
+
+// Star toggle for a market row — filled when the market is in the watchlist.
+// The click is handled by a delegated listener (see markets.js) which stops it
+// from bubbling to the row's navigation.
+function starToggle(symbol) {
+  const on = isInWatchlist(symbol);
+  return `<button class="mkt-star ${on ? 'on' : ''}" data-star="${symbol}" title="${on ? 'In watchlist — tap to remove' : 'Add to watchlist'}"><i class="${on ? 'ph-fill' : 'ph'} ph-star"></i></button>`;
+}
 
 export function sparklineSvg(history, color, w = 56, h = 28) {
   const pts = history.slice(-24);
@@ -129,6 +138,7 @@ export function marketRow(market, verdict) {
       <div class="chg tabular" data-f="chg" style="color:${chgColor}">${fmtPct(market.changePct)}</div>
     </div>
     <span data-f="verdict">${verdictChip(verdict)}</span>
+    ${starToggle(market.symbol)}
   </div>`;
 }
 

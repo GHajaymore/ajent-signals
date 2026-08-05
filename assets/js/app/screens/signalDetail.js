@@ -1,4 +1,4 @@
-import { state, saveSettings, toggleFavorite } from '../state.js';
+import { state, saveSettings, toggleWatchlist, isInWatchlist } from '../state.js';
 import { fmtPrice, fmtCountdown, verdictColorVar, countryFlag } from '../format.js';
 import { confidenceRing, verdictIcon, indicatorRow, planRow, dataTag } from '../components.js';
 import { YAHOO_SYMBOL } from '../liveData.js';
@@ -155,6 +155,16 @@ function renderSignalTab(market, verdict, color) {
     <div class="stat3-cell"><div class="k">Hold</div><div class="v">${s.expectedHold}</div></div>
   </div>
 
+  ${verdict === 'NO_TRADE' ? `
+  <div class="panel">
+    <div class="panel-title">Trade plan</div>
+    <div class="text-muted" style="font-size:12.5px;line-height:1.6;padding:6px 2px">
+      No setup right now. Ajent only publishes entry, stop and target levels once a
+      <b style="color:var(--buy)">BUY</b> or <b style="color:var(--sell)">SELL</b> clears your confidence
+      threshold — until then there's nothing to trade. The plan appears automatically when a signal fires.
+    </div>
+    ${planRow('Timeframe', s.timeframe, 'var(--neutral-500)')}
+  </div>` : `
   <div class="panel">
     <div class="panel-title">Trade plan</div>
     ${planRow('Suggested entry', fmtPrice(s.plan.entry, market.decimals), 'var(--accent)')}
@@ -163,9 +173,14 @@ function renderSignalTab(market, verdict, color) {
     ${planRow('Target 1', fmtPrice(s.plan.target1, market.decimals), 'var(--buy)')}
     ${planRow('Target 2', fmtPrice(s.plan.target2, market.decimals), 'var(--buy)')}
     ${planRow('Target 3', fmtPrice(s.plan.target3, market.decimals), 'var(--buy)')}
-    ${planRow('Risk : Reward', `${s.plan.riskReward.toFixed(1)}:1`, 'var(--accent-200)')}
+    ${planRow('Reward : Risk', `${s.plan.riskReward.toFixed(1)} : 1`, 'var(--accent-200)')}
     ${planRow('Timeframe', s.timeframe, 'var(--neutral-500)')}
-  </div>
+    <div class="text-muted" style="font-size:11.5px;line-height:1.55;margin-top:8px;padding:0 2px">
+      <b style="color:var(--text)">Reward : Risk</b> compares the distance to the first target versus the stop —
+      here you risk 1 unit to the stop to aim for ${s.plan.riskReward.toFixed(1)} at Target 1. Higher is better; anything
+      above 1 : 1 means the target is further away than the stop.
+    </div>
+  </div>`}
 
   <div class="panel">
     <div class="panel-title">Why this signal</div>
@@ -290,7 +305,7 @@ export function render(container) {
         <div class="detail-title">${market.symbol} · ${market.name}</div>
         <div class="detail-sub" id="signal-detail-sub">${countryFlag(market.country)} ${market.exchange} · ${market.signal.timeframe} · ${dataTag(market)}</div>
       </div>
-      <button class="star-btn" id="fav-btn"><i class="${market.favorite ? 'ph-fill' : 'ph'} ph-star"></i></button>
+      <button class="star-btn" id="fav-btn" title="${isInWatchlist(market.symbol) ? 'In your watchlist' : 'Add to watchlist'}"><i class="${isInWatchlist(market.symbol) ? 'ph-fill' : 'ph'} ph-star"></i></button>
     </div>
 
     <div class="segmented">
@@ -306,7 +321,7 @@ export function render(container) {
     btn.addEventListener('click', () => { location.hash = `#/signal/${market.symbol}/${btn.dataset.tab}`; });
   });
   document.getElementById('fav-btn').addEventListener('click', () => {
-    toggleFavorite(market.symbol);
+    toggleWatchlist(market.symbol);
     render(container);
   });
   if (tab === 'chart') wireChartRange(container, market, verdict, color);

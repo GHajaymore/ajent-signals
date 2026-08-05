@@ -1,7 +1,23 @@
-import { state } from '../state.js';
+import { state, toggleWatchlist } from '../state.js';
 import { CATEGORY_ORDER } from '../mockEngine.js';
 import { marketRow, patchRow } from '../components.js';
 import { escapeHtml } from '../format.js';
+
+// Wire the per-row star toggles. stopPropagation keeps the tap from bubbling to
+// the row's navigation, so starring never opens the signal detail.
+function wireStars(wrap) {
+  wrap.querySelectorAll('.mkt-star').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const on = toggleWatchlist(btn.dataset.star);
+      btn.classList.toggle('on', on);
+      const icon = btn.querySelector('i');
+      if (icon) icon.className = `${on ? 'ph-fill' : 'ph'} ph-star`;
+      btn.title = on ? 'In watchlist — tap to remove' : 'Add to watchlist';
+    });
+  });
+}
 
 const CAT_COLOR = {
   Index: 'var(--accent-300)',
@@ -25,20 +41,7 @@ function listHtml() {
   const filtered = engine.markets.filter((m) => !q || m.symbol.includes(q) || m.name.toUpperCase().includes(q) || m.exchange.includes(q));
   const byCategory = CATEGORY_ORDER.map((cat) => ({ cat, list: filtered.filter((m) => m.category === cat) })).filter((g) => g.list.length);
 
-  const favList = filtered.filter((m) => m.favorite);
-  const favHtml = favList.length ? `
-    <details class="mkt-group" open>
-      <summary class="cat-label" style="color:var(--accent-200);cursor:pointer">
-        <span><i class="ph-fill ph-star" style="font-size:12px;margin-right:5px"></i>FAVORITES<span class="cat-count">${favList.length}</span></span>
-        <i class="ph ph-caret-down" style="margin-left:auto;font-size:14px;color:var(--text-muted)"></i>
-      </summary>
-      <div class="card" style="padding:2px 12px">
-        ${favList.map((m) => marketRow(m, m.verdict(threshold))).join('')}
-      </div>
-    </details>
-  ` : '';
-
-  return favHtml + byCategory.map((g) => `
+  return byCategory.map((g) => `
     <details class="mkt-group" open>
       <summary class="cat-label" style="color:${CAT_COLOR[g.cat]};cursor:pointer">
         <span>${g.cat.toUpperCase()}<span class="cat-count">${g.list.length}</span></span>
@@ -68,10 +71,14 @@ export function render(container) {
     <div id="market-list-wrap">${listHtml()}</div>
   </div>`;
 
+  const listWrap = document.getElementById('market-list-wrap');
+  wireStars(listWrap);
+
   const input = document.getElementById('mkt-search');
   input.addEventListener('input', () => {
     query = input.value;
-    document.getElementById('market-list-wrap').innerHTML = listHtml();
+    listWrap.innerHTML = listHtml();
+    wireStars(listWrap);
   });
 }
 

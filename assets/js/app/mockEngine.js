@@ -154,7 +154,6 @@ class MarketModel {
     this.openPrice = this.history[0];
     this.changePct = ((this.price - this.openPrice) / this.openPrice) * 100;
     this.age = Math.floor(this.rng() * 40);
-    this.favorite = def.symbol === 'ES';
     this.liveSource = 'sim';
     this.lastLiveAt = 0;
     this.signalIsReal = false;

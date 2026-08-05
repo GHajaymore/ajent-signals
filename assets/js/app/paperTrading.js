@@ -8,6 +8,12 @@ import { recordOutcome, isMarketAllowed } from './adaptiveWeights.js';
 
 const LS_KEY = 'ajent_paper_trades_v1';
 const MAX_CLOSED = 300;
+// Bump when a fix invalidates previously-recorded results. v2 discards history
+// polluted by the price-stream-mismatch bug (positions stopped out by phantom
+// gaps when a market's price switched between the real feed and the simulator).
+const SCHEMA = 2;
+
+function fresh() { return { v: SCHEMA, open: {}, closed: [], lastClosedSignalAt: {} }; }
 
 function load() {
   try {
@@ -15,7 +21,9 @@ function load() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object') {
+        if (parsed.v !== SCHEMA) return fresh(); // stale/corrupt schema — start clean
         return {
+          v: SCHEMA,
           open: parsed.open || {},
           closed: Array.isArray(parsed.closed) ? parsed.closed : [],
           lastClosedSignalAt: parsed.lastClosedSignalAt || {},
@@ -23,7 +31,7 @@ function load() {
       }
     }
   } catch (e) { /* ignore malformed storage */ }
-  return { open: {}, closed: [], lastClosedSignalAt: {} };
+  return fresh();
 }
 
 const store = load();
@@ -74,6 +82,9 @@ export function maybeOpenPositions(engine, threshold, riskDollars = 250, enabled
     // Only auto-trade markets the user opted into (null = all markets).
     if (enabled && !enabled.has(market.symbol)) continue;
     if (!market.signalIsReal) continue;
+    // Only paper-trade on the real feed, so entry/stop/target and the price we
+    // later judge them against come from the same stream (never the simulator).
+    if (!market.isLiveFresh) continue;
     if (store.open[market.symbol]) continue;
     // Skip markets the adaptive layer has benched for poor recent performance.
     if (!isMarketAllowed(market.symbol)) continue;
@@ -85,6 +96,11 @@ export function maybeOpenPositions(engine, threshold, riskDollars = 250, enabled
     // profit — no signal is — it just avoids paper-trading marginal, conflicted
     // setups that barely cleared the threshold.
     if (!isHighConviction(s, verdict)) continue;
+    // The plan's entry must match the price we'll monitor. If they've drifted
+    // apart (a stale signal, or the price stream moved), skip — opening here
+    // would book an instant, artificial win or loss.
+    const openRisk = Math.abs(s.plan.entry - s.plan.stop) || 1e-9;
+    if (Math.abs(market.price - s.plan.entry) > openRisk * 3) continue;
     // A position can only be opened once per signal generation — otherwise a
     // stale signal (unchanged for up to 5 min between real recomputes) whose
     // price has already reached its target/stop would reopen and immediately
@@ -111,6 +127,10 @@ export function maybeOpenPositions(engine, threshold, riskDollars = 250, enabled
       indicatorSnapshot: (s.indicators || []).map((i) => ({ name: i.name, state: i.state })),
       openedAt: Date.now(),
       signalCreatedAt: s.createdAt,
+      // Whether this fill was on the real feed. A position must be judged on the
+      // same price stream it opened on — never against the simulator's
+      // basePrice-anchored series, which sits at a different scale.
+      openedLive: !!market.isLiveFresh,
     };
   }
   save();
@@ -124,6 +144,21 @@ export function checkOpenPositions(engine, onAlert) {
     const price = market.price;
     const isLong = pos.side === 'LONG';
     const risk = pos.risk || Math.abs(pos.entry - pos.stop) || 1e-9;
+
+    // A position opened on the real feed must not be judged against the
+    // simulator: when the live quote goes stale the price snaps to a
+    // basePrice-anchored series at a completely different level, which would gap
+    // the trade through its stop. Pause evaluation until the real feed returns.
+    if (pos.openedLive && !market.isLiveFresh) continue;
+
+    // Guard against any price-scale jump (feed switch, bad tick): a legitimate
+    // fill closes within ~1.4x risk of entry, so a price many multiples of risk
+    // away is not a real touch of the stop/target. Void the position without
+    // recording a phantom win/loss so the win rate stays honest.
+    if (!Number.isFinite(price) || Math.abs(price - pos.entry) > risk * 12) {
+      delete store.open[symbol];
+      continue;
+    }
 
     // Break-even management: once the trade is +1R in our favor, pull the stop
     // up to entry so a winner that reverses scratches at ~$0 instead of a full
