@@ -196,15 +196,44 @@ function renderBreakdownTab(market, color) {
     </div>
   </div>
 
-  <div class="section-label">Indicators · weighted</div>
-  ${market.signal.indicators.map((ind) => indicatorRow(ind)).join('')}
+  <div class="section-label">Signal factors</div>
+  ${categoryRows(market.signal.indicators)}
 
   <div class="text-muted" style="font-size:11.5px;line-height:1.6;margin-top:8px;padding:0 4px">
-    A BUY/SELL only fires once the weighted score clears your confidence threshold (currently ${state.settings.threshold}%, adjustable in Settings).
+    A BUY/SELL only fires once Ajent's confluence score clears your confidence threshold (currently ${state.settings.threshold}%, adjustable in Settings).
     ${market.signalIsReal
-      ? 'These indicators are computed from real 5-minute price candles over the trailing 5 days, plus a keyword scan of recent real headlines (no insider or non-public information). This is a fixed rule-based weighting, not a statistically calibrated probability — no indicator combination guarantees a given win rate.'
+      ? "Ajent scores real trend, momentum, volume, volatility, structure and catalyst factors from live price and headlines into one score. The exact factor mix and weighting are proprietary. This is a rule-based score, not a statistically calibrated probability — no method guarantees a given win rate."
       : 'A real-data computation for this market is temporarily unavailable, so this breakdown is a simulated placeholder — not based on current price action.'}
   </div>`;
+}
+
+// Public-facing grouping: collapse the proprietary indicator set into high-level
+// factor categories so the exact recipe (which indicators, what weights) is
+// never exposed in the UI. Each category's verdict is the weight-weighted lean
+// of its members.
+const FACTOR_CATEGORIES = [
+  { label: 'Trend', names: ['EMA Stack', 'Supertrend', 'ADX'], txt: { bull: 'Uptrend, strengthening', bear: 'Downtrend, strengthening', neutral: 'No clear trend' } },
+  { label: 'Momentum', names: ['MACD', 'RSI (14)'], txt: { bull: 'Favoring buyers', bear: 'Favoring sellers', neutral: 'Flat momentum' } },
+  { label: 'Market structure', names: ['Market Structure'], txt: { bull: 'Higher highs & higher lows', bear: 'Lower highs & lower lows', neutral: 'Range-bound' } },
+  { label: 'Volatility & levels', names: ['Bollinger Bands', 'VWAP'], txt: { bull: 'Expanding in trade’s favor', bear: 'Expanding against trade', neutral: 'Contained near fair value' } },
+  { label: 'Volume', names: ['Volume'], txt: { bull: 'Confirming buyers', bear: 'Confirming sellers', neutral: 'Neutral volume flow' } },
+  { label: 'Catalyst / news', names: ['News Sentiment'], txt: { bull: 'Headlines lean supportive', bear: 'Headlines lean negative', neutral: 'No major catalyst' } },
+];
+
+function categoryRows(indicators) {
+  const byName = {};
+  for (const i of indicators) byName[i.name] = i;
+  return FACTOR_CATEGORIES.map((cat) => {
+    let bw = 0, brw = 0;
+    for (const nm of cat.names) {
+      const ind = byName[nm];
+      if (!ind) continue;
+      if (ind.state === 'bull') bw += ind.weight;
+      else if (ind.state === 'bear') brw += ind.weight;
+    }
+    const s = bw > brw ? 'bull' : brw > bw ? 'bear' : 'neutral';
+    return indicatorRow({ name: cat.label, state: s, detail: cat.txt[s] });
+  }).join('');
 }
 
 function renderChartTab(market, color) {

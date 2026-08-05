@@ -30,13 +30,19 @@ function save() {
   try { localStorage.setItem(LS_KEY, JSON.stringify(store)); } catch (e) { /* storage full/unavailable — keep running in-memory */ }
 }
 
-// A trade is "high conviction" when a strong majority of the eight indicators
-// line up with the direction (>=5 of 8) — not just a bare threshold clear.
+// A trade is "high conviction" only when (a) a strong majority of indicators
+// agree with the direction, AND (b) ADX confirms a real trend is present in
+// that direction. Chop — where tight stops bleed — is filtered out. This is a
+// quality gate, not a profit guarantee.
 function isHighConviction(signal, verdict) {
   const c = signal.confluence || {};
   const total = (c.bull || 0) + (c.bear || 0) + (c.neutral || 0) || 1;
   const agree = verdict === 'BUY' ? (c.bull || 0) : (c.bear || 0);
-  return agree / total >= 0.6;
+  if (agree / total < 0.65) return false;
+  // Require the trend-strength gauge (ADX) to confirm the direction, not range.
+  const adxInd = (signal.indicators || []).find((i) => i.name === 'ADX');
+  const wantState = verdict === 'BUY' ? 'bull' : 'bear';
+  return !!adxInd && adxInd.state === wantState;
 }
 
 export function maybeOpenPositions(engine, threshold, riskDollars = 250, enabled = null) {

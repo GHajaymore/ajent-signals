@@ -165,25 +165,32 @@ export function computeRealSignal(candles, def, rng, news = []) {
   const bear = indicators.filter((i) => i.state === 'bear').length;
   const neutral = indicators.length - bull - bear;
 
+  // Noise-tolerant geometry: a slightly wider stop so 5-minute noise doesn't
+  // stop us out before the move develops, and a first target close enough to
+  // actually be reached. A tight 1x-ATR stop under a far 2x-ATR target is the
+  // worst combination — frequent noise stop-outs, rare targets. Combined with
+  // the break-even stop in the paper tracker, this cuts the structural loss.
   const entry = price;
-  const stop = entry - direction * atrNow * 1.0;
+  const stop = entry - direction * atrNow * 1.4;
   const trailingStopPts = atrNow * 1.2;
-  const target1 = entry + direction * atrNow * 2.0;
-  const target2 = entry + direction * atrNow * 3.2;
-  const target3 = entry + direction * atrNow * 4.5;
+  const target1 = entry + direction * atrNow * 1.8;
+  const target2 = entry + direction * atrNow * 2.8;
+  const target3 = entry + direction * atrNow * 4.0;
   const riskReward = Math.abs(target1 - entry) / Math.abs(entry - stop || 1e-9);
 
   const agreeState = direction > 0 ? 'bull' : 'bear';
+  // Plain-language, category-level reasons — deliberately do NOT name the exact
+  // indicators or parameters, so the proprietary formula isn't disclosed.
   const REASON_TEXT = {
-    'EMA Stack': { bull: 'Price is trading above a rising EMA stack, confirming an established uptrend.', bear: 'Price is trading below a falling EMA stack, confirming an established downtrend.' },
-    Supertrend: { bull: 'Supertrend has flipped bullish, adding trend confirmation.', bear: 'Supertrend has flipped bearish, adding trend confirmation.' },
-    ADX: { bull: 'ADX confirms a strong uptrend with +DI leading, not a choppy range.', bear: 'ADX confirms a strong downtrend with −DI leading, not a choppy range.' },
-    MACD: { bull: 'MACD histogram is expanding to the upside on rising momentum.', bear: 'MACD histogram is expanding to the downside on falling momentum.' },
-    'Market Structure': { bull: 'Market structure shows higher highs and higher lows — a bullish break of structure.', bear: 'Market structure shows lower highs and lower lows — a bearish break of structure.' },
-    'RSI (14)': { bull: 'RSI is firmly bullish without being overbought, leaving room to run.', bear: 'RSI is firmly bearish without being oversold, leaving room to fall.' },
-    'Bollinger Bands': { bull: 'Price is riding the upper Bollinger Band on expanding volatility.', bear: 'Price is riding the lower Bollinger Band on expanding volatility.' },
-    VWAP: { bull: 'Price is holding above session VWAP, favoring continuation higher.', bear: 'Price is being rejected below session VWAP, favoring continuation lower.' },
-    Volume: { bull: 'On-balance volume is rising, so buyers are confirming the move.', bear: 'On-balance volume is falling, so sellers are confirming the move.' },
+    'EMA Stack': { bull: 'The prevailing trend is up and well established.', bear: 'The prevailing trend is down and well established.' },
+    Supertrend: { bull: 'Trend-following models confirm the upside.', bear: 'Trend-following models confirm the downside.' },
+    ADX: { bull: 'Trend strength is high — this is a real move, not a choppy range.', bear: 'Trend strength is high — this is a real move, not a choppy range.' },
+    MACD: { bull: 'Momentum is expanding in the trade’s direction.', bear: 'Momentum is expanding in the trade’s direction.' },
+    'Market Structure': { bull: 'Price structure is making higher highs and higher lows.', bear: 'Price structure is making lower highs and lower lows.' },
+    'RSI (14)': { bull: 'Momentum has room to run without being overextended.', bear: 'Momentum has room to fall without being oversold.' },
+    'Bollinger Bands': { bull: 'Volatility is expanding in the trade’s favor.', bear: 'Volatility is expanding in the trade’s favor.' },
+    VWAP: { bull: 'Price is holding above fair value.', bear: 'Price is trading below fair value.' },
+    Volume: { bull: 'Volume is confirming the move.', bear: 'Volume is confirming the move.' },
   };
   const agreeing = indicators.filter((i) => i.state === agreeState).sort((a, b) => b.weight - a.weight);
   let reasons;
