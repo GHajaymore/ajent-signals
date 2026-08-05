@@ -1,13 +1,15 @@
-// Fetches real historical OHLC candles (5-minute bars over a 5-day window) for
-// real indicator computation. Same public feed + CORS-proxy chain as
-// liveData.js — unofficial and best-effort, not a licensed data source.
+// Fetches real historical OHLC candles (15-minute bars over a ~1-month window)
+// for real indicator computation. A higher timeframe than 5m gives a much
+// better signal-to-noise ratio and a naturally larger ATR, so stops sit outside
+// the quote-feed noise. Same public feed + CORS-proxy chain as liveData.js —
+// unofficial and best-effort, not a licensed data source.
 
 const PROXIES = [
   (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
   (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
 ];
 
-export async function fetchCandles(yahooSymbol, { interval = '5m', range = '5d', minCandles = 30 } = {}) {
+export async function fetchCandles(yahooSymbol, { interval = '15m', range = '1mo', minCandles = 30 } = {}) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=${interval}&range=${range}`;
   let lastErr;
   for (const wrap of PROXIES) {

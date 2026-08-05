@@ -47,7 +47,7 @@ export function computeRealSignal(candles, def, rng, news = []) {
   const price = closes[n - 1];
 
   const ema9 = ema(closes, 9), ema20 = ema(closes, 20), ema50 = ema(closes, Math.min(50, Math.floor(n / 2)));
-  // Higher-timeframe trend proxy: a long EMA over the whole 5-day window acts
+  // Higher-timeframe trend proxy: a long EMA over the whole ~1-month window acts
   // like the daily/bigger-picture trend. Signals that fight this are the
   // low-accuracy ones, so we only trade with it (see the penalty below).
   const emaLong = ema(closes, Math.min(200, Math.max(50, Math.floor(n * 0.8))));
@@ -206,14 +206,13 @@ export function computeRealSignal(candles, def, rng, news = []) {
   const bear = indicators.filter((i) => i.state === 'bear').length;
   const neutral = indicators.length - bull - bear;
 
-  // Noise-tolerant geometry. The 14-period ATR of 5-minute bars is often only
-  // ~0.05–0.15% of price — tighter than the granularity of the free quote feed,
-  // which arrives as coarse snapshots that can jump 0.1%+ per update. A stop
-  // that small is blown through by feed noise alone, stopping out almost every
-  // trade regardless of direction. So the risk distance is floored at ~0.5% of
-  // price (or a wider 2.2x ATR for genuinely volatile markets, whichever is
-  // larger), giving trades room to actually develop. Target sits at 1.3x the
-  // risk; with the paper tracker's break-even stop this keeps a sane R:R.
+  // Noise-tolerant geometry. On a 15-minute timeframe the 14-period ATR is a
+  // more realistic fraction of price, but for the calmest markets it can still
+  // dip below the granularity of the free quote feed (coarse snapshots that can
+  // jump 0.1%+ per update). So the risk distance is floored at ~0.5% of price
+  // (or a wider 2.2x ATR for genuinely volatile markets, whichever is larger),
+  // keeping the stop outside feed noise. Target sits at 1.3x the risk; with the
+  // paper tracker's break-even stop this keeps a sane R:R.
   const entry = price;
   const riskDist = Math.max(atrNow * 2.2, price * 0.005);
   const stop = entry - direction * riskDist;
@@ -245,7 +244,7 @@ export function computeRealSignal(candles, def, rng, news = []) {
     reasons = agreeing.slice(0, 3).map((i) => (
       i.name === 'News Sentiment' ? `Recent headlines lean ${agreeState === 'bull' ? 'bullish' : 'bearish'} — ${i.detail}.` : REASON_TEXT[i.name]?.[agreeState]
     )).filter(Boolean);
-    reasons.push('Computed from real 5-minute candles and recent headlines over the trailing 5 days — not a random or simulated score.');
+    reasons.push('Computed from real 15-minute candles and recent headlines over the trailing month — not a random or simulated score.');
   } else {
     reasons = [
       `Confidence of ${confidence}% falls short of the confidence threshold.`,
@@ -258,7 +257,7 @@ export function computeRealSignal(candles, def, rng, news = []) {
 
   return {
     symbol: def.symbol,
-    timeframe: '5m',
+    timeframe: '15m',
     direction,
     confidence,
     trend,

@@ -13,7 +13,9 @@ const MAX_CLOSED = 300;
 //       gaps when a market's price switched between the real feed and the sim).
 //  v3 — stops were tighter than the quote-feed noise floor, so nearly every
 //       trade was noise-stopped; geometry now floors risk at ~0.5% of price.
-const SCHEMA = 3;
+//  v4 — signals moved from 5-minute to 15-minute candles (better signal-to-
+//       noise); prior results were recorded on the noisier timeframe.
+const SCHEMA = 4;
 
 function fresh() { return { v: SCHEMA, open: {}, closed: [], lastClosedSignalAt: {} }; }
 
