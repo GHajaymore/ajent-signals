@@ -16,12 +16,17 @@ const MIN_SAMPLE = 20;     // trades an indicator must have taken a side on firs
 const MIN_MULT = 0.6;      // a weak factor can be cut to 60% of its base weight
 const MAX_MULT = 1.4;      // a strong factor can be boosted to 140%
 
+const MKT_WINDOW = 25;     // rolling outcomes kept per market
+const MKT_MIN = 15;        // trades before a market can be benched
+const MKT_BENCH_RATE = 0.35; // benched below this rolling win rate
+const PROBATION = 0.12;    // chance a benched market still gets a trade, to re-earn its place
+
 function load() {
   try {
     const raw = JSON.parse(localStorage.getItem(LS_KEY));
-    if (raw && raw.ind && typeof raw.ind === 'object') return raw;
+    if (raw && raw.ind && typeof raw.ind === 'object') return { ind: raw.ind, mkt: raw.mkt || {} };
   } catch (e) { /* ignore */ }
-  return { ind: {} };
+  return { ind: {}, mkt: {} };
 }
 
 const store = load();
@@ -30,8 +35,8 @@ function save() {
   try { localStorage.setItem(LS_KEY, JSON.stringify(store)); } catch (e) { /* ignore */ }
 }
 
-// indicators: [{ name, state }], side: 'LONG' | 'SHORT', won: boolean
-export function recordOutcome(indicators, side, won) {
+// indicators: [{ name, state }], side: 'LONG' | 'SHORT', won: boolean, symbol
+export function recordOutcome(indicators, side, won, symbol) {
   const wantState = side === 'LONG' ? 'bull' : 'bear';
   for (const i of indicators || []) {
     if (i.state !== wantState) continue; // only judge factors that took this side
@@ -39,7 +44,32 @@ export function recordOutcome(indicators, side, won) {
     s.agreed += 1;
     if (won) s.wins += 1;
   }
+  if (symbol) {
+    const m = store.mkt[symbol] || (store.mkt[symbol] = { recent: [] });
+    m.recent.push(won ? 1 : 0);
+    if (m.recent.length > MKT_WINDOW) m.recent.shift();
+  }
   save();
+}
+
+// Whether a market is currently eligible for auto paper-trading. A market that
+// has been losing over its recent window is benched, except for the occasional
+// probation trade so it can re-earn its place if conditions change.
+export function isMarketAllowed(symbol) {
+  const m = store.mkt[symbol];
+  if (!m || m.recent.length < MKT_MIN) return true;
+  const rate = m.recent.reduce((a, b) => a + b, 0) / m.recent.length;
+  if (rate >= MKT_BENCH_RATE) return true;
+  return Math.random() < PROBATION;
+}
+
+export function getMarketStats() {
+  return Object.entries(store.mkt).map(([symbol, m]) => ({
+    symbol,
+    samples: m.recent.length,
+    winRate: m.recent.length ? Math.round((m.recent.reduce((a, b) => a + b, 0) / m.recent.length) * 100) : null,
+    benched: m.recent.length >= MKT_MIN && (m.recent.reduce((a, b) => a + b, 0) / m.recent.length) < MKT_BENCH_RATE,
+  }));
 }
 
 // Per-indicator weight multiplier derived from its measured hit rate. Applied
@@ -66,5 +96,6 @@ export function getAdaptiveStats() {
 
 export function resetAdaptive() {
   store.ind = {};
+  store.mkt = {};
   save();
 }
