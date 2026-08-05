@@ -91,7 +91,21 @@ function intro() {
   return `
     <div class="dash-glow"></div>
     <h1 class="h-title">Paper Trading</h1>
-    <p class="text-muted" style="font-size:13px;margin:4px 0 16px">Ajent auto-trades its own signals with virtual money so you can see how they perform — no real funds, no broker.</p>`;
+    <p class="text-muted" style="font-size:13px;margin:4px 0 16px">An honest, unedited track record: Ajent auto-trades <b style="color:var(--text)">every</b> signal with virtual money — winners and losers — so you see exactly how they perform. No real funds, no broker, nothing hidden.</p>`;
+}
+
+// Sets honest expectations before the numbers. This is a transparency feature,
+// not a sales pitch — we deliberately do NOT promise profit.
+function honestBanner() {
+  return `
+  <div class="panel" style="padding:13px 15px;border:1px solid var(--hairline);display:flex;gap:11px;align-items:flex-start;margin-bottom:12px">
+    <i class="ph-fill ph-shield-check" style="color:var(--accent-300);font-size:19px;flex:none;margin-top:1px"></i>
+    <div class="text-muted" style="font-size:12.5px;line-height:1.6">
+      <b style="color:var(--text)">Why we show every result — even the losses.</b>
+      Most signal apps hide their misses and advertise fake win rates. We don't. This is the real, complete record of the algorithm.
+      Short-term markets are close to random, so an honest strategy realistically aims to <b style="color:var(--text)">protect capital and hover near break-even</b>, not to print money. The engine also keeps learning from every trade. Judge it on the full history below, not any single week.
+    </div>
+  </div>`;
 }
 
 // User-facing explainer of how the dollar P&L is computed — especially for
@@ -134,6 +148,7 @@ function emptyState() {
   return `
   <div class="fade-in glow-wrap">
     ${intro()}
+    ${honestBanner()}
     ${pnlHelp()}
     ${marketSelector()}
     ${openList()}
@@ -160,6 +175,7 @@ export function render(container) {
   container.innerHTML = `
   <div class="fade-in glow-wrap">
     ${intro()}
+    ${honestBanner()}
     ${pnlHelp()}
     ${marketSelector()}
 
