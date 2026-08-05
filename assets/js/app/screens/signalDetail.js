@@ -34,30 +34,75 @@ function loadCandles(symbol, ySym, rangeKey) {
     });
 }
 
-function areaChart(market, candles, color, showLevels) {
-  const w = 500, h = 172;
-  const closes = candles.map((c) => c.c);
-  const s = market.signal;
-  let vals = [...closes];
-  if (showLevels) vals = vals.concat([s.plan.stop, s.plan.target1]);
+// Catmull-Rom -> cubic Bézier: a smooth, non-overshooting curve through the
+// points. Far nicer than raw straight segments for price data.
+function smoothPath(pts) {
+  if (pts.length < 2) return pts.length ? `M${pts[0][0]},${pts[0][1]}` : '';
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+  return d;
+}
+
+// Shared polished price chart. Uniform scaling (no distortion), smooth line with
+// a soft glow, faint gridlines, a last-price marker, and optional entry/stop/
+// target levels with small value chips. `levels` = [{v, stroke, label}].
+function priceChartSvg(series, color, { levels = [], decimals = 2 } = {}) {
+  const w = 500, h = 188;
+  if (!series || series.length < 2) return `<svg viewBox="0 0 ${w} ${h}" width="100%" style="height:auto;display:block"></svg>`;
+  const vals = series.concat(levels.map((l) => l.v));
   const min = Math.min(...vals), max = Math.max(...vals);
-  const span = (max - min) || 1;
-  const pad = span * 0.1;
+  const span = (max - min) || Math.abs(min) * 0.01 || 1;
+  const pad = span * 0.14;
   const lo = min - pad, hi = max + pad;
   const yFor = (v) => h - ((v - lo) / (hi - lo)) * h;
-  const step = w / (closes.length - 1);
-  const lineD = 'M' + closes.map((p, i) => `${(i * step).toFixed(1)},${yFor(p).toFixed(1)}`).join(' L');
-  const areaD = `${lineD} L${w},${h} L0,${h} Z`;
-  const level = (v, stroke) => `<line x1="0" y1="${yFor(v).toFixed(1)}" x2="${w}" y2="${yFor(v).toFixed(1)}" stroke="${stroke}" stroke-width="1" stroke-dasharray="4 4" opacity="0.75"/>`;
+  const step = w / (series.length - 1);
+  const pts = series.map((p, i) => [i * step, yFor(p)]);
+  const lineD = smoothPath(pts);
+  const areaD = `${lineD} L${w.toFixed(1)},${h} L0,${h} Z`;
+  const uid = 'c' + Math.random().toString(36).slice(2, 7);
+  const last = pts[pts.length - 1];
+  const grid = [0.25, 0.5, 0.75].map((f) =>
+    `<line x1="0" y1="${(h * f).toFixed(1)}" x2="${w}" y2="${(h * f).toFixed(1)}" stroke="var(--hairline)" stroke-width="1" opacity="0.45"/>`).join('');
+  const levelSvg = levels.map((l) => {
+    const y = yFor(l.v);
+    if (y < 6 || y > h - 6) return '';
+    const label = l.v.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    const chipW = 8 + label.length * 5.4;
+    return `<line x1="0" y1="${y.toFixed(1)}" x2="${(w - chipW - 3).toFixed(1)}" y2="${y.toFixed(1)}" stroke="${l.stroke}" stroke-width="1" stroke-dasharray="3 4" opacity="0.8"/>
+      <rect x="${(w - chipW).toFixed(1)}" y="${(y - 7).toFixed(1)}" width="${chipW.toFixed(1)}" height="14" rx="4" fill="${l.stroke}"/>
+      <text x="${(w - chipW / 2).toFixed(1)}" y="${(y + 3.2).toFixed(1)}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#08120d">${label}</text>`;
+  }).join('');
   return `
-  <svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none">
-    <defs><linearGradient id="acFill" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="${color}" stop-opacity="0.32"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/>
-    </linearGradient></defs>
-    ${showLevels ? level(s.plan.stop, 'var(--sell)') + level(s.plan.entry, 'var(--accent)') + level(s.plan.target1, 'var(--buy)') : ''}
-    <path d="${areaD}" fill="url(#acFill)"/>
+  <svg viewBox="0 0 ${w} ${h}" width="100%" style="height:auto;display:block">
+    <defs>
+      <linearGradient id="fill${uid}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${color}" stop-opacity="0.26"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+      </linearGradient>
+      <filter id="glow${uid}" x="-5%" y="-20%" width="110%" height="140%"><feGaussianBlur stdDeviation="2.4"/></filter>
+    </defs>
+    ${grid}
+    ${levelSvg}
+    <path d="${areaD}" fill="url(#fill${uid})"/>
+    <path d="${lineD}" fill="none" stroke="${color}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" opacity="0.3" filter="url(#glow${uid})"/>
     <path d="${lineD}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="6" fill="${color}" opacity="0.2"/>
+    <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="3" fill="${color}"/>
   </svg>`;
+}
+
+function areaChart(market, candles, color, showLevels) {
+  const s = market.signal;
+  const levels = showLevels ? [
+    { v: s.plan.target1, stroke: 'var(--buy)', label: 'T' },
+    { v: s.plan.entry, stroke: 'var(--accent)', label: 'E' },
+    { v: s.plan.stop, stroke: 'var(--sell)', label: 'S' },
+  ] : [];
+  return priceChartSvg(candles.map((c) => c.c), color, { levels, decimals: market.decimals });
 }
 
 function chartCanvasHtml(symbol, rangeKey) {
@@ -105,39 +150,14 @@ function wireChartRange(container, market, verdict, color) {
 }
 
 function chartSvg(market, color) {
-  const w = 500, h = 160;
-  const pts = market.history.slice(-40);
   const s = market.signal;
-  const allVals = [...pts, s.plan.stop, s.plan.target1];
-  const min = Math.min(...allVals), max = Math.max(...allVals);
-  const range = (max - min) || 1;
-  const pad = range * 0.12;
-  const lo = min - pad, hi = max + pad;
-  const yFor = (v) => h - ((v - lo) / (hi - lo)) * h;
-  const step = w / (pts.length - 1);
-  const linePts = pts.map((p, i) => `${(i * step).toFixed(1)},${yFor(p).toFixed(1)}`);
-  const lineD = 'M' + linePts.join(' L');
-  const areaD = `${lineD} L${w},${h} L0,${h} Z`;
-
-  function levelLine(v, stroke) {
-    const y = yFor(v).toFixed(1);
-    return `<line x1="0" y1="${y}" x2="${w}" y2="${y}" stroke="${stroke}" stroke-width="1" stroke-dasharray="4 4" opacity="0.8"/>`;
-  }
-
-  return `
-  <svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none">
-    <defs>
-      <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="${color}" stop-opacity="0.35"/>
-        <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
-      </linearGradient>
-    </defs>
-    ${levelLine(s.plan.stop, 'var(--sell)')}
-    ${levelLine(s.plan.entry, 'var(--accent)')}
-    ${levelLine(s.plan.target1, 'var(--buy)')}
-    <path d="${areaD}" fill="url(#areaFill)"/>
-    <path d="${lineD}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-  </svg>`;
+  const showLevels = market.verdict(state.settings.threshold) !== 'NO_TRADE';
+  const levels = showLevels ? [
+    { v: s.plan.target1, stroke: 'var(--buy)', label: 'T' },
+    { v: s.plan.entry, stroke: 'var(--accent)', label: 'E' },
+    { v: s.plan.stop, stroke: 'var(--sell)', label: 'S' },
+  ] : [];
+  return priceChartSvg(market.history.slice(-48), color, { levels, decimals: market.decimals });
 }
 
 function renderSignalTab(market, verdict, color) {
