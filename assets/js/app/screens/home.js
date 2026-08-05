@@ -37,7 +37,8 @@ export function render(container) {
   const perf = getPerformanceSummary();
 
   container.innerHTML = `
-  <div class="fade-in">
+  <div class="fade-in home-wrap">
+    <div class="dash-glow"></div>
     <div class="screen-header">
       <div>
         <div class="eyebrow">${greeting()}</div>
