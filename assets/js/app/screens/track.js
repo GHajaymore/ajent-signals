@@ -89,6 +89,7 @@ function fmtHoldMin(min) {
 
 function intro() {
   return `
+    <div class="dash-glow"></div>
     <h1 class="h-title">Paper Trading</h1>
     <p class="text-muted" style="font-size:13px;margin:4px 0 16px">Ajent auto-trades its own signals with virtual money so you can see how they perform — no real funds, no broker.</p>`;
 }
@@ -114,7 +115,7 @@ function openList() {
 function emptyState() {
   const open = getOpenPositions();
   return `
-  <div class="fade-in">
+  <div class="fade-in glow-wrap">
     ${intro()}
     ${marketSelector()}
     ${openList()}
@@ -139,7 +140,7 @@ export function render(container) {
   const pnlColor = perf.totalPnl >= 0 ? 'var(--buy)' : 'var(--sell)';
 
   container.innerHTML = `
-  <div class="fade-in">
+  <div class="fade-in glow-wrap">
     ${intro()}
     ${marketSelector()}
 

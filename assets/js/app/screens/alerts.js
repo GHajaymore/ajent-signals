@@ -15,7 +15,8 @@ export function render(container) {
   const alerts = state.engine.alerts;
 
   container.innerHTML = `
-  <div class="fade-in">
+  <div class="fade-in glow-wrap">
+    <div class="dash-glow"></div>
     <h1 class="h-title">Alerts</h1>
     <p class="text-muted" style="font-size:13px;margin:4px 0 18px">Real-time signal &amp; market notifications.</p>
 

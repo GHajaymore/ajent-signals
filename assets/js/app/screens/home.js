@@ -67,7 +67,7 @@ export function render(container) {
       <div class="stat-card">
         <div class="stat-label">Daily trend</div>
         <div class="stat-value" id="stat-daily-trend" style="font-size:15px;color:${riskOn ? 'var(--buy)' : 'var(--sell)'};display:flex;align-items:center;gap:5px">
-          <i class="ph-bold ${riskOn ? 'ph-trend-up' : 'ph-trend-down'}"></i>${riskOn ? 'Risk-on' : 'Risk-off'}
+          <i class="ph-bold ${riskOn ? 'ph-trend-up' : 'ph-trend-down'}"></i>${riskOn ? 'Up' : 'Down'}
         </div>
       </div>
     </div>
@@ -108,7 +108,7 @@ export function refresh(container) {
   if (avgConfEl) avgConfEl.textContent = `avg ${avgConf}%`;
   if (trendEl) {
     trendEl.style.color = riskOn ? 'var(--buy)' : 'var(--sell)';
-    trendEl.innerHTML = `<i class="ph-bold ${riskOn ? 'ph-trend-up' : 'ph-trend-down'}"></i>${riskOn ? 'Risk-on' : 'Risk-off'}`;
+    trendEl.innerHTML = `<i class="ph-bold ${riskOn ? 'ph-trend-up' : 'ph-trend-down'}"></i>${riskOn ? 'Up' : 'Down'}`;
   }
 
   // Hero: patch in place; only rebuild the whole card if the signal changed.

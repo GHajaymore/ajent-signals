@@ -36,7 +36,8 @@ export function render(container) {
   const engine = state.engine;
 
   container.innerHTML = `
-  <div class="fade-in">
+  <div class="fade-in glow-wrap">
+    <div class="dash-glow"></div>
     <h1 class="h-title">Markets</h1>
     <p class="text-muted" style="font-size:13px;margin:4px 0 16px">${engine.markets.length} global futures &amp; index markets</p>
 

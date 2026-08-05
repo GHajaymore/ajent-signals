@@ -39,8 +39,8 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
   filter: blur(6px);
   opacity: 0.9;
 }
-.home-wrap { position: relative; }
-.home-wrap > *:not(.dash-glow) { position: relative; z-index: 1; }
+.home-wrap, .glow-wrap { position: relative; }
+.home-wrap > *:not(.dash-glow), .glow-wrap > *:not(.dash-glow) { position: relative; z-index: 1; }
 .header-actions { display: flex; align-items: center; gap: 10px; flex: none; }
 .pill {
   display: inline-flex; align-items: center; gap: 7px;

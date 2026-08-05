@@ -282,7 +282,8 @@ export function render(container) {
   const tab = state.detailTab;
 
   container.innerHTML = `
-  <div class="fade-in">
+  <div class="fade-in glow-wrap">
+    <div class="dash-glow"></div>
     <div class="detail-header">
       <button class="back-btn" data-back><i class="ph-bold ph-arrow-left"></i></button>
       <div class="detail-title-block">

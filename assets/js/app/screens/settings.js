@@ -42,7 +42,8 @@ export function render(container) {
   const { contracts, riskPerContract } = computeRisk(market, accountBalance, riskPct);
 
   container.innerHTML = `
-  <div class="fade-in">
+  <div class="fade-in glow-wrap">
+    <div class="dash-glow"></div>
     <h1 class="h-title" style="margin-bottom:18px">Settings</h1>
 
     <div class="pro-card" data-nav="#/paywall">
