@@ -206,17 +206,21 @@ export function computeRealSignal(candles, def, rng, news = []) {
   const bear = indicators.filter((i) => i.state === 'bear').length;
   const neutral = indicators.length - bull - bear;
 
-  // Noise-tolerant geometry: a slightly wider stop so 5-minute noise doesn't
-  // stop us out before the move develops, and a first target close enough to
-  // actually be reached. A tight 1x-ATR stop under a far 2x-ATR target is the
-  // worst combination — frequent noise stop-outs, rare targets. Combined with
-  // the break-even stop in the paper tracker, this cuts the structural loss.
+  // Noise-tolerant geometry. The 14-period ATR of 5-minute bars is often only
+  // ~0.05–0.15% of price — tighter than the granularity of the free quote feed,
+  // which arrives as coarse snapshots that can jump 0.1%+ per update. A stop
+  // that small is blown through by feed noise alone, stopping out almost every
+  // trade regardless of direction. So the risk distance is floored at ~0.5% of
+  // price (or a wider 2.2x ATR for genuinely volatile markets, whichever is
+  // larger), giving trades room to actually develop. Target sits at 1.3x the
+  // risk; with the paper tracker's break-even stop this keeps a sane R:R.
   const entry = price;
-  const stop = entry - direction * atrNow * 1.4;
-  const trailingStopPts = atrNow * 1.2;
-  const target1 = entry + direction * atrNow * 1.8;
-  const target2 = entry + direction * atrNow * 2.8;
-  const target3 = entry + direction * atrNow * 4.0;
+  const riskDist = Math.max(atrNow * 2.2, price * 0.005);
+  const stop = entry - direction * riskDist;
+  const trailingStopPts = riskDist * 0.9;
+  const target1 = entry + direction * riskDist * 1.3;
+  const target2 = entry + direction * riskDist * 2.2;
+  const target3 = entry + direction * riskDist * 3.2;
   const riskReward = Math.abs(target1 - entry) / Math.abs(entry - stop || 1e-9);
 
   const agreeState = direction > 0 ? 'bull' : 'bear';

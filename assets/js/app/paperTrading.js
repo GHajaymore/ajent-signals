@@ -8,10 +8,12 @@ import { recordOutcome, isMarketAllowed } from './adaptiveWeights.js';
 
 const LS_KEY = 'ajent_paper_trades_v1';
 const MAX_CLOSED = 300;
-// Bump when a fix invalidates previously-recorded results. v2 discards history
-// polluted by the price-stream-mismatch bug (positions stopped out by phantom
-// gaps when a market's price switched between the real feed and the simulator).
-const SCHEMA = 2;
+// Bump when a fix invalidates previously-recorded results.
+//  v2 — discarded history polluted by the price-stream-mismatch bug (phantom
+//       gaps when a market's price switched between the real feed and the sim).
+//  v3 — stops were tighter than the quote-feed noise floor, so nearly every
+//       trade was noise-stopped; geometry now floors risk at ~0.5% of price.
+const SCHEMA = 3;
 
 function fresh() { return { v: SCHEMA, open: {}, closed: [], lastClosedSignalAt: {} }; }
 
