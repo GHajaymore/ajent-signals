@@ -39,6 +39,9 @@ function isHighConviction(signal, verdict) {
   const total = (c.bull || 0) + (c.bear || 0) + (c.neutral || 0) || 1;
   const agree = verdict === 'BUY' ? (c.bull || 0) : (c.bear || 0);
   if (agree / total < 0.65) return false;
+  // Don't trade against the higher-timeframe trend (flat is allowed).
+  if (signal.htfTrend === 'up' && verdict === 'SELL') return false;
+  if (signal.htfTrend === 'down' && verdict === 'BUY') return false;
   // Require the trend-strength gauge (ADX) to confirm the direction, not range.
   const adxInd = (signal.indicators || []).find((i) => i.name === 'ADX');
   const wantState = verdict === 'BUY' ? 'bull' : 'bear';

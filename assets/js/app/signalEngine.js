@@ -44,6 +44,11 @@ export function computeRealSignal(candles, def, rng, news = []) {
   const price = closes[n - 1];
 
   const ema9 = ema(closes, 9), ema20 = ema(closes, 20), ema50 = ema(closes, Math.min(50, Math.floor(n / 2)));
+  // Higher-timeframe trend proxy: a long EMA over the whole 5-day window acts
+  // like the daily/bigger-picture trend. Signals that fight this are the
+  // low-accuracy ones, so we only trade with it (see the penalty below).
+  const emaLong = ema(closes, Math.min(200, Math.max(50, Math.floor(n * 0.8))));
+  const htfTrend = price > emaLong[n - 1] * 1.0005 ? 'up' : price < emaLong[n - 1] * 0.9995 ? 'down' : 'flat';
   const rsiVals = rsi(closes, 14);
   const { histogram } = macd(closes);
   const atrVals = atr(candles, 14);
@@ -159,7 +164,14 @@ export function computeRealSignal(candles, def, rng, news = []) {
   const bullWeight = indicators.filter((i) => i.state === 'bull').reduce((s, i) => s + i.weight, 0);
   const bearWeight = indicators.filter((i) => i.state === 'bear').reduce((s, i) => s + i.weight, 0);
   const direction = bullWeight >= bearWeight ? 1 : -1;
-  const confidence = Math.round(Math.max(bullWeight, bearWeight));
+  // Higher-timeframe alignment: fighting the bigger trend is where accuracy
+  // collapses, so a counter-trend signal is heavily penalised (usually pushing
+  // it below the threshold so it never fires), while a with-trend signal is
+  // modestly rewarded. Flat HTF is left as-is.
+  const withTrend = (direction > 0 && htfTrend === 'up') || (direction < 0 && htfTrend === 'down');
+  const againstTrend = (direction > 0 && htfTrend === 'down') || (direction < 0 && htfTrend === 'up');
+  const htfFactor = againstTrend ? 0.6 : withTrend ? 1.06 : 1;
+  const confidence = Math.min(100, Math.round(Math.max(bullWeight, bearWeight) * htfFactor));
 
   const bull = indicators.filter((i) => i.state === 'bull').length;
   const bear = indicators.filter((i) => i.state === 'bear').length;
@@ -215,6 +227,7 @@ export function computeRealSignal(candles, def, rng, news = []) {
     direction,
     confidence,
     trend,
+    htfTrend,
     volatility,
     expectedHold: pick(rng, HOLD_BY_VOLATILITY[volatility]),
     plan: { entry, stop, trailingStopPts, target1, target2, target3, riskReward },
