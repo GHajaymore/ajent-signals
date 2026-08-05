@@ -12,7 +12,12 @@ const PROXIES = [
 ];
 
 const YAHOO_SYMBOL = {
-  ES: 'ES=F', MES: 'MES=F', NQ: 'NQ=F', MNQ: 'MNQ=F', YM: 'YM=F', RTY: 'RTY=F',
+  // US index "futures" are sourced from their REAL-TIME cash index instead of
+  // the =F future, which Yahoo delays ~15-25 min on the free tier. The cash
+  // index tracks the front-month future within the fair-value basis (~0.2-0.5%),
+  // so the signal is effectively real-time and free. Both the quote and the
+  // candles come from this one stream, so there's no scale-mixing.
+  ES: '^GSPC', MES: '^GSPC', NQ: '^NDX', MNQ: '^NDX', YM: '^DJI', RTY: '^RUT',
   CL: 'CL=F', NG: 'NG=F',
   GC: 'GC=F', SI: 'SI=F', HG: 'HG=F',
   ZN: 'ZN=F', ZB: 'ZB=F',
