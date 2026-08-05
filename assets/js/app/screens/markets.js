@@ -26,10 +26,15 @@ function listHtml() {
   const byCategory = CATEGORY_ORDER.map((cat) => ({ cat, list: filtered.filter((m) => m.category === cat) })).filter((g) => g.list.length);
 
   return byCategory.map((g) => `
-    <div class="cat-label" style="color:${CAT_COLOR[g.cat]}">${g.cat.toUpperCase()}<span class="cat-count">${g.list.length}</span></div>
-    <div class="card" style="padding:2px 12px">
-      ${g.list.map((m) => marketRow(m, m.verdict(threshold))).join('')}
-    </div>
+    <details class="mkt-group" open>
+      <summary class="cat-label" style="color:${CAT_COLOR[g.cat]};cursor:pointer">
+        <span>${g.cat.toUpperCase()}<span class="cat-count">${g.list.length}</span></span>
+        <i class="ph ph-caret-down" style="margin-left:auto;font-size:14px;color:var(--text-muted)"></i>
+      </summary>
+      <div class="card" style="padding:2px 12px">
+        ${g.list.map((m) => marketRow(m, m.verdict(threshold))).join('')}
+      </div>
+    </details>
   `).join('') || '<p class="text-muted" style="text-align:center;margin-top:40px">No contracts match your search.</p>';
 }
 
