@@ -1,7 +1,20 @@
 import { getClosedTrades, getPerformanceSummary, getOpenPositions, tradePnl } from '../paperTrading.js';
 import { fmtPrice } from '../format.js';
-import { state, getEnabledPaperMarkets, setPaperMarketEnabled, setAllPaperMarkets } from '../state.js';
+import { state, getEnabledPaperMarkets, setPaperMarketEnabled, setAllPaperMarkets, setPaperMarkets } from '../state.js';
 import { CATEGORY_ORDER } from '../mockEngine.js';
+
+// Coarse region grouping for the quick paper-trade presets, from each market's
+// country code. Anything unmapped falls into "Other".
+const REGION_BY_COUNTRY = {
+  US: 'US',
+  IN: 'India',
+  GB: 'Europe', DE: 'Europe', FR: 'Europe', EU: 'Europe', CH: 'Europe',
+  JP: 'Asia', HK: 'Asia', CN: 'Asia', SG: 'Asia', AU: 'Asia', NZ: 'Asia',
+  CA: 'Other', BR: 'Other',
+};
+const REGION_ORDER = ['US', 'Europe', 'Asia', 'India', 'Other'];
+const regionOf = (country) => REGION_BY_COUNTRY[country] || 'Other';
+const symbolsInRegion = (region) => state.engine.markets.filter((m) => regionOf(m.country) === region).map((m) => m.symbol);
 
 function marketSelector() {
   const engine = state.engine;
@@ -20,6 +33,11 @@ function marketSelector() {
       <button class="btn btn-ghost" id="pm-toggle" style="height:34px;padding:0 16px;font-size:13px;flex:none">Edit</button>
     </div>
     <div id="pm-list" style="display:none;margin-top:14px">
+      <div class="eyebrow" style="margin-bottom:6px">Limit to a region</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+        ${REGION_ORDER.map((r) => `<button class="chip region-chip" data-region="${r}" style="cursor:pointer;background:var(--neutral-900);color:var(--text-muted)">${r}</button>`).join('')}
+      </div>
+      <div class="eyebrow" style="margin-bottom:6px">Or pick individually</div>
       <div style="display:flex;gap:8px;margin-bottom:6px">
         <button class="chip" id="pm-all" style="cursor:pointer;background:var(--accent-800);color:var(--accent-100)">Select all</button>
         <button class="chip" id="pm-none" style="cursor:pointer;background:var(--neutral-900);color:var(--text-muted)">Clear all</button>
@@ -73,6 +91,16 @@ function wireSelector(container) {
     setAllPaperMarkets(false, all);
     container.querySelectorAll('[data-pm-sym]').forEach((sw) => sw.classList.remove('on'));
     updateCount();
+  });
+  // Region presets: limit auto-trading to one region in a tap. The individual
+  // switches below still work, so you can fine-tune from there.
+  container.querySelectorAll('[data-region]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      const syms = new Set(symbolsInRegion(chip.dataset.region));
+      setPaperMarkets([...syms]);
+      container.querySelectorAll('[data-pm-sym]').forEach((sw) => sw.classList.toggle('on', syms.has(sw.dataset.pmSym)));
+      updateCount();
+    });
   });
 }
 

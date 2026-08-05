@@ -54,6 +54,12 @@ export function setAllPaperMarkets(on, allSymbols) {
   saveSettings();
 }
 
+// Replace the auto-trade set with an explicit list (used by the region presets).
+export function setPaperMarkets(symbols) {
+  state.settings.paperMarkets = [...symbols];
+  saveSettings();
+}
+
 export const state = {
   engine: createEngine(),
   accepted: localStorage.getItem(LS_ACCEPT) === '1',
