@@ -342,3 +342,9 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
   .hero-verdict { font-size: 30px; }
   .stat-row, .hero-quad { gap: 7px; }
 }
+
+/* Collapsible <details> — use our own caret, hide the native marker */
+summary { list-style: none; }
+summary::-webkit-details-marker { display: none; }
+details[open] > summary .ph-caret-down { transform: rotate(180deg); }
+summary .ph-caret-down { transition: transform 0.2s ease; }

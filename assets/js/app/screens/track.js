@@ -94,6 +94,23 @@ function intro() {
     <p class="text-muted" style="font-size:13px;margin:4px 0 16px">Ajent auto-trades its own signals with virtual money so you can see how they perform — no real funds, no broker.</p>`;
 }
 
+// User-facing explainer of how the dollar P&L is computed — especially for
+// non-US markets quoted in other currencies. Native <details> = no JS wiring.
+function pnlHelp() {
+  return `
+  <details class="panel" style="padding:14px 16px">
+    <summary style="cursor:pointer;font:600 14px var(--font-heading);display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <span>How is profit &amp; loss calculated?</span>
+      <i class="ph ph-caret-down" style="color:var(--text-muted);flex:none"></i>
+    </summary>
+    <div class="text-muted" style="font-size:12.5px;line-height:1.65;margin-top:10px">
+      Every paper trade risks the <b style="color:var(--text)">same amount</b> — your account size × your risk-per-trade % (both set in Settings). A win adds your reward-to-risk ratio times that stake; a loss subtracts the stake. So a $250 stake at 2:1 makes <span style="color:var(--buy)">+$500</span> on a win or <span style="color:var(--sell)">−$250</span> on a loss.
+      <br><br>
+      Because the result is measured in <b style="color:var(--text)">your account currency</b>, it works identically for every market — including non-US futures and indexes quoted in euros, yen, pounds or any other currency. <b style="color:var(--text)">No currency conversion is needed:</b> Ajent tracks the dollars you put at risk, not the instrument's local-currency ticks.
+    </div>
+  </details>`;
+}
+
 function openList() {
   const open = getOpenPositions();
   if (!open.length) return '';
@@ -117,6 +134,7 @@ function emptyState() {
   return `
   <div class="fade-in glow-wrap">
     ${intro()}
+    ${pnlHelp()}
     ${marketSelector()}
     ${openList()}
     <div class="panel" style="text-align:center;padding:38px 20px;margin-top:12px">
@@ -142,6 +160,7 @@ export function render(container) {
   container.innerHTML = `
   <div class="fade-in glow-wrap">
     ${intro()}
+    ${pnlHelp()}
     ${marketSelector()}
 
     <div class="panel" style="text-align:center;padding:20px 16px 18px">
