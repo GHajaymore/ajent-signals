@@ -15,7 +15,9 @@ const MAX_CLOSED = 300;
 //       trade was noise-stopped; geometry now floors risk at ~0.5% of price.
 //  v4 — signals moved from 5-minute to 15-minute candles (better signal-to-
 //       noise); prior results were recorded on the noisier timeframe.
-const SCHEMA = 4;
+//  v5 — trades now open at the live price (not the lagging candle entry), which
+//       was booking instant losses when price moved between candle and quote.
+const SCHEMA = 5;
 
 function fresh() { return { v: SCHEMA, open: {}, closed: [], lastClosedSignalAt: {} }; }
 
@@ -100,26 +102,32 @@ export function maybeOpenPositions(engine, threshold, riskDollars = 250, enabled
     // profit — no signal is — it just avoids paper-trading marginal, conflicted
     // setups that barely cleared the threshold.
     if (!isHighConviction(s, verdict)) continue;
-    // The plan's entry must match the price we'll monitor. If they've drifted
-    // apart (a stale signal, or the price stream moved), skip — opening here
-    // would book an instant, artificial win or loss.
-    const openRisk = Math.abs(s.plan.entry - s.plan.stop) || 1e-9;
-    if (Math.abs(market.price - s.plan.entry) > openRisk * 3) continue;
     // A position can only be opened once per signal generation — otherwise a
     // stale signal (unchanged for up to 5 min between real recomputes) whose
     // price has already reached its target/stop would reopen and immediately
     // re-close on every single tick, spamming alerts and fabricating wins.
     if (store.lastClosedSignalAt[market.symbol] === s.createdAt) continue;
+    // Anchor the trade to the CURRENT live price, not the signal's plan entry.
+    // The plan entry comes from the last 15-min candle close, which can lag the
+    // live quote during a fast move — opening at that stale entry would put the
+    // trade at/through its stop before it even starts. Keep the signal's risk
+    // and target DISTANCES, but measure them from the price we actually monitor.
+    const dir = verdict === 'BUY' ? 1 : -1;
+    const risk = Math.abs(s.plan.entry - s.plan.stop) || market.price * 0.005;
+    const targetDist = Math.abs(s.plan.target1 - s.plan.entry) || risk * 1.3;
+    const entry = market.price;
+    const stop = entry - dir * risk;
+    const target1 = entry + dir * targetDist;
     store.open[market.symbol] = {
       symbol: market.symbol,
       name: market.name,
       side: verdict === 'BUY' ? 'LONG' : 'SHORT',
-      entry: s.plan.entry,
-      stop: s.plan.stop,
-      target1: s.plan.target1,
+      entry,
+      stop,
+      target1,
       riskReward: s.plan.riskReward,
       // Initial risk distance and a break-even flag drive stop management below.
-      risk: Math.abs(s.plan.entry - s.plan.stop),
+      risk,
       beMoved: false,
       confidence: s.confidence,
       decimals: market.decimals,
