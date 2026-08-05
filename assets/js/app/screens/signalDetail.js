@@ -1,4 +1,4 @@
-import { state, saveSettings } from '../state.js';
+import { state, saveSettings, toggleFavorite } from '../state.js';
 import { fmtPrice, fmtCountdown, verdictColorVar, countryFlag } from '../format.js';
 import { confidenceRing, verdictIcon, indicatorRow, planRow, dataTag } from '../components.js';
 import { YAHOO_SYMBOL } from '../liveData.js';
@@ -306,7 +306,7 @@ export function render(container) {
     btn.addEventListener('click', () => { location.hash = `#/signal/${market.symbol}/${btn.dataset.tab}`; });
   });
   document.getElementById('fav-btn').addEventListener('click', () => {
-    market.favorite = !market.favorite;
+    toggleFavorite(market.symbol);
     render(container);
   });
   if (tab === 'chart') wireChartRange(container, market, verdict, color);

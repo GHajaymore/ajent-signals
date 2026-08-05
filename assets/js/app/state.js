@@ -69,6 +69,24 @@ export const state = {
   hasUnreadAlerts: true,
 };
 
+// Favorites (the star) — persisted so a user's starred markets survive reloads.
+const LS_FAV = 'ajent_favorites_v1';
+try {
+  const favs = JSON.parse(localStorage.getItem(LS_FAV));
+  if (Array.isArray(favs)) favs.forEach((sym) => { const m = state.engine.get(sym); if (m) m.favorite = true; });
+} catch (e) { /* ignore */ }
+
+export function toggleFavorite(symbol) {
+  const m = state.engine.get(symbol);
+  if (!m) return false;
+  m.favorite = !m.favorite;
+  try {
+    const favs = state.engine.markets.filter((x) => x.favorite).map((x) => x.symbol);
+    localStorage.setItem(LS_FAV, JSON.stringify(favs));
+  } catch (e) { /* ignore */ }
+  return m.favorite;
+}
+
 export function acceptDisclaimer() {
   state.accepted = true;
   localStorage.setItem(LS_ACCEPT, '1');

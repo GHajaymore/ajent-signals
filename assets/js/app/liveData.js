@@ -77,4 +77,24 @@ export function startLiveDataLoop(engine, { intervalMs = 15000, stagger = 120 } 
   return setInterval(() => refreshAll(engine, stagger), intervalMs);
 }
 
+// Fast, targeted refresh for just the symbols the user is currently looking at
+// (the open detail chart, or the Home watchlist). Refetching a handful of
+// symbols every few seconds makes the visible screen feel live without
+// hammering the free proxies with all ~43 markets. getFocusSymbols() is a
+// callback so the caller can return whatever the current route is showing.
+export function startFocusDataLoop(engine, getFocusSymbols, { intervalMs = 4000 } = {}) {
+  const pump = () => {
+    const syms = getFocusSymbols() || [];
+    for (const sym of syms) {
+      const ySym = YAHOO_SYMBOL[sym];
+      if (!ySym) continue;
+      fetchYahooQuote(ySym)
+        .then(({ price, prevClose }) => { const m = engine.get(sym); if (m) m.applyLiveQuote(price, prevClose); })
+        .catch(() => { /* slow sweep will retry / mark unavailable */ });
+    }
+  };
+  pump();
+  return setInterval(pump, intervalMs);
+}
+
 export { LIVE_STALE_MS, YAHOO_SYMBOL };

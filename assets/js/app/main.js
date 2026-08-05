@@ -8,7 +8,7 @@ import * as calendarScreen from './screens/calendar.js';
 import * as alertsScreen from './screens/alerts.js';
 import * as settingsScreen from './screens/settings.js';
 import * as paywall from './screens/paywall.js';
-import { startLiveDataLoop } from './liveData.js';
+import { startLiveDataLoop, startFocusDataLoop } from './liveData.js';
 import { applyGeoDefaults } from './geo.js';
 import { startUpdateWatcher } from './updateCheck.js';
 import { startSignalRefreshLoop } from './signalRefreshLoop.js';
@@ -139,6 +139,14 @@ function refreshRoute() {
 window.addEventListener('hashchange', renderRoute);
 renderRoute();
 startLiveDataLoop(state.engine);
+// Fast-poll only what's on screen so the visible price ticks like a live quote.
+startFocusDataLoop(state.engine, () => {
+  const route = parseHash();
+  if (route[0] === 'signal' && route[1]) return [route[1]];
+  if (route[0] === 'home' || !route[0]) return [state.homeSymbol, ...state.homeWatchlist];
+  if (route[0] === 'markets') return state.homeWatchlist;
+  return [];
+});
 startSignalRefreshLoop(state.engine);
 applyGeoDefaults(state);
 startUpdateWatcher();
