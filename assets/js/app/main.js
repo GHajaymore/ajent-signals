@@ -23,7 +23,7 @@ const TABS = [
   { key: 'settings', label: 'Settings', icon: 'ph-gear' },
 ];
 
-const LIVE_SCREENS = new Set(['home', 'markets', 'signal']);
+const LIVE_SCREENS = new Set(['home', 'markets', 'signal', 'track']);
 const NO_TABBAR = new Set(['gate', 'paywall']);
 
 const contentEl = document.getElementById('app-content');
@@ -131,6 +131,7 @@ function refreshRoute() {
     case 'home': home.refresh?.(contentEl); break;
     case 'markets': marketsScreen.refresh?.(contentEl); break;
     case 'signal': signalDetail.refresh?.(contentEl); break;
+    case 'track': track.refresh?.(contentEl); break;
     default: return;
   }
   wireGlobalNav();

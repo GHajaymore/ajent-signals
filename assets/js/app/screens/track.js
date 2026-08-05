@@ -18,10 +18,14 @@ const symbolsInRegion = (region) => state.engine.markets.filter((m) => regionOf(
 
 // Compact current-signal indicator per market, so you can pick markets that are
 // actually trending. Reflects the same BUY/SELL/NO_TRADE verdict as everywhere.
-function pmVerdictTag(verdict) {
-  if (verdict === 'BUY') return '<span class="pm-trend buy"><i class="ph-fill ph-caret-up"></i>Buy</span>';
-  if (verdict === 'SELL') return '<span class="pm-trend sell"><i class="ph-fill ph-caret-down"></i>Sell</span>';
-  return '<span class="pm-trend flat">Flat</span>';
+function verdictBits(verdict) {
+  if (verdict === 'BUY') return { cls: 'buy', inner: '<i class="ph-fill ph-caret-up"></i>Buy' };
+  if (verdict === 'SELL') return { cls: 'sell', inner: '<i class="ph-fill ph-caret-down"></i>Sell' };
+  return { cls: 'flat', inner: 'Flat' };
+}
+function pmVerdictTag(verdict, symbol) {
+  const b = verdictBits(verdict);
+  return `<span class="pm-trend ${b.cls}" data-pm-trend="${symbol}">${b.inner}</span>`;
 }
 
 function marketSelector() {
@@ -68,7 +72,7 @@ function marketSelector() {
                 <span style="font:700 11px var(--font-heading)">${m.symbol}</span>
                 <span class="text-muted" style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.name}</span>
               </div>
-              ${pmVerdictTag(m.verdict(threshold))}
+              ${pmVerdictTag(m.verdict(threshold), m.symbol)}
               <div class="switch ${enabled.has(m.symbol) ? 'on' : ''}" data-pm-sym="${m.symbol}"></div>
             </div>`).join('')}
         </details>`;
@@ -299,4 +303,21 @@ export function render(container) {
   </div>`;
 
   wireSelector(container);
+}
+
+// Live, in-place refresh: only re-paint the per-market Buy/Sell/Flat tags in the
+// selector while it's open. Never rebuilds the panel, so the open/closed groups
+// and any in-progress editing stay put.
+export function refresh(container) {
+  const list = container.querySelector('#pm-list');
+  if (!list || list.style.display === 'none') return;
+  const threshold = state.settings.threshold;
+  list.querySelectorAll('[data-pm-trend]').forEach((el) => {
+    const m = state.engine.get(el.dataset.pmTrend);
+    if (!m) return;
+    const b = verdictBits(m.verdict(threshold));
+    const cls = `pm-trend ${b.cls}`;
+    if (el.className !== cls) el.className = cls;
+    if (el.innerHTML !== b.inner) el.innerHTML = b.inner;
+  });
 }
