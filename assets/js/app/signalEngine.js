@@ -2,7 +2,7 @@
 // random signal generator. This is a rule-based weighted score, NOT a
 // statistically calibrated probability of a winning trade: no combination of
 // technical indicators guarantees a given win rate, and none is claimed here.
-import { ema, rsi, macd, atr, bollingerBands, sessionVwap, supertrend, marketStructure, adx, obv } from './indicators.js';
+import { ema, rsi, macd, atr, bollingerBands, sessionVwap, supertrend, marketStructure, adx, obv, cci, ichimoku } from './indicators.js';
 import { summarizeNews } from './news.js';
 
 // Weights sum to 100. Deliberately non-redundant — one indicator per distinct
@@ -18,16 +18,18 @@ import { summarizeNews } from './news.js';
 // We intentionally avoid piling on redundant oscillators (e.g. Stochastic RSI
 // on top of RSI) — more indicators that move together add noise, not edge.
 const WEIGHTS = {
-  'EMA Stack': 13,
-  Supertrend: 11,
-  ADX: 12,
-  MACD: 10,
-  'Market Structure': 12,
-  'RSI (14)': 9,
-  'Bollinger Bands': 7,
-  VWAP: 10,
-  Volume: 9,
-  'News Sentiment': 7,
+  'EMA Stack': 10,
+  Supertrend: 9,
+  ADX: 11,
+  Ichimoku: 9,
+  MACD: 9,
+  'RSI (14)': 7,
+  CCI: 7,
+  'Market Structure': 11,
+  'Bollinger Bands': 6,
+  VWAP: 9,
+  Volume: 8,
+  'News Sentiment': 4,
 };
 
 const HOLD_BY_VOLATILITY = {
@@ -58,6 +60,8 @@ export function computeRealSignal(candles, def, rng, news = []) {
   const structure = marketStructure(candles, 6);
   const adxVals = adx(candles, 14);
   const obvVals = obv(candles);
+  const cciVals = cci(candles, 20);
+  const ich = ichimoku(candles);
 
   const atrNow = atrVals[n - 1] ?? price * 0.006;
   const atrPctNow = atrNow / price;
@@ -94,6 +98,15 @@ export function computeRealSignal(candles, def, rng, news = []) {
     indicators.push({ name: 'ADX', state, detail, weight: WEIGHTS.ADX });
   }
 
+  // 3b. Ichimoku — trend structure via Tenkan/Kijun and price location.
+  {
+    const t = ich.tenkan[n - 1], k = ich.kijun[n - 1];
+    const state = t != null && k != null && price > k && t > k ? 'bull'
+      : t != null && k != null && price < k && t < k ? 'bear' : 'neutral';
+    const detail = state === 'bull' ? 'Price above the Kijun, Tenkan leading up' : state === 'bear' ? 'Price below the Kijun, Tenkan leading down' : 'Coiled around the cloud';
+    indicators.push({ name: 'Ichimoku', state, detail, weight: WEIGHTS.Ichimoku });
+  }
+
   // 4. MACD — momentum confirmation via histogram direction/expansion.
   {
     const h = histogram[n - 1], hPrev = histogram[n - 2] ?? h;
@@ -115,6 +128,14 @@ export function computeRealSignal(candles, def, rng, news = []) {
     const state = v >= 55 && v < 72 ? 'bull' : v <= 45 && v > 28 ? 'bear' : 'neutral';
     const detail = state === 'bull' ? `${v} — bullish, not overbought` : state === 'bear' ? `${v} — bearish, not oversold` : `${v} — neutral range`;
     indicators.push({ name: 'RSI (14)', state, detail, weight: WEIGHTS['RSI (14)'] });
+  }
+
+  // 5b. CCI — commodity channel index; deviation from the mean (futures-native).
+  {
+    const v = cciVals[n - 1] ?? 0;
+    const state = v > 60 ? 'bull' : v < -60 ? 'bear' : 'neutral';
+    const detail = state === 'bull' ? `CCI ${Math.round(v)} — strong upside push` : state === 'bear' ? `CCI ${Math.round(v)} — strong downside push` : `CCI ${Math.round(v)} — near the mean`;
+    indicators.push({ name: 'CCI', state, detail, weight: WEIGHTS.CCI });
   }
 
   // 6. Bollinger Bands — volatility-relative position (breakout/exhaustion context).
@@ -197,6 +218,8 @@ export function computeRealSignal(candles, def, rng, news = []) {
     'EMA Stack': { bull: 'The prevailing trend is up and well established.', bear: 'The prevailing trend is down and well established.' },
     Supertrend: { bull: 'Trend-following models confirm the upside.', bear: 'Trend-following models confirm the downside.' },
     ADX: { bull: 'Trend strength is high — this is a real move, not a choppy range.', bear: 'Trend strength is high — this is a real move, not a choppy range.' },
+    Ichimoku: { bull: 'Price is holding above its cloud trend structure.', bear: 'Price is trading below its cloud trend structure.' },
+    CCI: { bull: 'Price has pushed strongly above its statistical mean.', bear: 'Price has pushed strongly below its statistical mean.' },
     MACD: { bull: 'Momentum is expanding in the trade’s direction.', bear: 'Momentum is expanding in the trade’s direction.' },
     'Market Structure': { bull: 'Price structure is making higher highs and higher lows.', bear: 'Price structure is making lower highs and lower lows.' },
     'RSI (14)': { bull: 'Momentum has room to run without being overextended.', bear: 'Momentum has room to fall without being oversold.' },

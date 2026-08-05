@@ -191,6 +191,42 @@ export function obv(candles) {
   return out;
 }
 
+// CCI (Commodity Channel Index) — designed for commodities/futures; measures
+// how far price has deviated from its statistical mean. > +100 strong up,
+// < -100 strong down.
+export function cci(candles, period = 20) {
+  const n = candles.length;
+  const tp = candles.map((c) => (c.h + c.l + c.c) / 3);
+  const out = new Array(n).fill(null);
+  for (let i = period - 1; i < n; i++) {
+    let sum = 0;
+    for (let j = i - period + 1; j <= i; j++) sum += tp[j];
+    const mean = sum / period;
+    let md = 0;
+    for (let j = i - period + 1; j <= i; j++) md += Math.abs(tp[j] - mean);
+    md /= period;
+    out[i] = md === 0 ? 0 : (tp[i] - mean) / (0.015 * md);
+  }
+  return out;
+}
+
+// Ichimoku (simplified to the tradable signal): Tenkan (9) & Kijun (26)
+// midpoints. Price above Kijun with Tenkan above Kijun = bullish structure.
+export function ichimoku(candles, conv = 9, base = 26) {
+  const n = candles.length;
+  const midpoint = (from, to) => {
+    let hi = -Infinity, lo = Infinity;
+    for (let j = from; j <= to; j++) { if (candles[j].h > hi) hi = candles[j].h; if (candles[j].l < lo) lo = candles[j].l; }
+    return (hi + lo) / 2;
+  };
+  const tenkan = new Array(n).fill(null), kijun = new Array(n).fill(null);
+  for (let i = 0; i < n; i++) {
+    if (i >= conv - 1) tenkan[i] = midpoint(i - conv + 1, i);
+    if (i >= base - 1) kijun[i] = midpoint(i - base + 1, i);
+  }
+  return { tenkan, kijun };
+}
+
 // Simple swing-based market structure: compares the two most recent swing highs
 // and swing lows (fractal pivots) to call a break of structure up/down/ranging.
 export function marketStructure(candles, lookback = 3) {

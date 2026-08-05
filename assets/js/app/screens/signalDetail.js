@@ -212,8 +212,8 @@ function renderBreakdownTab(market, color) {
 // never exposed in the UI. Each category's verdict is the weight-weighted lean
 // of its members.
 const FACTOR_CATEGORIES = [
-  { label: 'Trend', names: ['EMA Stack', 'Supertrend', 'ADX'], txt: { bull: 'Uptrend, strengthening', bear: 'Downtrend, strengthening', neutral: 'No clear trend' } },
-  { label: 'Momentum', names: ['MACD', 'RSI (14)'], txt: { bull: 'Favoring buyers', bear: 'Favoring sellers', neutral: 'Flat momentum' } },
+  { label: 'Trend', names: ['EMA Stack', 'Supertrend', 'ADX', 'Ichimoku'], txt: { bull: 'Uptrend, strengthening', bear: 'Downtrend, strengthening', neutral: 'No clear trend' } },
+  { label: 'Momentum', names: ['MACD', 'RSI (14)', 'CCI'], txt: { bull: 'Favoring buyers', bear: 'Favoring sellers', neutral: 'Flat momentum' } },
   { label: 'Market structure', names: ['Market Structure'], txt: { bull: 'Higher highs & higher lows', bear: 'Lower highs & lower lows', neutral: 'Range-bound' } },
   { label: 'Volatility & levels', names: ['Bollinger Bands', 'VWAP'], txt: { bull: 'Expanding in trade’s favor', bear: 'Expanding against trade', neutral: 'Contained near fair value' } },
   { label: 'Volume', names: ['Volume'], txt: { bull: 'Confirming buyers', bear: 'Confirming sellers', neutral: 'Neutral volume flow' } },
