@@ -69,6 +69,14 @@ export function dataTag(market) {
     : '<span class="data-tag sim" title="Simulated — real analysis unavailable right now">SIM</span>') + closed;
 }
 
+// Live-status pill for the hero: a pulsing dot + label that makes it obvious the
+// card is streaming, instead of a climbing "updated Ns ago" that reads as stale.
+export function liveTag(market) {
+  if (market.isClosed) return '<span class="live-dot off"></span>Market closed';
+  if (market.isLiveFresh) return '<span class="live-dot"></span>Live';
+  return '<span class="live-dot off"></span>Simulated';
+}
+
 export function heroCard(market, verdict) {
   const color = verdictColorVar(verdict);
   const s = market.signal;
@@ -98,7 +106,7 @@ export function heroCard(market, verdict) {
           <div class="hero-conf-bar-track"><div class="hero-conf-bar-fill" style="width:${s.confidence}%;background:${color}"></div></div>
         </div>
       </div>
-      <div class="hero-subline" data-f="subline">${s.trend} · ${s.volatility} volatility · updated ${Math.max(1, Math.floor(s.createdAt ? (Date.now() - s.createdAt) / 1000 : 0))}s ago</div>
+      <div class="hero-subline"><span data-f="subline">${s.trend} · ${s.volatility} volatility</span> · <span class="hero-live" data-f="live">${liveTag(market)}</span></div>
       ${verdict === 'NO_TRADE' ? `
       <div class="hero-no-setup">No active setup — entry, stop &amp; target appear once a BUY or SELL fires.</div>` : `
       <div class="hero-quad">
@@ -144,6 +152,18 @@ export function marketRow(market, verdict) {
   </div>`;
 }
 
+// Briefly flash a price cell green/red when it ticks, so a live update is
+// visible even when the number barely moves. The reflow (offsetWidth) restarts
+// the CSS animation if it's already mid-flash.
+function flashPrice(px, oldText, newText) {
+  const o = parseFloat(String(oldText).replace(/,/g, ''));
+  const n = parseFloat(String(newText).replace(/,/g, ''));
+  if (!Number.isFinite(o) || !Number.isFinite(n) || o === n) return;
+  px.classList.remove('flash-up', 'flash-down');
+  void px.offsetWidth;
+  px.classList.add(n > o ? 'flash-up' : 'flash-down');
+}
+
 // Patch the hero card's volatile fields (price/change/subline) in place.
 // Returns false when the signal itself changed (new verdict or recompute), so
 // the caller knows to rebuild the whole card; true when patched cleanly.
@@ -154,7 +174,7 @@ export function patchHero(el, market, verdict) {
   }
   const priceStr = fmtPrice(market.price, market.decimals);
   const px = el.querySelector('[data-f="price"]');
-  if (px && px.textContent !== priceStr) px.textContent = priceStr;
+  if (px && px.textContent !== priceStr) { flashPrice(px, px.textContent, priceStr); px.textContent = priceStr; }
   const chg = el.querySelector('[data-f="chg"]');
   if (chg) {
     const t = fmtPct(market.changePct);
@@ -163,9 +183,11 @@ export function patchHero(el, market, verdict) {
   }
   const sub = el.querySelector('[data-f="subline"]');
   if (sub) {
-    const t = `${s.trend} · ${s.volatility} volatility · updated ${Math.max(1, Math.floor(s.createdAt ? (Date.now() - s.createdAt) / 1000 : 0))}s ago`;
+    const t = `${s.trend} · ${s.volatility} volatility`;
     if (sub.textContent !== t) sub.textContent = t;
   }
+  const live = el.querySelector('[data-f="live"]');
+  if (live) live.innerHTML = liveTag(market);
   return true;
 }
 
@@ -175,7 +197,7 @@ export function patchRow(el, market, verdict) {
   const chgColor = market.changePct >= 0 ? 'var(--buy)' : 'var(--sell)';
   const priceStr = fmtPrice(market.price, market.decimals);
   const px = el.querySelector('[data-f="price"]');
-  if (px && px.textContent !== priceStr) px.textContent = priceStr;
+  if (px && px.textContent !== priceStr) { flashPrice(px, px.textContent, priceStr); px.textContent = priceStr; }
   const chgStr = fmtPct(market.changePct);
   const chg = el.querySelector('[data-f="chg"]');
   if (chg) { if (chg.textContent !== chgStr) chg.textContent = chgStr; chg.style.color = chgColor; }
