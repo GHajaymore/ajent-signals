@@ -1,8 +1,25 @@
-import { state, saveSettings, toggleWatchlist, isInWatchlist } from '../state.js';
+import { state, saveSettings, toggleWatchlist, isInWatchlist, getEnabledPaperMarkets } from '../state.js';
 import { fmtPrice, fmtCountdown, verdictColorVar, countryFlag } from '../format.js';
 import { confidenceRing, verdictIcon, indicatorRow, planRow, dataTag } from '../components.js';
 import { YAHOO_SYMBOL } from '../liveData.js';
 import { fetchCandles } from '../candles.js';
+import { isHighConviction, getOpenPositions } from '../paperTrading.js';
+import { isMarketAllowed } from '../adaptiveWeights.js';
+
+// Explains whether this signal is actually being paper-traded, and if not, why.
+// A BUY/SELL verdict clears the confidence threshold, but the paper-trader is
+// deliberately stricter — so the two can legitimately disagree. Making that
+// visible avoids the "it says BUY but there's no trade" confusion.
+function autoTradeStatus(market, verdict) {
+  if (verdict === 'NO_TRADE') return null;
+  if (!market.signalIsReal) return { ok: false, text: 'On simulated data right now — the live feed is unavailable, so this read is illustrative and is not paper-traded. It resumes trading once real data returns.' };
+  const enabled = getEnabledPaperMarkets(state.engine.markets.map((m) => m.symbol));
+  if (!enabled.has(market.symbol)) return { ok: false, text: 'Not in your auto-trade list — add it in Paper Trading → Auto-traded markets.' };
+  if (!isMarketAllowed(market.symbol)) return { ok: false, text: 'Auto-trading is paused for this market after a recent run of losses. It resumes on its own.' };
+  if (getOpenPositions().some((p) => p.symbol === market.symbol)) return { ok: true, text: 'Already in an open paper trade — the next one opens after this closes.' };
+  if (!isHighConviction(market.signal, verdict)) return { ok: false, text: 'Shown as a directional lean, but auto-trading holds out for a higher-conviction setup (stronger, cross-confirmed agreement) before risking capital.' };
+  return { ok: true, text: 'This setup is being paper-traded.' };
+}
 
 // Chart ranges the user can pick, from 5-minute intraday out to ~30 days.
 const RANGES = {
@@ -163,12 +180,19 @@ function chartSvg(market, color) {
 function renderSignalTab(market, verdict, color) {
   const s = market.signal;
   const subline = verdict === 'NO_TRADE' ? 'Waiting for a high-probability setup' : (verdict === 'BUY' ? 'Long setup confirmed' : 'Short setup confirmed');
+  const status = autoTradeStatus(market, verdict);
+  const statusHtml = status ? `
+  <div class="trade-status ${status.ok ? 'ok' : 'wait'}">
+    <i class="ph-fill ${status.ok ? 'ph-check-circle' : 'ph-info'}"></i>
+    <span>${status.text}</span>
+  </div>` : '';
   return `
   <div class="verdict-frame" style="border-color:${color}">
     <div class="verdict-big" style="color:${color}">${verdictIcon(verdict)}${verdict === 'NO_TRADE' ? 'NO TRADE' : verdict}</div>
     <div class="verdict-sub">${subline}</div>
     ${confidenceRing(s.confidence, color)}
   </div>
+  ${statusHtml}
 
   <div class="stat3-row">
     <div class="stat3-cell"><div class="k">Trend</div><div class="v" style="color:${s.trend === 'Bullish' ? 'var(--buy)' : s.trend === 'Bearish' ? 'var(--sell)' : 'var(--flat)'}">${s.trend}</div></div>

@@ -123,6 +123,11 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .hero-quad-cell .k { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
 .hero-quad-cell .v { font: 600 13.5px var(--font-heading); margin-top: 3px; }
 .hero-no-setup { background: var(--neutral-900); border-radius: 9px; padding: 11px 12px; font-size: 12px; line-height: 1.5; color: var(--text-muted); }
+.trade-status { display: flex; gap: 9px; align-items: flex-start; margin-top: 12px; padding: 11px 13px; border-radius: 11px; font-size: 12.5px; line-height: 1.5; background: var(--neutral-900); border: 1px solid var(--hairline); color: var(--text-muted); }
+.trade-status i { flex: none; font-size: 16px; margin-top: 1px; }
+.trade-status.ok { color: var(--buy); background: var(--buy-dim); border-color: transparent; }
+.trade-status.ok span { color: var(--text); }
+.trade-status.wait i { color: var(--accent-300); }
 .hero-live { display: inline-flex; align-items: center; gap: 5px; }
 .live-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--buy); box-shadow: 0 0 0 0 var(--buy); animation: livePulse 1.6s ease-out infinite; }
 .live-dot.off { background: var(--text-muted); animation: none; box-shadow: none; }

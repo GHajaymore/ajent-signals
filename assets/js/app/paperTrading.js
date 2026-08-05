@@ -63,7 +63,7 @@ const FACTOR_GROUP = {
 // (c) it's with the higher-timeframe trend, and (d) ADX confirms a real trend.
 // Chop and one-dimensional agreement — where tight stops bleed — are filtered.
 // A quality gate, not a profit guarantee.
-function isHighConviction(signal, verdict) {
+export function isHighConviction(signal, verdict) {
   const c = signal.confluence || {};
   const total = (c.bull || 0) + (c.bear || 0) + (c.neutral || 0) || 1;
   const agree = verdict === 'BUY' ? (c.bull || 0) : (c.bear || 0);
