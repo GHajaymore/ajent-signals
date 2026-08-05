@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Ajent Signals</string>
+    <string name="title_activity_main">Ajent Signals</string>
+    <string name="package_name">com.AjMore.ajentsignals</string>
+    <string name="custom_url_scheme">com.AjMore.ajentsignals</string>
+</resources>

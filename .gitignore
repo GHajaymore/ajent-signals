@@ -17,3 +17,11 @@ ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
 
 # Signing material — private keys/certs must never be committed
 ios-signing/
+android-signing/
+*.keystore
+*.jks
+android/app/release/
+android/.gradle/
+android/build/
+android/app/build/
+android/capacitor-cordova-android-plugins/build/

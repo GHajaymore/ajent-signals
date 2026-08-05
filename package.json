@@ -5,9 +5,11 @@
   "description": "Capacitor native wrapper around the Ajent Signals web app for iOS/Android app store distribution.",
   "scripts": {
     "build:www": "node scripts/build-mobile-www.js",
-    "sync:ios": "npm run build:www && npx cap sync ios"
+    "sync:ios": "npm run build:www && npx cap sync ios",
+    "sync:android": "npm run build:www && npx cap sync android"
   },
   "dependencies": {
+    "@capacitor/android": "^6.2.1",
     "@capacitor/core": "^6.1.2",
     "@capacitor/ios": "^6.1.2",
     "cordova-plugin-purchase": "^13.11.1"
