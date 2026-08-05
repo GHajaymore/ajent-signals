@@ -176,7 +176,7 @@ class MarketModel {
     }
   }
 
-  applyLiveQuote(price, prevClose) {
+  applyLiveQuote(price, prevClose, marketState) {
     this.price = price;
     if (prevClose) this.openPrice = prevClose;
     this.changePct = ((this.price - this.openPrice) / this.openPrice) * 100;
@@ -184,6 +184,14 @@ class MarketModel {
     if (this.history.length > 96) this.history.shift();
     this.liveSource = 'live';
     this.lastLiveAt = Date.now();
+    if (marketState) this.marketState = marketState;
+  }
+
+  // True when the exchange is shut (weekend / overnight for cash indexes). The
+  // price is genuinely static then — this lets the UI say "Closed" instead of
+  // looking like a frozen app. Pre/post sessions still count as trading.
+  get isClosed() {
+    return this.isLiveFresh && (this.marketState === 'CLOSED' || this.marketState === 'PREPRE' || this.marketState === 'POSTPOST');
   }
 
   markLiveUnavailable(staleMs) {

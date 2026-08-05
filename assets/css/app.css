@@ -337,6 +337,7 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .data-tag { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 0.04em; padding: 1px 6px; border-radius: 6px; vertical-align: middle; }
 .data-tag.live { background: var(--buy-dim); color: var(--buy); }
 .data-tag.sim { background: var(--neutral-900); color: var(--neutral-500); }
+.data-tag.closed { background: rgba(245, 179, 90, 0.14); color: #f5b35a; }
 
 @media (max-width: 380px) {
   .hero-verdict { font-size: 30px; }

@@ -52,9 +52,12 @@ export function verdictIcon(verdict) {
 // candles) vs. the simulator fallback — the more important trust signal than
 // price alone, since price is now live for nearly every symbol regardless.
 export function dataTag(market) {
-  return market.signalIsReal
+  const closed = market.isClosed
+    ? ' <span class="data-tag closed" title="Exchange is closed — price is the last traded value and won\'t move until it reopens">CLOSED</span>'
+    : '';
+  return (market.signalIsReal
     ? '<span class="data-tag live" title="Indicators computed from real price history">REAL</span>'
-    : '<span class="data-tag sim" title="Simulated — real analysis unavailable right now">SIM</span>';
+    : '<span class="data-tag sim" title="Simulated — real analysis unavailable right now">SIM</span>') + closed;
 }
 
 export function heroCard(market, verdict) {
