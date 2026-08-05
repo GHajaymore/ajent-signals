@@ -46,6 +46,11 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install required SDK platform + build-tools
+        # setup-android ships the newest platform, not necessarily android-35.
+        # AGP 8.6 compiling against SDK 35 needs the exact platform 35 present.
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
       - name: Install npm dependencies
         run: npm install
 
