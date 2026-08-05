@@ -145,8 +145,10 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .wl-name { font: 600 13.5px var(--font-heading); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wl-price { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
 .wl-spark { width: 56px; height: 28px; flex: none; }
-.wl-chg { width: 58px; text-align: right; font: 600 12.5px var(--font-heading); flex: none; }
-.wl-verdict { flex: none; }
+.wl-chg { width: 62px; text-align: right; font: 600 12.5px var(--font-heading); flex: none; }
+/* Fixed-width so the widest chip ("NO TRADE") doesn't shove the spark/change
+   columns sideways — keeps every row's columns vertically aligned. */
+.wl-verdict { flex: none; width: 82px; display: flex; justify-content: flex-end; }
 
 /* Calendar banner */
 .calendar-banner {
@@ -242,6 +244,7 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .mkt-price { text-align: right; flex: none; }
 .mkt-price .px { font: 600 13.5px var(--font-heading); }
 .mkt-price .chg { font-size: 11px; margin-top: 1px; }
+.mkt-verdict { flex: none; width: 82px; display: flex; justify-content: flex-end; }
 .mkt-star { flex: none; background: none; border: none; cursor: pointer; padding: 4px; margin: -4px -2px -4px 0; font-size: 17px; line-height: 1; color: var(--text-muted); opacity: 0.5; transition: opacity 0.15s, color 0.15s, transform 0.1s; }
 .mkt-star:hover { opacity: 1; }
 .mkt-star:active { transform: scale(0.85); }

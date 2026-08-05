@@ -9,14 +9,37 @@ function starToggle(symbol) {
   return `<button class="mkt-star ${on ? 'on' : ''}" data-star="${symbol}" title="${on ? 'In watchlist — tap to remove' : 'Add to watchlist'}"><i class="${on ? 'ph-fill' : 'ph'} ph-star"></i></button>`;
 }
 
+// Catmull-Rom smoothing shared by the sparkline (kept tiny/local).
+function sparkSmooth(pts) {
+  if (pts.length < 2) return pts.length ? `M${pts[0][0]},${pts[0][1]}` : '';
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+  return d;
+}
+
 export function sparklineSvg(history, color, w = 56, h = 28) {
-  const pts = history.slice(-24);
-  if (pts.length < 2) return `<svg width="${w}" height="${h}"></svg>`;
-  const min = Math.min(...pts), max = Math.max(...pts);
+  const series = history.slice(-24);
+  if (series.length < 2) return `<svg width="${w}" height="${h}"></svg>`;
+  const min = Math.min(...series), max = Math.max(...series);
   const range = max - min || 1;
-  const step = w / (pts.length - 1);
-  const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${(i * step).toFixed(1)},${(h - ((p - min) / range) * h).toFixed(1)}`).join(' ');
-  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><path d="${d}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const padY = 3.5; // keep the smoothed curve from clipping at the edges
+  const yFor = (v) => padY + (h - 2 * padY) - ((v - min) / range) * (h - 2 * padY);
+  const step = w / (series.length - 1);
+  const pts = series.map((p, i) => [i * step, yFor(p)]);
+  const d = sparkSmooth(pts);
+  const uid = 's' + Math.random().toString(36).slice(2, 6);
+  const last = pts[pts.length - 1];
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="overflow:visible;display:block">
+    <defs><linearGradient id="sp${uid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity="0.25"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>
+    <path d="${d} L${w},${h} L0,${h} Z" fill="url(#sp${uid})"/>
+    <path d="${d}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="1.7" fill="${color}"/>
+  </svg>`;
 }
 
 export function confidenceRing(confidence, color, size = 132, r = 52) {
@@ -154,7 +177,7 @@ export function marketRow(market, verdict) {
       <div class="px tabular" data-f="price">${fmtPrice(market.price, market.decimals)}</div>
       <div class="chg tabular" data-f="chg" style="color:${chgColor}">${fmtPct(market.changePct)}</div>
     </div>
-    <span data-f="verdict">${verdictChip(verdict)}</span>
+    <span class="mkt-verdict" data-f="verdict">${verdictChip(verdict)}</span>
     ${starToggle(market.symbol)}
   </div>`;
 }
