@@ -64,7 +64,7 @@ export function heroCard(market, verdict) {
     ? 'Waiting for a high-probability setup'
     : (verdict === 'BUY' ? 'Long setup confirmed' : 'Short setup confirmed');
   return `
-  <div class="hero-card" data-nav="#/signal/${market.symbol}" style="background:linear-gradient(150deg, ${color}, transparent 65%); box-shadow:0 12px 34px -18px ${color}">
+  <div class="hero-card" data-nav="#/signal/${market.symbol}" data-sym="${market.symbol}" data-verdict="${verdict}" data-createdat="${s.createdAt || 0}" style="background:linear-gradient(150deg, ${color}, transparent 65%); box-shadow:0 12px 34px -18px ${color}">
     <div class="hero-inner">
       <div class="hero-top">
         <div class="hero-symbol">
@@ -75,8 +75,8 @@ export function heroCard(market, verdict) {
           </div>
         </div>
         <div class="hero-price">
-          <div class="px tabular">${fmtPrice(market.price, market.decimals)}</div>
-          <div class="chg tabular" style="color:${market.changePct >= 0 ? 'var(--buy)' : 'var(--sell)'}">${fmtPct(market.changePct)}</div>
+          <div class="px tabular" data-f="price">${fmtPrice(market.price, market.decimals)}</div>
+          <div class="chg tabular" data-f="chg" style="color:${market.changePct >= 0 ? 'var(--buy)' : 'var(--sell)'}">${fmtPct(market.changePct)}</div>
         </div>
       </div>
       <div class="hero-verdict-row">
@@ -86,7 +86,7 @@ export function heroCard(market, verdict) {
           <div class="hero-conf-bar-track"><div class="hero-conf-bar-fill" style="width:${s.confidence}%;background:${color}"></div></div>
         </div>
       </div>
-      <div class="hero-subline">${s.trend} · ${s.volatility} volatility · updated ${Math.max(1, Math.floor(s.createdAt ? (Date.now() - s.createdAt) / 1000 : 0))}s ago</div>
+      <div class="hero-subline" data-f="subline">${s.trend} · ${s.volatility} volatility · updated ${Math.max(1, Math.floor(s.createdAt ? (Date.now() - s.createdAt) / 1000 : 0))}s ago</div>
       <div class="hero-quad">
         <div class="hero-quad-cell"><div class="k">Entry</div><div class="v tabular">${fmtPrice(s.plan.entry, market.decimals)}</div></div>
         <div class="hero-quad-cell"><div class="k">Stop</div><div class="v tabular" style="color:var(--sell)">${fmtPrice(s.plan.stop, market.decimals)}</div></div>
@@ -100,33 +100,83 @@ export function heroCard(market, verdict) {
 export function watchlistRow(market, verdict) {
   const chgColor = market.changePct >= 0 ? 'var(--buy)' : 'var(--sell)';
   return `
-  <div class="wl-row" data-nav="#/signal/${market.symbol}">
+  <div class="wl-row" data-nav="#/signal/${market.symbol}" data-sym="${market.symbol}" data-verdict="${verdict}" data-real="${market.signalIsReal ? '1' : '0'}">
     ${symTile(market.symbol, 36)}
     <div class="wl-name-block">
-      <div class="wl-name">${market.name} ${dataTag(market)}</div>
-      <div class="wl-price tabular">${fmtPrice(market.price, market.decimals)}</div>
+      <div class="wl-name">${market.name} <span data-f="tag">${dataTag(market)}</span></div>
+      <div class="wl-price tabular" data-f="price">${fmtPrice(market.price, market.decimals)}</div>
     </div>
-    <div class="wl-spark">${sparklineSvg(market.history, chgColor)}</div>
-    <div class="wl-chg tabular" style="color:${chgColor}">${fmtPct(market.changePct)}</div>
-    <div class="wl-verdict">${verdictChip(verdict)}</div>
+    <div class="wl-spark" data-f="spark">${sparklineSvg(market.history, chgColor)}</div>
+    <div class="wl-chg tabular" data-f="chg" style="color:${chgColor}">${fmtPct(market.changePct)}</div>
+    <div class="wl-verdict" data-f="verdict">${verdictChip(verdict)}</div>
   </div>`;
 }
 
 export function marketRow(market, verdict) {
   const chgColor = market.changePct >= 0 ? 'var(--buy)' : 'var(--sell)';
   return `
-  <div class="mkt-row" data-nav="#/signal/${market.symbol}">
+  <div class="mkt-row" data-nav="#/signal/${market.symbol}" data-sym="${market.symbol}" data-verdict="${verdict}" data-real="${market.signalIsReal ? '1' : '0'}">
     ${symTile(market.symbol, 36)}
     <div class="mkt-body">
       <div class="mkt-name">${market.name}</div>
-      <div class="mkt-ex">${countryFlag(market.country)} ${market.exchange} · ${dataTag(market)}</div>
+      <div class="mkt-ex">${countryFlag(market.country)} ${market.exchange} · <span data-f="tag">${dataTag(market)}</span></div>
     </div>
     <div class="mkt-price">
-      <div class="px tabular">${fmtPrice(market.price, market.decimals)}</div>
-      <div class="chg tabular" style="color:${chgColor}">${fmtPct(market.changePct)}</div>
+      <div class="px tabular" data-f="price">${fmtPrice(market.price, market.decimals)}</div>
+      <div class="chg tabular" data-f="chg" style="color:${chgColor}">${fmtPct(market.changePct)}</div>
     </div>
-    ${verdictChip(verdict)}
+    <span data-f="verdict">${verdictChip(verdict)}</span>
   </div>`;
+}
+
+// Patch the hero card's volatile fields (price/change/subline) in place.
+// Returns false when the signal itself changed (new verdict or recompute), so
+// the caller knows to rebuild the whole card; true when patched cleanly.
+export function patchHero(el, market, verdict) {
+  const s = market.signal;
+  if (el.dataset.verdict !== verdict || String(s.createdAt || 0) !== el.dataset.createdat || el.dataset.sym !== market.symbol) {
+    return false;
+  }
+  const priceStr = fmtPrice(market.price, market.decimals);
+  const px = el.querySelector('[data-f="price"]');
+  if (px && px.textContent !== priceStr) px.textContent = priceStr;
+  const chg = el.querySelector('[data-f="chg"]');
+  if (chg) {
+    const t = fmtPct(market.changePct);
+    if (chg.textContent !== t) chg.textContent = t;
+    chg.style.color = market.changePct >= 0 ? 'var(--buy)' : 'var(--sell)';
+  }
+  const sub = el.querySelector('[data-f="subline"]');
+  if (sub) {
+    const t = `${s.trend} · ${s.volatility} volatility · updated ${Math.max(1, Math.floor(s.createdAt ? (Date.now() - s.createdAt) / 1000 : 0))}s ago`;
+    if (sub.textContent !== t) sub.textContent = t;
+  }
+  return true;
+}
+
+// In-place patch of a market/watchlist row — updates only the values that
+// actually changed, so the DOM never rebuilds and nothing flickers.
+export function patchRow(el, market, verdict) {
+  const chgColor = market.changePct >= 0 ? 'var(--buy)' : 'var(--sell)';
+  const priceStr = fmtPrice(market.price, market.decimals);
+  const px = el.querySelector('[data-f="price"]');
+  if (px && px.textContent !== priceStr) px.textContent = priceStr;
+  const chgStr = fmtPct(market.changePct);
+  const chg = el.querySelector('[data-f="chg"]');
+  if (chg) { if (chg.textContent !== chgStr) chg.textContent = chgStr; chg.style.color = chgColor; }
+  if (el.dataset.verdict !== verdict) {
+    const v = el.querySelector('[data-f="verdict"]');
+    if (v) v.innerHTML = verdictChip(verdict);
+    el.dataset.verdict = verdict;
+  }
+  const realStr = market.signalIsReal ? '1' : '0';
+  if (el.dataset.real !== realStr) {
+    const tag = el.querySelector('[data-f="tag"]');
+    if (tag) tag.innerHTML = dataTag(market);
+    const spark = el.querySelector('[data-f="spark"]');
+    if (spark) spark.innerHTML = sparklineSvg(market.history, chgColor);
+    el.dataset.real = realStr;
+  }
 }
 
 export function indicatorRow(ind) {

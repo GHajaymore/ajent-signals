@@ -172,7 +172,7 @@ function renderSignalTab(market, verdict, color) {
     ${s.reasons.map((r) => `<div class="reason-row"><i class="ph-bold ph-check-circle" style="color:${color}"></i><span>${r}</span></div>`).join('')}
   </div>
 
-  <div class="countdown-note"><i class="ph ph-arrows-clockwise"></i>Next model update in ${fmtCountdown(market.nextUpdateSec)}</div>
+  <div class="countdown-note"><i class="ph ph-arrows-clockwise"></i>Next model update in <span data-f="countdown">${fmtCountdown(market.nextUpdateSec)}</span></div>
   `;
 }
 
@@ -321,11 +321,25 @@ export function refresh(container) {
   const tab = state.detailTab;
 
   const subEl = container.querySelector('#signal-detail-sub');
-  if (subEl) subEl.innerHTML = `${countryFlag(market.country)} ${market.exchange} · ${market.signal.timeframe} · ${dataTag(market)}`;
+  if (subEl) {
+    const subHtml = `${countryFlag(market.country)} ${market.exchange} · ${market.signal.timeframe} · ${dataTag(market)}`;
+    if (subEl.innerHTML !== subHtml) subEl.innerHTML = subHtml;
+  }
 
   // The chart tab holds historical candles and interactive range tabs — don't
   // rebuild it on every tick (that would wipe the selection and re-fetch).
   if (tab === 'chart') return;
 
+  // Only rebuild the tab (which re-creates the confidence ring and would make
+  // it flicker/re-animate) when the signal genuinely changes. Between real
+  // recomputes, just patch the live countdown — everything else is static.
+  const sig = market.signal;
+  const key = `${verdict}|${sig.createdAt || 0}|${tab}`;
+  if (wrap.dataset.sigKey === key) {
+    const cd = wrap.querySelector('[data-f="countdown"]');
+    if (cd) cd.textContent = fmtCountdown(market.nextUpdateSec);
+    return;
+  }
+  wrap.dataset.sigKey = key;
   wrap.innerHTML = tabContentHtml(market, verdict, color, tab);
 }

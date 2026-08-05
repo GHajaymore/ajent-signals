@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { CATEGORY_ORDER } from '../mockEngine.js';
-import { marketRow } from '../components.js';
+import { marketRow, patchRow } from '../components.js';
 import { escapeHtml } from '../format.js';
 
 const CAT_COLOR = {
@@ -58,5 +58,12 @@ export function render(container) {
 export function refresh(container) {
   const wrap = container.querySelector('#market-list-wrap');
   if (!wrap) return;
-  wrap.innerHTML = listHtml();
+  const threshold = state.settings.threshold;
+  // Patch every existing row in place — no innerHTML rebuild, so no flicker.
+  const rows = wrap.querySelectorAll('.mkt-row[data-sym]');
+  if (!rows.length) return;
+  rows.forEach((el) => {
+    const m = state.engine.get(el.dataset.sym);
+    if (m) patchRow(el, m, m.verdict(threshold));
+  });
 }

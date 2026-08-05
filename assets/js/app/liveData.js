@@ -1,6 +1,7 @@
 // Best-effort real quotes from a public, unofficial market-data endpoint, reached through
 // free CORS proxies (no backend on this static site). NOT a licensed feed — see README note.
 // Every symbol falls back to the existing simulator automatically if this is unavailable.
+import { COUNTRY_DEFAULTS } from './geo.js';
 
 const PROXIES = [
   (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
@@ -41,9 +42,20 @@ async function fetchYahooQuote(yahooSymbol) {
   throw lastErr || new Error('all proxies failed');
 }
 
+// Markets that appear on someone's default Home watchlist get their real quote
+// fetched first, so the screens a user actually sees turn real within ~1s
+// instead of waiting behind all ~35 staggered requests.
+const PRIORITY_SYMBOLS = new Set(Object.values(COUNTRY_DEFAULTS).flatMap((d) => d.watchlist || []));
+
+function orderedMarkets(engine) {
+  const priority = [], rest = [];
+  for (const m of engine.markets) (PRIORITY_SYMBOLS.has(m.symbol) ? priority : rest).push(m);
+  return [...priority, ...rest];
+}
+
 function refreshAll(engine, stagger) {
   let i = 0;
-  for (const market of engine.markets) {
+  for (const market of orderedMarkets(engine)) {
     const ySym = YAHOO_SYMBOL[market.symbol];
     if (!ySym) continue;
     const delay = i++ * stagger;
@@ -58,7 +70,7 @@ function refreshAll(engine, stagger) {
   }
 }
 
-export function startLiveDataLoop(engine, { intervalMs = 15000, stagger = 200 } = {}) {
+export function startLiveDataLoop(engine, { intervalMs = 15000, stagger = 120 } = {}) {
   refreshAll(engine, stagger);
   return setInterval(() => refreshAll(engine, stagger), intervalMs);
 }

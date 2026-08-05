@@ -1,5 +1,5 @@
 import { state } from '../state.js';
-import { heroCard, watchlistRow } from '../components.js';
+import { heroCard, watchlistRow, patchRow, patchHero } from '../components.js';
 import { getPerformanceSummary } from '../paperTrading.js';
 
 function money(n) {
@@ -110,9 +110,25 @@ export function refresh(container) {
     trendEl.innerHTML = `<i class="ph-bold ${riskOn ? 'ph-trend-up' : 'ph-trend-down'}"></i>${riskOn ? 'Risk-on' : 'Risk-off'}`;
   }
 
-  heroWrap.innerHTML = heroCard(featured, featuredVerdict);
-  watchlistWrap.innerHTML = state.homeWatchlist.map((sym) => {
-    const m = engine.get(sym);
-    return watchlistRow(m, m.verdict(threshold));
-  }).join('');
+  // Hero: patch in place; only rebuild the whole card if the signal changed.
+  const heroEl = heroWrap.querySelector('.hero-card');
+  if (!heroEl || !patchHero(heroEl, featured, featuredVerdict)) {
+    heroWrap.innerHTML = heroCard(featured, featuredVerdict);
+  }
+
+  // Watchlist: patch each existing row; rebuild only if the row set changed.
+  const rows = watchlistWrap.querySelectorAll('.wl-row[data-sym]');
+  const sameSet = rows.length === state.homeWatchlist.length &&
+    [...rows].every((el, i) => el.dataset.sym === state.homeWatchlist[i]);
+  if (sameSet) {
+    rows.forEach((el) => {
+      const m = engine.get(el.dataset.sym);
+      if (m) patchRow(el, m, m.verdict(threshold));
+    });
+  } else {
+    watchlistWrap.innerHTML = state.homeWatchlist.map((sym) => {
+      const m = engine.get(sym);
+      return watchlistRow(m, m.verdict(threshold));
+    }).join('');
+  }
 }
