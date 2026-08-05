@@ -110,4 +110,4 @@ export function startFocusDataLoop(engine, getFocusSymbols, { intervalMs = 15000
   return setInterval(pump, intervalMs);
 }
 
-export { LIVE_STALE_MS, YAHOO_SYMBOL };
+export { LIVE_STALE_MS, YAHOO_SYMBOL, fetchYahooQuote };

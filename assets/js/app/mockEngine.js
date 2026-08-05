@@ -156,6 +156,7 @@ class MarketModel {
     this.age = Math.floor(this.rng() * 40);
     this.liveSource = 'sim';
     this.lastLiveAt = 0;
+    this.basis = 0; // cash-index -> future price offset (set for index markets)
     this.signalIsReal = false;
     this.lastRealSignalAt = 0;
     this._genSignal();
@@ -176,9 +177,14 @@ class MarketModel {
   }
 
   applyLiveQuote(price, prevClose, marketState, quoteTime) {
-    this.price = price;
+    // `basis` (default 0) shifts a real-time cash-index quote up to its
+    // front-month future level (fair-value carry), so an index market sourced
+    // from the cash feed still displays the future's price. Change % is taken
+    // from the raw cash move (basis is a near-constant offset).
+    const b = this.basis || 0;
     if (prevClose) this.openPrice = prevClose;
-    this.changePct = ((this.price - this.openPrice) / this.openPrice) * 100;
+    this.changePct = ((price - this.openPrice) / this.openPrice) * 100;
+    this.price = price + b;
     this.history.push(this.price);
     if (this.history.length > 96) this.history.shift();
     this.liveSource = 'live';
