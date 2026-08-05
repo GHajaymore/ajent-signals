@@ -135,6 +135,12 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .pm-cat-count { font-size: 11px; font-weight: 600; color: var(--text-muted); }
 .pm-group > summary .ph-caret-down { color: var(--text-muted); font-size: 13px; transition: transform 0.2s; }
 .pm-group[open] > summary .ph-caret-down { transform: rotate(180deg); }
+.notif-label { flex: 1; }
+.pm-trend { flex: none; width: 46px; display: inline-flex; align-items: center; justify-content: flex-end; gap: 3px; font: 700 10px var(--font-heading); }
+.pm-trend i { font-size: 11px; }
+.pm-trend.buy { color: var(--buy); }
+.pm-trend.sell { color: var(--sell); }
+.pm-trend.flat { color: var(--text-muted); font-weight: 600; }
 .hero-live { display: inline-flex; align-items: center; gap: 5px; }
 .live-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--buy); box-shadow: 0 0 0 0 var(--buy); animation: livePulse 1.6s ease-out infinite; }
 .live-dot.off { background: var(--text-muted); animation: none; box-shadow: none; }

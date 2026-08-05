@@ -16,10 +16,19 @@ const REGION_ORDER = ['US', 'Europe', 'Asia', 'India', 'Other'];
 const regionOf = (country) => REGION_BY_COUNTRY[country] || 'Other';
 const symbolsInRegion = (region) => state.engine.markets.filter((m) => regionOf(m.country) === region).map((m) => m.symbol);
 
+// Compact current-signal indicator per market, so you can pick markets that are
+// actually trending. Reflects the same BUY/SELL/NO_TRADE verdict as everywhere.
+function pmVerdictTag(verdict) {
+  if (verdict === 'BUY') return '<span class="pm-trend buy"><i class="ph-fill ph-caret-up"></i>Buy</span>';
+  if (verdict === 'SELL') return '<span class="pm-trend sell"><i class="ph-fill ph-caret-down"></i>Sell</span>';
+  return '<span class="pm-trend flat">Flat</span>';
+}
+
 function marketSelector() {
   const engine = state.engine;
   const all = engine.markets.map((m) => m.symbol);
   const enabled = getEnabledPaperMarkets(all);
+  const threshold = state.settings.threshold;
   const byCat = {};
   for (const m of engine.markets) (byCat[m.category] = byCat[m.category] || []).push(m);
   const cats = CATEGORY_ORDER.filter((c) => byCat[c]);
@@ -38,9 +47,10 @@ function marketSelector() {
         ${REGION_ORDER.map((r) => `<button class="chip region-chip" data-region="${r}" style="cursor:pointer;background:var(--neutral-900);color:var(--text-muted)">${r}</button>`).join('')}
       </div>
       <div class="eyebrow" style="margin-bottom:6px">Or pick individually</div>
-      <div style="display:flex;gap:8px;margin-bottom:6px">
+      <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap">
         <button class="chip" id="pm-all" style="cursor:pointer;background:var(--accent-800);color:var(--accent-100)">Select all</button>
         <button class="chip" id="pm-none" style="cursor:pointer;background:var(--neutral-900);color:var(--text-muted)">Clear all</button>
+        <button class="chip" id="pm-signalling" style="cursor:pointer;background:var(--neutral-900);color:var(--buy)"><i class="ph-fill ph-lightning" style="font-size:11px"></i> Signalling now</button>
       </div>
       ${cats.map((cat) => {
         const list = byCat[cat];
@@ -54,10 +64,11 @@ function marketSelector() {
           </summary>
           ${list.map((m) => `
             <div class="notif-row">
-              <div class="notif-label" style="display:flex;align-items:center;gap:10px">
+              <div class="notif-label" style="display:flex;align-items:center;gap:10px;min-width:0">
                 <span style="font:700 11px var(--font-heading)">${m.symbol}</span>
-                <span class="text-muted" style="font-size:12.5px">${m.name}</span>
+                <span class="text-muted" style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.name}</span>
               </div>
+              ${pmVerdictTag(m.verdict(threshold))}
               <div class="switch ${enabled.has(m.symbol) ? 'on' : ''}" data-pm-sym="${m.symbol}"></div>
             </div>`).join('')}
         </details>`;
@@ -105,6 +116,15 @@ function wireSelector(container) {
   if (noneBtn) noneBtn.addEventListener('click', () => {
     setAllPaperMarkets(false, all);
     container.querySelectorAll('[data-pm-sym]').forEach((sw) => sw.classList.remove('on'));
+    updateCount();
+  });
+  // Quick-select every market currently printing a BUY or SELL signal.
+  const sigBtn = container.querySelector('#pm-signalling');
+  if (sigBtn) sigBtn.addEventListener('click', () => {
+    const threshold = state.settings.threshold;
+    const syms = new Set(state.engine.markets.filter((m) => m.verdict(threshold) !== 'NO_TRADE').map((m) => m.symbol));
+    setPaperMarkets([...syms]);
+    container.querySelectorAll('[data-pm-sym]').forEach((sw) => sw.classList.toggle('on', syms.has(sw.dataset.pmSym)));
     updateCount();
   });
   // Region presets: limit auto-trading to one region in a tap. The individual
