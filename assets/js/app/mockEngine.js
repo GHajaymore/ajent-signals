@@ -204,8 +204,14 @@ class MarketModel {
 
   _genSignal() {
     const rng = this.rng;
-    const direction = rng() > 0.46 ? 1 : -1;
-    const confidence = Math.round(38 + rng() * 58);
+    // Evolve smoothly from the previous signal instead of drawing fresh random
+    // values: keep the same direction ~85% of the time and drift confidence a
+    // little. This makes the simulated fallback behave like a slowly-changing
+    // real signal rather than flickering between long and short.
+    const prevDir = this.signal ? this.signal.direction : (rng() > 0.5 ? 1 : -1);
+    const direction = rng() < 0.85 ? prevDir : -prevDir;
+    const prevConf = this.signal ? this.signal.confidence : Math.round(45 + rng() * 30);
+    const confidence = Math.max(32, Math.min(94, Math.round(prevConf + (rng() - 0.5) * 16)));
     const agreeState = direction > 0 ? 'bull' : 'bear';
     const disagreeState = direction > 0 ? 'bear' : 'bull';
 
@@ -265,12 +271,46 @@ class MarketModel {
       createdAt: Date.now(),
     };
     this.age = 0;
-    this.nextUpdateSec = Math.round(45 + rng() * 75);
+    this.nextUpdateSec = Math.round(300 + rng() * 240); // 5–9 min between sim refreshes
   }
 
-  verdict(threshold) {
+  _rawVerdict(threshold) {
     if (this.signal.confidence >= threshold) return this.signal.direction > 0 ? 'BUY' : 'SELL';
     return 'NO_TRADE';
+  }
+
+  // The verdict shown/traded is STABILISED: it holds for a minimum time and
+  // uses a hysteresis buffer around the threshold, so it can't rapidly flip
+  // between BUY / NO TRADE / SELL. Real signals don't reverse second-to-second,
+  // and neither should ours.
+  verdict() {
+    if (this.displayVerdict === undefined) {
+      this.displayVerdict = this.signal.confidence >= 75 ? (this.signal.direction > 0 ? 'BUY' : 'SELL') : 'NO_TRADE';
+      this.displayVerdictAt = Date.now();
+    }
+    return this.displayVerdict;
+  }
+
+  _stabilizeVerdict(threshold) {
+    if (this.displayVerdict === undefined) { this.verdict(); return null; }
+    const HOLD_MS = 180000; // a signal stands for at least 3 minutes
+    if (Date.now() - this.displayVerdictAt < HOLD_MS) return null;
+    const s = this.signal;
+    const rawSide = s.direction > 0 ? 'BUY' : 'SELL';
+    let candidate;
+    if (s.confidence >= threshold + 3) candidate = rawSide;          // clearly clears -> fire
+    else if (s.confidence < threshold - 6) candidate = 'NO_TRADE';   // clearly fails -> stand down
+    else candidate = this.displayVerdict;                            // in the buffer -> hold
+    // Never flip straight from BUY to SELL (or back) — cool down via NO TRADE.
+    if ((this.displayVerdict === 'BUY' && candidate === 'SELL') || (this.displayVerdict === 'SELL' && candidate === 'BUY')) {
+      candidate = 'NO_TRADE';
+    }
+    if (candidate !== this.displayVerdict) {
+      this.displayVerdict = candidate;
+      this.displayVerdictAt = Date.now();
+      return candidate;
+    }
+    return null;
   }
 
   tick(threshold, onAlert) {
@@ -294,20 +334,23 @@ class MarketModel {
         // recomputing it on its own slower cadence. Just hold the countdown
         // steady until the next real refresh actually lands.
         this.nextUpdateSec = 30;
-        return;
+      } else {
+        // Refresh the simulated fallback (now smoothly evolving, not random).
+        this._genSignal();
       }
-      const prevVerdict = this.verdict(threshold);
-      this._genSignal();
-      const newVerdict = this.verdict(threshold);
-      if (onAlert && newVerdict !== 'NO_TRADE' && newVerdict !== prevVerdict) {
-        onAlert({
-          type: newVerdict,
-          symbol: this.symbol,
-          title: `${newVerdict === 'BUY' ? 'BUY' : 'SELL'} · ${this.symbol}`,
-          body: `${this.name} triggered a ${newVerdict === 'BUY' ? 'long' : 'short'} — ${this.signal.confidence}% confidence, entry ${fmtNum(this.signal.plan.entry, this.decimals)}, stop ${fmtNum(this.signal.plan.stop, this.decimals)}.`,
-          ts: Date.now(),
-        });
-      }
+    }
+
+    // Stabilise the shown/traded verdict every tick (min-hold + hysteresis).
+    // Only a genuine, held change fires a BUY/SELL alert — no more churn.
+    const changedTo = this._stabilizeVerdict(threshold);
+    if (onAlert && (changedTo === 'BUY' || changedTo === 'SELL')) {
+      onAlert({
+        type: changedTo,
+        symbol: this.symbol,
+        title: `${changedTo} · ${this.symbol}`,
+        body: `${this.name} triggered a ${changedTo === 'BUY' ? 'long' : 'short'} — ${this.signal.confidence}% confidence, entry ${fmtNum(this.signal.plan.entry, this.decimals)}, stop ${fmtNum(this.signal.plan.stop, this.decimals)}.`,
+        ts: Date.now(),
+      });
     }
   }
 }
