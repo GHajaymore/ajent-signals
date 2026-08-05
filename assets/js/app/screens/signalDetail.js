@@ -69,7 +69,8 @@ function chartCanvasHtml(symbol, rangeKey) {
     return `${chartSvg(market, color)}<div class="text-muted" style="font-size:11px;margin-top:6px;text-align:center">Historical chart isn't available for this market.</div>`;
   }
   const cached = candleCache.get(`${symbol}|${rangeKey}`);
-  const showLevels = rangeKey === '1D';
+  // Only draw entry/stop/target on the chart when there's an actual setup.
+  const showLevels = rangeKey === '1D' && market.verdict(state.settings.threshold) !== 'NO_TRADE';
   if (cached && cached.candles && cached.candles.length > 1) {
     const closes = cached.candles.map((c) => c.c);
     const first = closes[0], last = closes[closes.length - 1];
@@ -251,8 +252,9 @@ function categoryRows(indicators) {
   }).join('');
 }
 
-function renderChartTab(market, color) {
+function renderChartTab(market, color, verdict) {
   const s = market.signal;
+  const hasSetup = verdict !== 'NO_TRADE';
   if (!activeRange) activeRange = RANGES[state.settings.chartRange] ? state.settings.chartRange : '1D';
   const ySym = YAHOO_SYMBOL[market.symbol];
   if (ySym) queueMicrotask(() => loadCandles(market.symbol, ySym, activeRange));
@@ -265,14 +267,16 @@ function renderChartTab(market, color) {
       </div>
     </div>
     <div id="chart-canvas">${chartCanvasHtml(market.symbol, activeRange)}</div>
+    ${hasSetup ? `
     <div class="overlay-tags" style="margin-top:8px">
       <span class="overlay-tag"><span class="dot" style="background:var(--accent)"></span>Entry</span>
       <span class="overlay-tag"><span class="dot" style="background:var(--buy)"></span>Target</span>
       <span class="overlay-tag"><span class="dot" style="background:var(--sell)"></span>Stop</span>
       <span class="overlay-tag text-muted">Levels shown on 1D</span>
-    </div>
+    </div>` : ''}
   </div>
 
+  ${hasSetup ? `
   <div class="panel">
     <div class="panel-title">Key levels</div>
     <div class="level-row"><span class="text-muted">Target 3</span><span style="color:var(--buy);font-weight:600" class="tabular">${fmtPrice(s.plan.target3, market.decimals)}</span></div>
@@ -280,12 +284,16 @@ function renderChartTab(market, color) {
     <div class="level-row"><span class="text-muted">Target 1</span><span style="color:var(--buy);font-weight:600" class="tabular">${fmtPrice(s.plan.target1, market.decimals)}</span></div>
     <div class="level-row"><span class="text-muted">Entry</span><span style="font-weight:600" class="tabular">${fmtPrice(s.plan.entry, market.decimals)}</span></div>
     <div class="level-row"><span class="text-muted">Stop loss</span><span style="color:var(--sell);font-weight:600" class="tabular">${fmtPrice(s.plan.stop, market.decimals)}</span></div>
-  </div>`;
+  </div>` : `
+  <div class="panel">
+    <div class="panel-title">Key levels</div>
+    <div class="text-muted" style="font-size:12.5px;line-height:1.6;padding:6px 2px">No active setup — entry, stop and target levels appear once a BUY or SELL signal fires.</div>
+  </div>`}`;
 }
 
 function tabContentHtml(market, verdict, color, tab) {
   return tab === 'breakdown' ? renderBreakdownTab(market, color)
-    : tab === 'chart' ? renderChartTab(market, color)
+    : tab === 'chart' ? renderChartTab(market, color, verdict)
     : renderSignalTab(market, verdict, color);
 }
 

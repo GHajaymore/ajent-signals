@@ -99,12 +99,14 @@ export function heroCard(market, verdict) {
         </div>
       </div>
       <div class="hero-subline" data-f="subline">${s.trend} · ${s.volatility} volatility · updated ${Math.max(1, Math.floor(s.createdAt ? (Date.now() - s.createdAt) / 1000 : 0))}s ago</div>
+      ${verdict === 'NO_TRADE' ? `
+      <div class="hero-no-setup">No active setup — entry, stop &amp; target appear once a BUY or SELL fires.</div>` : `
       <div class="hero-quad">
         <div class="hero-quad-cell"><div class="k">Entry</div><div class="v tabular">${fmtPrice(s.plan.entry, market.decimals)}</div></div>
         <div class="hero-quad-cell"><div class="k">Stop</div><div class="v tabular" style="color:var(--sell)">${fmtPrice(s.plan.stop, market.decimals)}</div></div>
         <div class="hero-quad-cell"><div class="k">Target</div><div class="v tabular" style="color:var(--buy)">${fmtPrice(s.plan.target1, market.decimals)}</div></div>
-        <div class="hero-quad-cell"><div class="k">R:R</div><div class="v tabular" style="color:var(--accent-200)">${s.plan.riskReward.toFixed(1)}:1</div></div>
-      </div>
+        <div class="hero-quad-cell"><div class="k">R : R</div><div class="v tabular" style="color:var(--accent-200)">${s.plan.riskReward.toFixed(1)} : 1</div></div>
+      </div>`}
     </div>
   </div>`;
 }
