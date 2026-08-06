@@ -154,6 +154,41 @@ function fmtHoldMin(min) {
   return `${(min / 60).toFixed(1)} hrs`;
 }
 
+// Group real closed trades by market → net P&L, win rate, count. Sorted best→worst.
+function byMarketStats(closed) {
+  const map = new Map();
+  for (const c of closed) {
+    const p = tradePnl(c);
+    const e = map.get(c.symbol) || { symbol: c.symbol, name: c.name || c.symbol, trades: 0, wins: 0, losses: 0, pnl: 0 };
+    e.trades += 1; e.pnl += p;
+    if (p > 0) e.wins += 1; else if (p < 0) e.losses += 1;
+    map.set(c.symbol, e);
+  }
+  return [...map.values()].sort((a, b) => b.pnl - a.pnl);
+}
+
+function byMarketHtml(closed) {
+  const rows = byMarketStats(closed);
+  if (rows.length < 2) return '';
+  return `
+    <div class="section-label">Performance by market</div>
+    <div class="card" style="padding:2px 12px">
+      ${rows.map((m) => {
+        const decisive = m.wins + m.losses;
+        const wr = decisive ? Math.round((m.wins / decisive) * 100) : 0;
+        const color = m.pnl >= 0 ? 'var(--buy)' : 'var(--sell)';
+        return `<div class="closed-row" data-nav="#/signal/${m.symbol}" style="cursor:pointer">
+          <div class="closed-sym">${m.symbol}</div>
+          <div class="closed-body">
+            <div class="closed-title">${m.name}</div>
+            <div class="closed-sub">${m.trades} trade${m.trades === 1 ? '' : 's'} · ${wr}% win</div>
+          </div>
+          <div class="closed-result"><div class="r" style="color:${color}">${money(m.pnl)}</div></div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
 // Smooth cumulative-P&L equity curve, drawn entirely from real closed trades.
 function eqSmooth(pts) {
   if (pts.length < 2) return pts.length ? `M${pts[0][0]},${pts[0][1]}` : '';
@@ -332,6 +367,8 @@ export function render(container) {
     </div>
 
     ${openList()}
+
+    ${byMarketHtml(closed)}
 
     <div class="section-label">Recent trades</div>
     <div class="card" style="padding:2px 12px">
