@@ -162,6 +162,12 @@ startFocusDataLoop(state.engine, () => {
 startSignalRefreshLoop(state.engine);
 applyGeoDefaults(state);
 startUpdateWatcher();
+// Network-first service worker so the latest app code is always fetched when
+// online — no more stale cached modules serving an old strategy. Scope is the
+// site root so it covers both /app/ and /assets/.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('../sw.js').catch(() => { /* SW optional */ });
+}
 // Native in-app purchases (inert on web/PWA). Re-render the paywall if the
 // entitlement changes so a completed purchase/restore reflects immediately.
 initIap(() => {
