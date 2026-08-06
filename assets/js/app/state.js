@@ -22,7 +22,8 @@ const defaultSettings = {
   riskPct: 1,
   // Reward:Risk for the first target (target distance ÷ stop distance). Lower =
   // higher win rate / smaller wins; higher = bigger wins / lower win rate.
-  targetRatio: 0.4,
+  // Default 0.35 → ~74% geometric win rate (a buffer above the 70% target).
+  targetRatio: 0.35,
   accountBalance: 25000,
   chartRange: '1D',
   notifications: { buy: true, sell: true, stop: true, target: true, reversal: true, volatility: true, news: true },

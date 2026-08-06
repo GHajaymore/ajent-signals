@@ -45,7 +45,7 @@ const clamp01 = (v) => Math.max(0, Math.min(1, v));
 export function computeRealSignal(candles, def, rng, news = [], opts = {}) {
   // Reward:Risk for the first target — user-adjustable in Settings. Bounded so a
   // stray value can't invert the geometry. Default keeps the high-win-rate 0.4.
-  const targetRatio = Math.min(3, Math.max(0.2, opts.targetRatio > 0 ? opts.targetRatio : 0.4));
+  const targetRatio = Math.min(3, Math.max(0.2, opts.targetRatio > 0 ? opts.targetRatio : 0.35));
   const closes = candles.map((c) => c.c);
   const n = closes.length;
   const price = closes[n - 1];
