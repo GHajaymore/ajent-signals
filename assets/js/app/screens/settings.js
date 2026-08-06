@@ -1,4 +1,4 @@
-import { state, saveSettings, perTradeRisk } from '../state.js';
+import { state, saveSettings, perTradeRisk, setPaperMarkets, setAllPaperMarkets, US_INDEX_MARKETS } from '../state.js';
 import { fmtMoney } from '../format.js';
 import { resetPaperTrades } from '../paperTrading.js';
 
@@ -65,7 +65,7 @@ export function render(container) {
       </div>
       <div class="setting-help" id="mode-help" style="margin-top:10px">${state.settings.strategyMode === 'intraday'
         ? 'Fast 15-minute mean reversion — many signals, trades last minutes. Higher win rate but roughly break-even (small wins, occasional larger losses).'
-        : 'Daily Connors mean reversion — buys deeply oversold days in an uptrend, holds a few days. Backtested profit factor > 1 over 10 years on major indices. Fewer, higher-quality signals. Past results never guarantee future performance.'}</div>
+        : 'Daily Connors mean reversion — buys deeply oversold days in an uptrend, holds a few days. Backtested profit factor > 1 over 10 years on US indices, where the edge is strongest, so daily mode auto-trades those by default (adjust in Paper Trading). Past results never guarantee future performance.'}</div>
     </div>
 
     <div class="panel setting-block">
@@ -136,10 +136,15 @@ export function render(container) {
       if (state.settings.strategyMode === mode) return;
       state.settings.strategyMode = mode;
       saveSettings();
+      // Point the auto-trade set at the markets each strategy is good at: the
+      // US indices for daily (where the edge is proven), all markets for intraday.
+      const all = state.engine.markets.map((m) => m.symbol);
+      if (mode === 'daily') setPaperMarkets(US_INDEX_MARKETS.filter((s) => all.includes(s)));
+      else setAllPaperMarkets(true, all);
       container.querySelectorAll('#mode-toggle .seg-opt').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
       document.getElementById('mode-help').textContent = mode === 'intraday'
         ? 'Fast 15-minute mean reversion — many signals, trades last minutes. Higher win rate but roughly break-even (small wins, occasional larger losses).'
-        : 'Daily Connors mean reversion — buys deeply oversold days in an uptrend, holds a few days. Backtested profit factor > 1 over 10 years on major indices. Fewer, higher-quality signals. Past results never guarantee future performance.';
+        : 'Daily Connors mean reversion — buys deeply oversold days in an uptrend, holds a few days. Backtested profit factor > 1 over 10 years on US indices, where the edge is strongest, so daily mode auto-trades those by default (adjust in Paper Trading). Past results never guarantee future performance.';
     });
   });
 

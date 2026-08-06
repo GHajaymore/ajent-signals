@@ -17,10 +17,17 @@ function loadSettings() {
   return null;
 }
 
+// The daily strategy's backtested edge is concentrated in US large-cap indices
+// (S&P, Nasdaq, Dow, Russell — profit factor 1.3–2.2 over 10y). It dilutes to
+// break-even elsewhere, so daily mode auto-trades only these by default.
+export const US_INDEX_MARKETS = ['ES', 'MES', 'NQ', 'MNQ', 'YM', 'RTY'];
+
 const defaultSettings = {
   // 'daily' = the backtest-validated Connors swing strategy (profit factor > 1
-  // over 10y on indices). 'intraday' = the faster 15-minute mean-reversion.
+  // over 10y on US indices). 'intraday' = the faster 15-minute mean-reversion.
   strategyMode: 'daily',
+  // Default auto-trade set = the US indices where the daily edge is real.
+  paperMarkets: [...US_INDEX_MARKETS],
   threshold: 75,
   riskPct: 1,
   // Reward:Risk for the first target (target distance ÷ stop distance). Lower =
