@@ -154,6 +154,44 @@ function fmtHoldMin(min) {
   return `${(min / 60).toFixed(1)} hrs`;
 }
 
+// Smooth cumulative-P&L equity curve, drawn entirely from real closed trades.
+function eqSmooth(pts) {
+  if (pts.length < 2) return pts.length ? `M${pts[0][0]},${pts[0][1]}` : '';
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+  return d;
+}
+
+function equityChart(equity) {
+  const w = 500, h = 132;
+  if (!equity || equity.length < 2) return '';
+  const min = Math.min(...equity, 0), max = Math.max(...equity, 0);
+  const span = (max - min) || 1;
+  const pad = span * 0.14;
+  const lo = min - pad, hi = max + pad;
+  const yFor = (v) => h - ((v - lo) / (hi - lo)) * h;
+  const step = w / (equity.length - 1);
+  const pts = equity.map((v, i) => [i * step, yFor(v)]);
+  const d = eqSmooth(pts);
+  const last = equity[equity.length - 1];
+  const color = last >= 0 ? 'var(--buy)' : 'var(--sell)';
+  const zeroY = yFor(0).toFixed(1);
+  const uid = 'eq' + Math.random().toString(36).slice(2, 6);
+  const end = pts[pts.length - 1];
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" style="height:auto;display:block">
+    <defs><linearGradient id="${uid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity="0.24"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>
+    <line x1="0" y1="${zeroY}" x2="${w}" y2="${zeroY}" stroke="var(--hairline)" stroke-width="1" stroke-dasharray="4 4"/>
+    <path d="${d} L${w},${h} L0,${h} Z" fill="url(#${uid})"/>
+    <path d="${d}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${end[0].toFixed(1)}" cy="${end[1].toFixed(1)}" r="3" fill="${color}"/>
+  </svg>`;
+}
+
 function intro() {
   return `
     <div class="dash-glow"></div>
@@ -252,11 +290,27 @@ export function render(container) {
       <div class="text-muted" style="font-size:12px;margin-top:2px">across ${closed.length} completed trade${closed.length === 1 ? '' : 's'}</div>
     </div>
 
+    ${closed.length >= 2 ? `
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+        <div class="panel-title" style="margin-bottom:0">Equity curve</div>
+        <span class="text-muted" style="font-size:12px">cumulative virtual $</span>
+      </div>
+      ${equityChart(perf.equity)}
+    </div>` : ''}
+
     <div class="stat2-grid">
       <div class="stat-card"><div class="stat-label">Win rate</div><div class="stat-value" style="color:var(--buy)">${perf.winRate}%</div><div class="stat-sub">${perf.wins}W / ${perf.losses}L</div></div>
       <div class="stat-card"><div class="stat-label">Avg win</div><div class="stat-value" style="color:var(--buy)">${money(perf.avgWin)}</div><div class="stat-sub">per winning trade</div></div>
       <div class="stat-card"><div class="stat-label">Avg loss</div><div class="stat-value" style="color:var(--sell)">${money(-perf.avgLoss)}</div><div class="stat-sub">per losing trade</div></div>
       <div class="stat-card"><div class="stat-label">Avg hold</div><div class="stat-value">${perf.avgHold}</div><div class="stat-sub">per trade</div></div>
+    </div>
+
+    <div class="stat2-grid">
+      <div class="stat-card"><div class="stat-label">Profit factor</div><div class="stat-value">${perf.profitFactor === Infinity ? '∞' : perf.profitFactor.toFixed(2)}</div><div class="stat-sub">gross win ÷ loss</div></div>
+      <div class="stat-card"><div class="stat-label">Expectancy</div><div class="stat-value" style="color:${perf.expectancy >= 0 ? 'var(--buy)' : 'var(--sell)'}">${money(perf.expectancy)}</div><div class="stat-sub">avg per trade</div></div>
+      <div class="stat-card"><div class="stat-label">Best streak</div><div class="stat-value" style="color:var(--buy)">${perf.bestWinStreak}W</div><div class="stat-sub">consecutive wins</div></div>
+      <div class="stat-card"><div class="stat-label">Max drawdown</div><div class="stat-value" style="color:var(--sell)">${money(perf.maxDrawdown)}</div><div class="stat-sub">peak-to-trough</div></div>
     </div>
 
     <div class="panel">

@@ -20,6 +20,12 @@ export function render(container) {
     <h1 class="h-title">Alerts</h1>
     <p class="text-muted" style="font-size:13px;margin:4px 0 18px">Real-time signal &amp; market notifications.</p>
 
+    ${alerts.length === 0 ? `
+    <div class="panel" style="text-align:center;padding:40px 20px">
+      <i class="ph ph-bell-simple" style="font-size:32px;color:var(--text-muted)"></i>
+      <div style="font:600 15px var(--font-heading);margin-top:14px">No alerts yet</div>
+      <p class="text-muted" style="font-size:13px;line-height:1.6;margin-top:8px;max-width:40ch;margin-left:auto;margin-right:auto">You'll be notified here the moment a market fires a BUY or SELL, or when one of your paper trades hits its target or stop.</p>
+    </div>` : ''}
     ${alerts.map((a) => {
       const meta = ALERT_META[a.type] || ALERT_META.NEWS;
       const secAgo = (Date.now() - a.ts) / 1000;

@@ -386,19 +386,6 @@ class MarketModel {
 
 function fmtNum(v, d) { return v.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }); }
 
-const CLOSED_SEED = [
-  { symbol: 'GC', side: 'LONG', dateOffsetDays: -2, resultR: 2.8, outcome: 'Target 2', holdMin: 186 },
-  { symbol: 'NQ', side: 'LONG', dateOffsetDays: -2, resultR: 1.9, outcome: 'Target 1', holdMin: 46 },
-  { symbol: 'CL', side: 'SHORT', dateOffsetDays: -3, resultR: -1.0, outcome: 'Stopped', holdMin: 28 },
-  { symbol: 'ES', side: 'LONG', dateOffsetDays: -3, resultR: 3.2, outcome: 'Target 3', holdMin: 224 },
-  { symbol: 'RTY', side: 'SHORT', dateOffsetDays: -4, resultR: 1.5, outcome: 'Target 1', holdMin: 62 },
-  { symbol: 'MNQ', side: 'SHORT', dateOffsetDays: -4, resultR: -1.0, outcome: 'Stopped', holdMin: 19 },
-  { symbol: 'SI', side: 'LONG', dateOffsetDays: -5, resultR: 2.1, outcome: 'Target 2', holdMin: 138 },
-  { symbol: 'ZN', side: 'SHORT', dateOffsetDays: -6, resultR: 1.2, outcome: 'Target 1', holdMin: 51 },
-  { symbol: 'BTC', side: 'LONG', dateOffsetDays: -7, resultR: 2.4, outcome: 'Target 2', holdMin: 97 },
-  { symbol: 'YM', side: 'LONG', dateOffsetDays: -8, resultR: -1.0, outcome: 'Stopped', holdMin: 33 },
-];
-
 const CALENDAR_SEED = [
   { day: 'Today', time: '08:30', title: 'Initial Jobless Claims', forecast: '221K', previous: '219K', impact: 'MED' },
   { day: 'Today', time: '10:00', title: 'ISM Manufacturing PMI', forecast: '48.4', previous: '48.4', impact: 'MED' },
@@ -409,32 +396,15 @@ const CALENDAR_SEED = [
   { day: 'Fri', time: '10:00', title: 'Consumer Confidence', forecast: '111.7', previous: '111.7', impact: 'MED' },
 ];
 
-const ALERTS_SEED = [
-  { type: 'BUY', symbol: 'GC', title: 'BUY · GC', body: 'Gold triggered a long — 88% confidence, entry 2,648.4, stop 2,621.4.', ageSec: 120 },
-  { type: 'TARGET', symbol: 'ES', title: 'Target 1 hit · ES', body: 'E-mini S&P reached Target 1 at 5,940.75 (+1.0R). Trailing stop active.', ageSec: 840 },
-  { type: 'SELL', symbol: 'CL', title: 'SELL · CL', body: 'Crude Oil short — 82% confidence, entry 71.84, stop 73.19.', ageSec: 1980 },
-  { type: 'STOP', symbol: 'MNQ', title: 'Stop hit · MNQ', body: 'Micro Nasdaq short stopped out at 21,168 (-1.0R).', ageSec: 3120 },
-  { type: 'REVERSAL', symbol: 'NQ', title: 'Trend reversal · NQ', body: 'Nasdaq 15m structure shifted bullish — watch for a long setup.', ageSec: 3600 },
-  { type: 'VOLATILITY', symbol: 'VIX', title: 'High volatility · VIX', body: 'VIX ATR expanding — position sizes trimmed automatically.', ageSec: 7200 },
-  { type: 'NEWS', symbol: 'CPI', title: 'Event warning · CPI', body: 'CPI releases Wed 08:30. New signals paused 15 min around the print.', ageSec: 10800 },
-];
+// No seeded/demo alerts — the feed fills with REAL notifications as signals fire
+// and paper trades close, so nothing shown here is fabricated.
+const ALERTS_SEED = [];
 
 export function createEngine() {
   const markets = MARKET_DEFS.map((d) => new MarketModel(d));
   const bySymbol = new Map(markets.map((m) => [m.symbol, m]));
   const now = Date.now();
   const alerts = ALERTS_SEED.map((a) => ({ ...a, ts: now - a.ageSec * 1000 }));
-  const closedSignals = CLOSED_SEED.map((c) => {
-    const def = bySymbol.get(c.symbol);
-    const entry = def.basePrice * (1 - (c.resultR > 0 ? 0.004 : -0.003));
-    const exit = entry * (1 + (c.side === 'LONG' ? 1 : -1) * (c.resultR > 0 ? 0.006 : -0.002));
-    return {
-      symbol: c.symbol, name: def.name, side: c.side,
-      date: new Date(now + c.dateOffsetDays * 86400000),
-      entry, exit, resultR: c.resultR, outcome: c.outcome, holdMin: c.holdMin,
-      decimals: def.decimals,
-    };
-  });
 
   function tick(threshold) {
     for (const m of markets) {
@@ -445,31 +415,10 @@ export function createEngine() {
     }
   }
 
-  function performance() {
-    const wins = closedSignals.filter((c) => c.resultR > 0).length;
-    const losses = closedSignals.length - wins;
-    const winRate = Math.round((wins / closedSignals.length) * 100);
-    const avgWinR = closedSignals.filter((c) => c.resultR > 0).reduce((s, c) => s + c.resultR, 0) / (wins || 1);
-    const avgLossR = Math.abs(closedSignals.filter((c) => c.resultR < 0).reduce((s, c) => s + c.resultR, 0) / (losses || 1));
-    const avgHold = closedSignals.reduce((s, c) => s + c.holdMin, 0) / closedSignals.length;
-    const totalR = closedSignals.reduce((s, c) => s + c.resultR, 0);
-    return {
-      winRate, wins, losses,
-      avgRR: `${avgLossR ? (avgWinR / avgLossR).toFixed(1) : avgWinR.toFixed(1)}:1`,
-      maxDrawdownPct: 8.4,
-      avgHold: avgHold >= 60 ? `${(avgHold / 60).toFixed(1)} hrs` : `${Math.round(avgHold)} min`,
-      totalR,
-      monthlyR: [
-        { label: 'Feb', value: 3.4 }, { label: 'Mar', value: -1.6 }, { label: 'Apr', value: 5.1 },
-        { label: 'May', value: 4.3 }, { label: 'Jun', value: 6.0 }, { label: 'Jul', value: 4.0 },
-      ],
-    };
-  }
-
   return {
-    markets, bySymbol, alerts, closedSignals,
+    markets, bySymbol, alerts,
     calendar: CALENDAR_SEED,
-    tick, performance,
+    tick,
     get: (symbol) => bySymbol.get(symbol),
   };
 }

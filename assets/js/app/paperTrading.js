@@ -250,11 +250,38 @@ export function getPerformanceSummary() {
     byMonth.set(label, (byMonth.get(label) || 0) + tradePnl(c));
   }
 
+  // Chronological pass for the equity curve and streaks (store is newest-first).
+  const chrono = [...closed].reverse();
+  const equity = [0];
+  let run = 0, curStreak = 0, bestWinStreak = 0, worstLossStreak = 0;
+  for (const c of chrono) {
+    const p = tradePnl(c);
+    run += p;
+    equity.push(run);
+    if (p > 0) { curStreak = curStreak > 0 ? curStreak + 1 : 1; bestWinStreak = Math.max(bestWinStreak, curStreak); }
+    else if (p < 0) { curStreak = curStreak < 0 ? curStreak - 1 : -1; worstLossStreak = Math.min(worstLossStreak, curStreak); }
+  }
+  const grossWin = winTrades.reduce((s, c) => s + tradePnl(c), 0);
+  const grossLoss = Math.abs(lossTrades.reduce((s, c) => s + tradePnl(c), 0));
+  const profitFactor = grossLoss > 0 ? grossWin / grossLoss : (grossWin > 0 ? Infinity : 0);
+  const expectancy = decisive ? Math.round(totalPnl / decisive) : 0;
+  const peak = Math.max(...equity);
+  let maxDrawdown = 0, hi = equity[0];
+  for (const e of equity) { hi = Math.max(hi, e); maxDrawdown = Math.min(maxDrawdown, e - hi); }
+
   return {
-    winRate, wins, losses,
+    winRate, wins, losses, decisive,
     totalPnl, avgWin, avgLoss, bestPnl,
     avgHold: avgHold >= 60 ? `${(avgHold / 60).toFixed(1)} hrs` : `${Math.round(avgHold)} min`,
     monthlyPnl: [...byMonth.entries()].map(([label, value]) => ({ label, value })),
+    equity,
+    profitFactor,
+    expectancy,
+    peak,
+    maxDrawdown,
+    bestWinStreak,
+    worstLossStreak: Math.abs(worstLossStreak),
+    currentStreak: curStreak,
   };
 }
 
