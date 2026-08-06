@@ -42,7 +42,10 @@ const HOLD_BY_VOLATILITY = {
 function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
-export function computeRealSignal(candles, def, rng, news = []) {
+export function computeRealSignal(candles, def, rng, news = [], opts = {}) {
+  // Reward:Risk for the first target — user-adjustable in Settings. Bounded so a
+  // stray value can't invert the geometry. Default keeps the high-win-rate 0.4.
+  const targetRatio = Math.min(3, Math.max(0.2, opts.targetRatio > 0 ? opts.targetRatio : 0.4));
   const closes = candles.map((c) => c.c);
   const n = closes.length;
   const price = closes[n - 1];
@@ -256,9 +259,9 @@ export function computeRealSignal(candles, def, rng, news = []) {
   // which is what produces the high win rate; the two further targets let a
   // strong reversion run. Geometric baseline: 1/(1+0.4) ≈ 71% hit rate before
   // any edge, and buying dips in an uptrend adds a real one.
-  const target1 = entry + direction * riskDist * 0.40;
-  const target2 = entry + direction * riskDist * 0.85;
-  const target3 = entry + direction * riskDist * 1.4;
+  const target1 = entry + direction * riskDist * targetRatio;
+  const target2 = entry + direction * riskDist * targetRatio * 2.1;
+  const target3 = entry + direction * riskDist * targetRatio * 3.5;
   const riskReward = Math.abs(target1 - entry) / Math.abs(entry - stop || 1e-9);
 
   const agreeState = direction > 0 ? 'bull' : 'bear';

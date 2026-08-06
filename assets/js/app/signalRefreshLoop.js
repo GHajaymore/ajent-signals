@@ -1,6 +1,7 @@
 // Periodically fetches real candles and recomputes real signals for every
 // market. Runs on a slower cadence than live quotes since it's a heavier
 // payload — indicators on 1h bars don't need second-by-second refresh anyway.
+import { state } from './state.js';
 import { YAHOO_SYMBOL, fetchYahooQuote } from './liveData.js';
 import { fetchCandles } from './candles.js';
 import { fetchNews } from './news.js';
@@ -66,7 +67,7 @@ function refreshAll(engine, stagger) {
           if (basis != null) market.basis = basis;
         }
         const news = await fetchNews(ySym).catch(() => []); // news is optional — never blocks a signal
-        const signal = computeRealSignal(candles, market, market.rng, news);
+        const signal = computeRealSignal(candles, market, market.rng, news, { targetRatio: state.settings.targetRatio });
         if (market.basis) {
           const p = signal.plan;
           for (const k of ['entry', 'stop', 'target1', 'target2', 'target3']) p[k] += market.basis;

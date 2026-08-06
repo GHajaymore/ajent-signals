@@ -37,7 +37,9 @@ function patchRiskCalc() {
 }
 
 export function render(container) {
-  const { threshold, riskPct, accountBalance, notifications } = state.settings;
+  const { threshold, riskPct, accountBalance, notifications, targetRatio } = state.settings;
+  const rr = Number.isFinite(targetRatio) ? targetRatio : 0.4;
+  const estWin = Math.round(100 / (1 + rr));
   const market = state.engine.get(state.selectedSymbol);
   const { contracts, riskPerContract } = computeRisk(market, accountBalance, riskPct);
 
@@ -59,6 +61,12 @@ export function render(container) {
       <div class="setting-row-top"><span class="t">Signal confidence threshold</span><span class="v" id="threshold-val">${threshold}%</span></div>
       <input id="threshold-range" class="range" type="range" min="60" max="90" step="1" value="${threshold}">
       <div class="setting-help">Below this, markets show &ldquo;No Trade &mdash; waiting for a high-probability setup&rdquo;.</div>
+    </div>
+
+    <div class="panel setting-block">
+      <div class="setting-row-top"><span class="t">Reward : Risk (target size)</span><span class="v" id="rr-val">${rr.toFixed(1)} : 1</span></div>
+      <input id="rr-range" class="range" type="range" min="0.2" max="2.5" step="0.1" value="${rr}">
+      <div class="setting-help">First target distance vs the stop. <b id="rr-est" style="color:var(--accent-300)">&asymp; ${estWin}% win rate</b> from geometry. <b>Lower</b> = more frequent, smaller wins (higher win rate); <b>higher</b> = bigger, rarer wins. A high win rate is not the same as profit. Applies to new signals; existing ones update within a few minutes.</div>
     </div>
 
     <div class="panel setting-block">
@@ -106,6 +114,14 @@ export function render(container) {
   thresholdRange.addEventListener('input', () => {
     state.settings.threshold = Number(thresholdRange.value);
     document.getElementById('threshold-val').textContent = `${state.settings.threshold}%`;
+    saveSettings();
+  });
+
+  const rrRange = document.getElementById('rr-range');
+  rrRange.addEventListener('input', () => {
+    state.settings.targetRatio = Number(rrRange.value);
+    document.getElementById('rr-val').textContent = `${state.settings.targetRatio.toFixed(1)} : 1`;
+    document.getElementById('rr-est').innerHTML = `&asymp; ${Math.round(100 / (1 + state.settings.targetRatio))}% win rate`;
     saveSettings();
   });
 

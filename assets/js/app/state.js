@@ -11,6 +11,7 @@ function loadSettings() {
     if (!Number.isFinite(parsed.accountBalance)) delete parsed.accountBalance;
     if (!Number.isFinite(parsed.threshold)) delete parsed.threshold;
     if (!Number.isFinite(parsed.riskPct)) delete parsed.riskPct;
+    if (!Number.isFinite(parsed.targetRatio)) delete parsed.targetRatio;
     return parsed;
   } catch (e) { /* ignore malformed local storage */ }
   return null;
@@ -19,6 +20,9 @@ function loadSettings() {
 const defaultSettings = {
   threshold: 75,
   riskPct: 1,
+  // Reward:Risk for the first target (target distance ÷ stop distance). Lower =
+  // higher win rate / smaller wins; higher = bigger wins / lower win rate.
+  targetRatio: 0.4,
   accountBalance: 25000,
   chartRange: '1D',
   notifications: { buy: true, sell: true, stop: true, target: true, reversal: true, volatility: true, news: true },
