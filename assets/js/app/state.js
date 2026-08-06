@@ -68,6 +68,7 @@ export function setPaperMarkets(symbols) {
 export const state = {
   engine: createEngine(),
   accepted: localStorage.getItem(LS_ACCEPT) === '1',
+  onboarded: localStorage.getItem('ajent_onboarded_v1') === '1',
   acks: { read: false, risk: false, terms: false, age: false },
   selectedSymbol: 'ES',
   homeSymbol: 'ES',
@@ -111,6 +112,12 @@ export function toggleWatchlist(symbol) {
 export function acceptDisclaimer() {
   state.accepted = true;
   localStorage.setItem(LS_ACCEPT, '1');
+}
+
+const LS_ONBOARD = 'ajent_onboarded_v1';
+export function completeOnboarding() {
+  state.onboarded = true;
+  localStorage.setItem(LS_ONBOARD, '1');
 }
 
 export function saveSettings() {

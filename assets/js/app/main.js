@@ -9,6 +9,7 @@ import * as alertsScreen from './screens/alerts.js';
 import * as settingsScreen from './screens/settings.js';
 import * as paywall from './screens/paywall.js';
 import * as methodology from './screens/methodology.js';
+import * as onboarding from './screens/onboarding.js';
 import { startLiveDataLoop, startFocusDataLoop } from './liveData.js';
 import { applyGeoDefaults } from './geo.js';
 import { startUpdateWatcher } from './updateCheck.js';
@@ -25,7 +26,7 @@ const TABS = [
 ];
 
 const LIVE_SCREENS = new Set(['home', 'markets', 'signal', 'track']);
-const NO_TABBAR = new Set(['gate', 'paywall', 'methodology']);
+const NO_TABBAR = new Set(['gate', 'paywall', 'methodology', 'welcome']);
 
 const contentEl = document.getElementById('app-content');
 const tabbarEl = document.getElementById('tabbar');
@@ -60,7 +61,10 @@ function renderRoute() {
   const route = parseHash();
 
   if (!state.accepted && route[0] !== 'gate') { location.hash = '#/gate'; return; }
-  if (state.accepted && route[0] === 'gate') { location.hash = '#/home'; return; }
+  if (state.accepted && route[0] === 'gate') { location.hash = state.onboarded ? '#/home' : '#/welcome'; return; }
+  // First run after accepting the disclaimer: show the onboarding walkthrough.
+  if (state.accepted && !state.onboarded && route[0] !== 'welcome') { location.hash = '#/welcome'; return; }
+  if (state.accepted && state.onboarded && route[0] === 'welcome') { location.hash = '#/home'; return; }
 
   const showTabbar = !NO_TABBAR.has(route[0]);
   tabbarEl.style.display = showTabbar ? 'flex' : 'none';
@@ -105,6 +109,9 @@ function renderRoute() {
       break;
     case 'methodology':
       methodology.render(contentEl);
+      break;
+    case 'welcome':
+      onboarding.render(contentEl);
       break;
     default:
       home.render(contentEl);
