@@ -386,14 +386,17 @@ class MarketModel {
 
 function fmtNum(v, d) { return v.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }); }
 
+// Illustrative reference of the recurring US releases that reliably move markets,
+// with their typical release day/time (ET). Not a live feed and not forecast
+// figures — the UI frames it as a reference to verify against a live calendar.
 const CALENDAR_SEED = [
-  { day: 'Today', time: '08:30', title: 'Initial Jobless Claims', forecast: '221K', previous: '219K', impact: 'MED' },
-  { day: 'Today', time: '10:00', title: 'ISM Manufacturing PMI', forecast: '48.4', previous: '48.4', impact: 'MED' },
-  { day: 'Wed', time: '08:30', title: 'CPI (MoM)', forecast: '0.3%', previous: '0.2%', impact: 'HIGH' },
-  { day: 'Wed', time: '14:00', title: 'FOMC Rate Decision', forecast: '4.50%', previous: '4.75%', impact: 'HIGH' },
-  { day: 'Fri', time: '08:30', title: 'Nonfarm Payrolls', forecast: '180K', previous: '227K', impact: 'HIGH' },
-  { day: 'Fri', time: '08:30', title: 'PCE Price Index', forecast: '0.2%', previous: '0.2%', impact: 'HIGH' },
-  { day: 'Fri', time: '10:00', title: 'Consumer Confidence', forecast: '111.7', previous: '111.7', impact: 'MED' },
+  { day: 'Thu', time: '08:30', title: 'Initial Jobless Claims', impact: 'MED' },
+  { day: 'Mon', time: '10:00', title: 'ISM Manufacturing PMI', impact: 'MED' },
+  { day: 'Wed', time: '08:30', title: 'CPI (Consumer Prices)', impact: 'HIGH' },
+  { day: 'Wed', time: '14:00', title: 'FOMC Rate Decision', impact: 'HIGH' },
+  { day: 'Fri', time: '08:30', title: 'Nonfarm Payrolls', impact: 'HIGH' },
+  { day: 'Fri', time: '08:30', title: 'PCE Price Index', impact: 'HIGH' },
+  { day: 'Tue', time: '10:00', title: 'Consumer Confidence', impact: 'MED' },
 ];
 
 // No seeded/demo alerts — the feed fills with REAL notifications as signals fire
