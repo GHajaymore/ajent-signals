@@ -1,10 +1,43 @@
 import { state } from '../state.js';
-import { heroCard, watchlistRow, patchRow, patchHero } from '../components.js';
+import { heroCard, watchlistRow, patchRow, patchHero, symTile, dataTag } from '../components.js';
 import { getPerformanceSummary } from '../paperTrading.js';
 
 function money(n) {
   const sign = n >= 0 ? '+$' : '-$';
   return sign + Math.abs(Math.round(n)).toLocaleString('en-US');
+}
+
+// One ranked "best opportunity" row — the strongest current dip-buy / pop-sell
+// setups the engine sees, ordered by confidence.
+function setupRow(m, v) {
+  const isBuy = v === 'BUY';
+  const color = isBuy ? 'var(--buy)' : 'var(--sell)';
+  const conf = m.signal.confidence;
+  return `<div class="setup-row" data-nav="#/signal/${m.symbol}" data-sym="${m.symbol}">
+    ${symTile(m.symbol, 34)}
+    <div class="setup-body">
+      <div class="setup-name">${m.name} <span style="vertical-align:middle">${dataTag(m)}</span></div>
+      <div class="setup-type" style="color:${color}"><i class="ph-fill ${isBuy ? 'ph-caret-up' : 'ph-caret-down'}"></i>${isBuy ? 'Buy the dip' : 'Sell the pop'}</div>
+    </div>
+    <div class="setup-conf">
+      <span class="setup-conf-val" style="color:${color}">${conf}%</span>
+      <div class="setup-conf-bar"><span style="width:${conf}%;background:${color}"></span></div>
+    </div>
+  </div>`;
+}
+
+function topSetupsHtml(engine, threshold) {
+  const setups = engine.markets
+    .map((m) => ({ m, v: m.verdict(threshold) }))
+    .filter((x) => x.v !== 'NO_TRADE')
+    .sort((a, b) => b.m.signal.confidence - a.m.signal.confidence)
+    .slice(0, 4);
+  if (!setups.length) {
+    return `<div class="card" style="padding:22px 16px;text-align:center">
+      <div class="text-muted" style="font-size:12.5px;line-height:1.6">No clean setups right now — Ajent Pulse is waiting for a genuine oversold dip in an uptrend, or an overbought pop in a downtrend. Check back shortly.</div>
+    </div>`;
+  }
+  return `<div class="card" style="padding:2px 12px">${setups.map((x) => setupRow(x.m, x.v)).join('')}</div>`;
 }
 
 function greeting() {
@@ -75,6 +108,9 @@ export function render(container) {
     <div class="section-label">Top signal</div>
     <div id="hero-wrap">${heroCard(featured, featuredVerdict)}</div>
 
+    <div class="section-label">Top setups now</div>
+    <div id="setups-wrap">${topSetupsHtml(engine, threshold)}</div>
+
     <div class="section-label">Watchlist<a data-nav="#/markets">All markets &rsaquo;</a></div>
     <div class="card" style="padding:4px 12px">
       <div id="watchlist-wrap">${state.homeWatchlist.map((sym) => {
@@ -115,6 +151,19 @@ export function refresh(container) {
   const heroEl = heroWrap.querySelector('.hero-card');
   if (!heroEl || !patchHero(heroEl, featured, featuredVerdict)) {
     heroWrap.innerHTML = heroCard(featured, featuredVerdict);
+  }
+
+  // Top setups: rebuild only when the ranked set changes (avoids per-tick flicker).
+  const setupsWrap = container.querySelector('#setups-wrap');
+  if (setupsWrap) {
+    const cur = [...setupsWrap.querySelectorAll('.setup-row[data-sym]')].map((el) => el.dataset.sym).join(',');
+    const next = engine.markets
+      .map((m) => ({ m, v: m.verdict(threshold) }))
+      .filter((x) => x.v !== 'NO_TRADE')
+      .sort((a, b) => b.m.signal.confidence - a.m.signal.confidence)
+      .slice(0, 4)
+      .map((x) => x.m.symbol).join(',');
+    if (cur !== next) setupsWrap.innerHTML = topSetupsHtml(engine, threshold);
   }
 
   // Watchlist: patch each existing row; rebuild only if the row set changed.

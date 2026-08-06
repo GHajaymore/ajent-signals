@@ -263,6 +263,16 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .mkt-price .px { font: 600 13.5px var(--font-heading); }
 .mkt-price .chg { font-size: 11px; margin-top: 1px; }
 .mkt-verdict { flex: none; width: 82px; display: flex; justify-content: flex-end; }
+.setup-row { display: flex; align-items: center; gap: 11px; padding: 10px 4px; border-bottom: 1px solid var(--divider); cursor: pointer; }
+.setup-row:last-child { border-bottom: none; }
+.setup-body { flex: 1; min-width: 0; }
+.setup-name { font: 600 13px var(--font-heading); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.setup-type { font: 600 11px var(--font-heading); display: flex; align-items: center; gap: 3px; margin-top: 2px; }
+.setup-type i { font-size: 12px; }
+.setup-conf { flex: none; width: 72px; text-align: right; }
+.setup-conf-val { font: 700 13px var(--font-heading); }
+.setup-conf-bar { height: 4px; background: var(--neutral-900); border-radius: 2px; margin-top: 4px; overflow: hidden; }
+.setup-conf-bar span { display: block; height: 100%; border-radius: 2px; }
 .mkt-star { flex: none; background: none; border: none; cursor: pointer; padding: 4px; margin: -4px -2px -4px 0; font-size: 17px; line-height: 1; color: var(--text-muted); opacity: 0.5; transition: opacity 0.15s, color 0.15s, transform 0.1s; }
 .mkt-star:hover { opacity: 1; }
 .mkt-star:active { transform: scale(0.85); }
