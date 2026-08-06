@@ -237,8 +237,36 @@ export function computeRealSignal(candles, def, rng, news = [], opts = {}) {
     direction = bullWeight >= bearWeight ? 1 : -1;
     setup = 0;
   }
-  // Only a genuine pullback (setup ≳ 0.55) clears a typical 75 threshold, so
-  // signals fire selectively on real dips/pops rather than constantly.
+
+  // ── Discipline overlays — the rules seasoned traders actually live by ──────
+  if (htfTrend !== 'flat') {
+    const lastC = candles[n - 1], prevClose = closes[n - 2] ?? price;
+    // (1) "Don't catch a falling knife." Wait for the bar to turn back in the
+    //     trade's direction before entering an oversold dip / overbought pop.
+    const confirmed = direction > 0
+      ? (price >= lastC.o || price > prevClose)
+      : (price <= lastC.o || price < prevClose);
+    // (2) Distinguish a pullback from a trend BREAK. A violent multi-bar move
+    //     against the trend is a breakdown, not a dip to fade.
+    const look = Math.min(4, n - 1);
+    const slice = closes.slice(n - look);
+    const excursion = direction > 0 ? (Math.max(...slice) - price) / price : (price - Math.min(...slice)) / price;
+    const breakdown = excursion > atrPctNow * 3.2;
+    // (3) Stand aside in the chaos: an ATR spike vs its recent median usually
+    //     means a news shock — no edge, wider slippage.
+    const atrRecent = atrVals.slice(-30).filter((v) => v > 0).sort((a, b) => a - b);
+    const medAtr = atrRecent.length ? atrRecent[Math.floor(atrRecent.length / 2)] : atrNow;
+    const shock = atrNow > medAtr * 2.4;
+
+    let disc = 1;
+    if (!confirmed) disc *= 0.75;   // needs a deeper dip to fire without the turn
+    if (breakdown) disc *= 0.45;    // fading a breakdown is how accounts blow up
+    if (shock) disc *= 0.6;         // don't trade the news spike
+    setup = clamp01(setup * disc);
+  }
+
+  // Only a genuine, confirmed pullback clears a typical 75 threshold, so signals
+  // fire selectively on real dips/pops rather than constantly.
   const confidence = htfTrend === 'flat'
     ? Math.min(58, Math.round(Math.max(bullWeight, bearWeight)))
     : Math.round(52 + setup * 47);

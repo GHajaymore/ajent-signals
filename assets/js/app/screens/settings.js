@@ -89,6 +89,15 @@ export function render(container) {
       <div class="risk-warning" id="risk-warning" style="display:${contracts < 1 ? 'block' : 'none'}"></div>
     </div>
 
+    <div class="pro-card" data-nav="#/methodology" style="cursor:pointer">
+      <div class="pro-icon" style="background:var(--buy-dim);color:var(--buy)"><i class="ph-fill ph-pulse"></i></div>
+      <div class="pro-body">
+        <div class="pro-title">How Ajent Pulse works</div>
+        <div class="pro-sub">The strategy, the math, and the honest caveats</div>
+      </div>
+      <i class="ph-bold ph-caret-right" style="color:var(--text-muted)"></i>
+    </div>
+
     <div class="panel setting-block">
       <div class="panel-title">Paper trading</div>
       <div class="setting-help" style="margin-top:0">Ajent tests its signals with virtual money on the Paper tab. Clearing history starts your track record fresh.</div>

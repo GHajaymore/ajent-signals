@@ -8,6 +8,7 @@ import * as calendarScreen from './screens/calendar.js';
 import * as alertsScreen from './screens/alerts.js';
 import * as settingsScreen from './screens/settings.js';
 import * as paywall from './screens/paywall.js';
+import * as methodology from './screens/methodology.js';
 import { startLiveDataLoop, startFocusDataLoop } from './liveData.js';
 import { applyGeoDefaults } from './geo.js';
 import { startUpdateWatcher } from './updateCheck.js';
@@ -24,7 +25,7 @@ const TABS = [
 ];
 
 const LIVE_SCREENS = new Set(['home', 'markets', 'signal', 'track']);
-const NO_TABBAR = new Set(['gate', 'paywall']);
+const NO_TABBAR = new Set(['gate', 'paywall', 'methodology']);
 
 const contentEl = document.getElementById('app-content');
 const tabbarEl = document.getElementById('tabbar');
@@ -101,6 +102,9 @@ function renderRoute() {
       break;
     case 'paywall':
       paywall.render(contentEl);
+      break;
+    case 'methodology':
+      methodology.render(contentEl);
       break;
     default:
       home.render(contentEl);
