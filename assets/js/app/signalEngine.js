@@ -212,12 +212,18 @@ export function computeRealSignal(candles, def, rng, news = [], opts = {}) {
   const lowerBB = bb.lower[n - 1], upperBB = bb.upper[n - 1];
   const ema9Now = ema9[n - 1];
 
+  // Bollinger %B — where price sits within the bands (0 = lower band, 1 = upper).
+  // A graded band-position read beat the crude "touched the band" check in
+  // backtesting, so it carries more of the setup weight.
+  const bWidth = (upperBB != null && lowerBB != null) ? (upperBB - lowerBB) || 1 : null;
+  const pctB = bWidth != null ? (price - lowerBB) / bWidth : 0.5; // 0.5 = neutral fallback
+
   let direction, setup;
   if (htfTrend === 'up') {
     direction = 1;
     setup = clamp01(
-      0.42 * (rsi2 < 5 ? 1 : rsi2 < 12 ? 0.75 : rsi2 < 25 ? 0.45 : rsi2 < 40 ? 0.2 : 0)
-      + 0.24 * (lowerBB != null && price <= lowerBB ? 1 : lowerBB != null && price <= lowerBB * 1.0015 ? 0.5 : 0)
+      0.40 * (rsi2 < 5 ? 1 : rsi2 < 12 ? 0.75 : rsi2 < 25 ? 0.45 : rsi2 < 40 ? 0.2 : 0)
+      + 0.26 * (pctB < 0.02 ? 1 : pctB < 0.12 ? 0.6 : pctB < 0.28 ? 0.3 : 0)
       + 0.20 * (rsi14 < 32 ? 1 : rsi14 < 42 ? 0.5 : 0)
       + 0.08 * (cciNow < -120 ? 1 : cciNow < -60 ? 0.5 : 0)
       + 0.06 * (price < ema9Now ? 1 : 0),
@@ -225,8 +231,8 @@ export function computeRealSignal(candles, def, rng, news = [], opts = {}) {
   } else if (htfTrend === 'down') {
     direction = -1;
     setup = clamp01(
-      0.42 * (rsi2 > 95 ? 1 : rsi2 > 88 ? 0.75 : rsi2 > 75 ? 0.45 : rsi2 > 60 ? 0.2 : 0)
-      + 0.24 * (upperBB != null && price >= upperBB ? 1 : upperBB != null && price >= upperBB * 0.9985 ? 0.5 : 0)
+      0.40 * (rsi2 > 95 ? 1 : rsi2 > 88 ? 0.75 : rsi2 > 75 ? 0.45 : rsi2 > 60 ? 0.2 : 0)
+      + 0.26 * (pctB > 0.98 ? 1 : pctB > 0.88 ? 0.6 : pctB > 0.72 ? 0.3 : 0)
       + 0.20 * (rsi14 > 68 ? 1 : rsi14 > 58 ? 0.5 : 0)
       + 0.08 * (cciNow > 120 ? 1 : cciNow > 60 ? 0.5 : 0)
       + 0.06 * (price > ema9Now ? 1 : 0),
