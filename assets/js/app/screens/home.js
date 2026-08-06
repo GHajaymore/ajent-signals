@@ -47,6 +47,19 @@ function greeting() {
   return 'Good evening';
 }
 
+// Real session status for the featured market — no hardcoded "Market open".
+function marketStatus(m) {
+  if (!m) return { label: 'Loading', color: 'var(--text-muted)', pulse: false };
+  if (m.isClosed) return { label: 'Market closed', color: 'var(--text-muted)', pulse: false };
+  const age = m.quoteAgeSec;
+  if (age != null && age > 120) return { label: `Delayed ~${Math.max(1, Math.round(age / 60))}m`, color: '#f5b35a', pulse: false };
+  if (m.isLiveFresh) return { label: 'Market open', color: 'var(--buy)', pulse: true };
+  return { label: 'Simulated', color: 'var(--text-muted)', pulse: false };
+}
+function statusPillInner(st) {
+  return `<span class="dot ${st.pulse ? 'dot-pulse' : ''}" style="background:${st.color}"></span>${st.label}`;
+}
+
 function computeDerived() {
   const engine = state.engine;
   const threshold = state.settings.threshold;
@@ -78,7 +91,7 @@ export function render(container) {
         <h1 class="h-title">Dashboard</h1>
       </div>
       <div class="header-actions">
-        <span class="pill"><span class="dot dot-buy dot-pulse"></span>Market open</span>
+        <span class="pill" id="market-status">${statusPillInner(marketStatus(featured))}</span>
         <button class="icon-btn" data-nav="#/alerts">
           <i class="ph-fill ph-bell"></i>
           ${state.hasUnreadAlerts ? '<span class="unread-dot"></span>' : ''}
@@ -136,6 +149,9 @@ export function refresh(container) {
   if (!heroWrap || !watchlistWrap) return;
 
   const { engine, threshold, openSignals, avgConf, riskOn, featured, featuredVerdict } = computeDerived();
+
+  const statusEl = container.querySelector('#market-status');
+  if (statusEl) statusEl.innerHTML = statusPillInner(marketStatus(featured));
 
   const openSignalsEl = container.querySelector('#stat-open-signals');
   const avgConfEl = container.querySelector('#stat-avg-conf');
