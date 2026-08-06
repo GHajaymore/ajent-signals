@@ -17,7 +17,9 @@ const MAX_CLOSED = 300;
 //       noise); prior results were recorded on the noisier timeframe.
 //  v5 — trades now open at the live price (not the lagging candle entry), which
 //       was booking instant losses when price moved between candle and quote.
-const SCHEMA = 5;
+//  v6 — switched to the Ajent Pulse mean-reversion core with tight-target,
+//       high-win-rate geometry; prior results were a different strategy.
+const SCHEMA = 6;
 
 function fresh() { return { v: SCHEMA, open: {}, closed: [], lastClosedSignalAt: {} }; }
 
@@ -58,29 +60,16 @@ const FACTOR_GROUP = {
   'News Sentiment': 'catalyst',
 };
 
-// A trade is "high conviction" only when (a) a strong majority of indicators
-// agree, (b) that agreement spans at least two independent factor groups,
-// (c) it's with the higher-timeframe trend, and (d) ADX confirms a real trend.
-// Chop and one-dimensional agreement — where tight stops bleed — are filtered.
-// A quality gate, not a profit guarantee.
+// Quality gate for the mean-reversion core. A BUY/SELL only fires when the
+// engine has already confirmed a real oversold-dip / overbought-pop setup
+// aligned with the higher-timeframe trend, so the gate here just enforces that
+// trend alignment and rejects a signal with no trend behind it. (The old gate
+// demanded trend-following confluence, which a dip-buy intentionally fails —
+// momentum is temporarily against you at entry — so it blocked every trade.)
 export function isHighConviction(signal, verdict) {
-  const c = signal.confluence || {};
-  const total = (c.bull || 0) + (c.bear || 0) + (c.neutral || 0) || 1;
-  const agree = verdict === 'BUY' ? (c.bull || 0) : (c.bear || 0);
-  if (agree / total < 0.65) return false;
-  // Don't trade against the higher-timeframe trend (flat is allowed).
-  if (signal.htfTrend === 'up' && verdict === 'SELL') return false;
-  if (signal.htfTrend === 'down' && verdict === 'BUY') return false;
-  const wantState = verdict === 'BUY' ? 'bull' : 'bear';
-  // Require the trend-strength gauge (ADX) to confirm the direction, not range.
-  const adxInd = (signal.indicators || []).find((i) => i.name === 'ADX');
-  if (!adxInd || adxInd.state !== wantState) return false;
-  // Cross-group confluence: the agreeing factors must span >=2 groups.
-  const groups = new Set();
-  for (const i of signal.indicators || []) {
-    if (i.state === wantState && FACTOR_GROUP[i.name]) groups.add(FACTOR_GROUP[i.name]);
-  }
-  return groups.size >= 2;
+  if (verdict === 'BUY') return signal.htfTrend === 'up';
+  if (verdict === 'SELL') return signal.htfTrend === 'down';
+  return false;
 }
 
 export function maybeOpenPositions(engine, threshold, riskDollars = 250, enabled = null) {

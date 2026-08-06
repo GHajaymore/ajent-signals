@@ -40,6 +40,7 @@ const HOLD_BY_VOLATILITY = {
 };
 
 function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
 export function computeRealSignal(candles, def, rng, news = []) {
   const closes = candles.map((c) => c.c);
@@ -53,6 +54,7 @@ export function computeRealSignal(candles, def, rng, news = []) {
   const emaLong = ema(closes, Math.min(200, Math.max(50, Math.floor(n * 0.8))));
   const htfTrend = price > emaLong[n - 1] * 1.0005 ? 'up' : price < emaLong[n - 1] * 0.9995 ? 'down' : 'flat';
   const rsiVals = rsi(closes, 14);
+  const rsi2Vals = rsi(closes, 2); // fast RSI — the mean-reversion trigger (Connors-style)
   const { histogram } = macd(closes);
   const atrVals = atr(candles, 14);
   const bb = bollingerBands(closes, 20, 2);
@@ -192,34 +194,71 @@ export function computeRealSignal(candles, def, rng, news = []) {
 
   const bullWeight = indicators.filter((i) => i.state === 'bull').reduce((s, i) => s + i.weight, 0);
   const bearWeight = indicators.filter((i) => i.state === 'bear').reduce((s, i) => s + i.weight, 0);
-  const direction = bullWeight >= bearWeight ? 1 : -1;
-  // Higher-timeframe alignment: fighting the bigger trend is where accuracy
-  // collapses, so a counter-trend signal is heavily penalised (usually pushing
-  // it below the threshold so it never fires), while a with-trend signal is
-  // modestly rewarded. Flat HTF is left as-is.
-  const withTrend = (direction > 0 && htfTrend === 'up') || (direction < 0 && htfTrend === 'down');
-  const againstTrend = (direction > 0 && htfTrend === 'down') || (direction < 0 && htfTrend === 'up');
-  const htfFactor = againstTrend ? 0.6 : withTrend ? 1.06 : 1;
-  const confidence = Math.min(100, Math.round(Math.max(bullWeight, bearWeight) * htfFactor));
+
+  // ── Ajent Pulse: mean-reversion-in-trend core ─────────────────────────────
+  // Instead of chasing breakouts (many small losses, rare big wins — a LOW win
+  // rate), we trade WITH the higher-timeframe trend but only enter on a
+  // short-term counter-move: buy an oversold dip in an uptrend, sell an
+  // overbought pop in a downtrend. Pullbacks inside a trend usually resume, so a
+  // deliberately tight target is reached far more often than the wider stop —
+  // the classic high-win-rate profile (Connors RSI-2 family). The catch, stated
+  // honestly in the UI: wins are small and the occasional loss is larger.
+  const rsi2 = rsi2Vals[n - 1] ?? 50;
+  const rsi14 = rsiVals[n - 1] ?? 50;
+  const cciNow = cciVals[n - 1] ?? 0;
+  const lowerBB = bb.lower[n - 1], upperBB = bb.upper[n - 1];
+  const ema9Now = ema9[n - 1];
+
+  let direction, setup;
+  if (htfTrend === 'up') {
+    direction = 1;
+    setup = clamp01(
+      0.42 * (rsi2 < 5 ? 1 : rsi2 < 12 ? 0.75 : rsi2 < 25 ? 0.45 : rsi2 < 40 ? 0.2 : 0)
+      + 0.24 * (lowerBB != null && price <= lowerBB ? 1 : lowerBB != null && price <= lowerBB * 1.0015 ? 0.5 : 0)
+      + 0.20 * (rsi14 < 32 ? 1 : rsi14 < 42 ? 0.5 : 0)
+      + 0.08 * (cciNow < -120 ? 1 : cciNow < -60 ? 0.5 : 0)
+      + 0.06 * (price < ema9Now ? 1 : 0),
+    );
+  } else if (htfTrend === 'down') {
+    direction = -1;
+    setup = clamp01(
+      0.42 * (rsi2 > 95 ? 1 : rsi2 > 88 ? 0.75 : rsi2 > 75 ? 0.45 : rsi2 > 60 ? 0.2 : 0)
+      + 0.24 * (upperBB != null && price >= upperBB ? 1 : upperBB != null && price >= upperBB * 0.9985 ? 0.5 : 0)
+      + 0.20 * (rsi14 > 68 ? 1 : rsi14 > 58 ? 0.5 : 0)
+      + 0.08 * (cciNow > 120 ? 1 : cciNow > 60 ? 0.5 : 0)
+      + 0.06 * (price > ema9Now ? 1 : 0),
+    );
+  } else {
+    // No clear higher-timeframe trend → no mean-reversion edge. Lean with the
+    // confluence but keep confidence low so it stays below the fire threshold.
+    direction = bullWeight >= bearWeight ? 1 : -1;
+    setup = 0;
+  }
+  // Only a genuine pullback (setup ≳ 0.55) clears a typical 75 threshold, so
+  // signals fire selectively on real dips/pops rather than constantly.
+  const confidence = htfTrend === 'flat'
+    ? Math.min(58, Math.round(Math.max(bullWeight, bearWeight)))
+    : Math.round(52 + setup * 47);
 
   const bull = indicators.filter((i) => i.state === 'bull').length;
   const bear = indicators.filter((i) => i.state === 'bear').length;
   const neutral = indicators.length - bull - bear;
 
-  // Noise-tolerant geometry. On a 15-minute timeframe the 14-period ATR is a
-  // more realistic fraction of price, but for the calmest markets it can still
-  // dip below the granularity of the free quote feed (coarse snapshots that can
-  // jump 0.1%+ per update). So the risk distance is floored at ~0.5% of price
-  // (or a wider 2.2x ATR for genuinely volatile markets, whichever is larger),
-  // keeping the stop outside feed noise. Target sits at 1.3x the risk; with the
-  // paper tracker's break-even stop this keeps a sane R:R.
+  // Risk distance (the stop) is floored at ~0.6% of price (or 1.8x ATR for
+  // volatile markets, whichever is larger) so the stop sits outside the coarse
+  // free-feed noise. The target geometry below is intentionally asymmetric.
   const entry = price;
-  const riskDist = Math.max(atrNow * 2.2, price * 0.005);
+  const riskDist = Math.max(atrNow * 1.8, price * 0.006);
   const stop = entry - direction * riskDist;
-  const trailingStopPts = riskDist * 0.9;
-  const target1 = entry + direction * riskDist * 1.3;
-  const target2 = entry + direction * riskDist * 2.2;
-  const target3 = entry + direction * riskDist * 3.2;
+  const trailingStopPts = riskDist * 0.8;
+  // Deliberately tight first target vs a wider stop. On a mean-reversion bounce
+  // the small target (≈0.4× the risk distance) is reached most of the time,
+  // which is what produces the high win rate; the two further targets let a
+  // strong reversion run. Geometric baseline: 1/(1+0.4) ≈ 71% hit rate before
+  // any edge, and buying dips in an uptrend adds a real one.
+  const target1 = entry + direction * riskDist * 0.40;
+  const target2 = entry + direction * riskDist * 0.85;
+  const target3 = entry + direction * riskDist * 1.4;
   const riskReward = Math.abs(target1 - entry) / Math.abs(entry - stop || 1e-9);
 
   const agreeState = direction > 0 ? 'bull' : 'bear';
@@ -241,15 +280,21 @@ export function computeRealSignal(candles, def, rng, news = []) {
   const agreeing = indicators.filter((i) => i.state === agreeState).sort((a, b) => b.weight - a.weight);
   let reasons;
   if (confidence >= 60) {
-    reasons = agreeing.slice(0, 3).map((i) => (
+    const lead = direction > 0
+      ? 'Buying an oversold dip inside a confirmed uptrend — pullbacks in an uptrend usually resume, so a tight target is reached far more often than the wider stop.'
+      : 'Selling an overbought pop inside a confirmed downtrend — rallies in a downtrend usually fade, favouring the tight target over the wider stop.';
+    reasons = [lead];
+    reasons.push(...agreeing.slice(0, 2).map((i) => (
       i.name === 'News Sentiment' ? `Recent headlines lean ${agreeState === 'bull' ? 'bullish' : 'bearish'} — ${i.detail}.` : REASON_TEXT[i.name]?.[agreeState]
-    )).filter(Boolean);
+    )).filter(Boolean));
+    reasons.push('This is a high-probability setup by design: many small wins with occasional larger losses. A high win rate is not the same as guaranteed profit.');
     reasons.push('Computed from real 15-minute candles and recent headlines over the trailing month — not a random or simulated score.');
   } else {
     reasons = [
-      `Confidence of ${confidence}% falls short of the confidence threshold.`,
-      `Indicators are split — ${bull} bullish vs ${bear} bearish, ${neutral} neutral.`,
-      'Waiting for stronger multi-timeframe alignment before risking capital.',
+      htfTrend === 'flat'
+        ? 'No clear higher-timeframe trend, so there is no reliable dip-buy or pop-sell edge right now.'
+        : 'Trend is intact but price has not pulled back far enough — waiting for a genuine oversold dip / overbought pop before entering.',
+      `Setup strength ${Math.round((setup || 0) * 100)}% — below the fire threshold.`,
     ];
   }
 
