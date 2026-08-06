@@ -1,6 +1,43 @@
 import { state } from '../state.js';
-import { heroCard, watchlistRow, patchRow, patchHero, symTile, dataTag } from '../components.js';
+import { heroCard, watchlistRow, patchRow, patchHero, symTile, dataTag, sparklineSvg } from '../components.js';
 import { getPerformanceSummary } from '../paperTrading.js';
+
+function pfLabel(perf) { return perf.profitFactor === Infinity ? '∞' : perf.profitFactor.toFixed(2); }
+
+// Rich hero: the honest paper portfolio — P&L, a live equity sparkline, and the
+// headline stats. This is the app's centrepiece and its credibility.
+function portfolioCard(perf) {
+  if (!perf) {
+    return `<div class="pf-card empty" data-nav="#/track">
+      <div class="pf-main">
+        <div class="pf-label">Paper portfolio</div>
+        <div class="pf-value">$0<span class="pf-cur">.00</span></div>
+        <div class="pf-meta">No trades yet — signals paper-trade automatically</div>
+      </div>
+      <i class="ph-bold ph-arrow-up-right pf-go"></i>
+    </div>`;
+  }
+  const up = perf.totalPnl >= 0;
+  const col = up ? 'var(--buy)' : 'var(--sell)';
+  const spark = perf.equity && perf.equity.length > 1 ? sparklineSvg(perf.equity, col, 128, 46) : '';
+  return `<div class="pf-card ${up ? 'up' : 'down'}" data-nav="#/track">
+    <div class="pf-main">
+      <div class="pf-label">Paper portfolio P&amp;L</div>
+      <div class="pf-value" id="hp-pnl" style="color:${col}">${money(perf.totalPnl)}</div>
+      <div class="pf-meta" id="hp-meta"><span style="color:var(--buy)">${perf.winRate}% win</span> · PF ${pfLabel(perf)} · ${perf.wins}W/${perf.losses}L</div>
+    </div>
+    <div class="pf-chart">${spark}<div class="pf-go-sm"><i class="ph-bold ph-caret-right"></i></div></div>
+  </div>`;
+}
+
+function strategyChip() {
+  const daily = state.settings.strategyMode !== 'intraday';
+  return `<div class="stat-card strat-card" data-nav="#/settings">
+    <div class="stat-label">Strategy</div>
+    <div class="stat-value" style="font-size:14px;display:flex;align-items:center;gap:5px"><i class="ph-fill ${daily ? 'ph-calendar-check' : 'ph-lightning'}" style="color:var(--accent-300);font-size:14px"></i>${daily ? 'Daily' : 'Intraday'}</div>
+    <div class="stat-sub">${daily ? 'swing · US indices' : '15-min · all markets'}</div>
+  </div>`;
+}
 
 function money(n) {
   const sign = n >= 0 ? '+$' : '-$';
@@ -85,10 +122,13 @@ export function render(container) {
   container.innerHTML = `
   <div class="fade-in home-wrap">
     <div class="dash-glow"></div>
-    <div class="screen-header">
-      <div>
-        <div class="eyebrow">${greeting()}</div>
-        <h1 class="h-title">Dashboard</h1>
+    <div class="home-topbar">
+      <div class="home-brand">
+        <span class="brand-mark"><i class="ph-fill ph-pulse"></i></span>
+        <div>
+          <div class="eyebrow">${greeting()}</div>
+          <div class="brand-name">Ajent Signals</div>
+        </div>
       </div>
       <div class="header-actions">
         <span class="pill" id="market-status">${statusPillInner(marketStatus(featured))}</span>
@@ -99,12 +139,9 @@ export function render(container) {
       </div>
     </div>
 
+    <div id="portfolio-wrap">${portfolioCard(perf)}</div>
+
     <div class="stat-row">
-      <div class="stat-card" data-nav="#/track">
-        <div class="stat-label">Paper P&amp;L</div>
-        <div class="stat-value" style="color:${perf && perf.totalPnl < 0 ? 'var(--sell)' : 'var(--buy)'};font-size:19px">${perf ? money(perf.totalPnl) : '$0'}</div>
-        <div class="stat-sub">${perf ? `${perf.winRate}% win rate` : 'no trades yet'}</div>
-      </div>
       <div class="stat-card">
         <div class="stat-label">Open signals</div>
         <div class="stat-value" id="stat-open-signals">${openSignals.length}</div>
@@ -116,6 +153,7 @@ export function render(container) {
           <i class="ph-bold ${riskOn ? 'ph-trend-up' : 'ph-trend-down'}"></i>${riskOn ? 'Up' : 'Down'}
         </div>
       </div>
+      ${strategyChip()}
     </div>
 
     <div class="section-label">Top signal</div>
@@ -152,6 +190,16 @@ export function refresh(container) {
 
   const statusEl = container.querySelector('#market-status');
   if (statusEl) statusEl.innerHTML = statusPillInner(marketStatus(featured));
+
+  // Portfolio card: rebuild only when the P&L actually changes (a trade closed),
+  // so the equity sparkline stays current without per-tick flicker.
+  const pfWrap = container.querySelector('#portfolio-wrap');
+  if (pfWrap) {
+    const perf = getPerformanceSummary();
+    const shown = container.querySelector('#hp-pnl')?.textContent ?? null;
+    const next = perf ? money(perf.totalPnl) : null;
+    if (shown !== next) pfWrap.innerHTML = portfolioCard(perf);
+  }
 
   const openSignalsEl = container.querySelector('#stat-open-signals');
   const avgConfEl = container.querySelector('#stat-avg-conf');
