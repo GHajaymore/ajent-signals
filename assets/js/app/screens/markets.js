@@ -32,13 +32,54 @@ const CAT_COLOR = {
 };
 
 let query = '';
+let filter = 'all'; // all | buy | sell | fav
+
+// Live market-breadth bar — how the whole board is leaning right now.
+function breadthHtml() {
+  const threshold = state.settings.threshold;
+  let buy = 0, sell = 0, flat = 0;
+  for (const m of state.engine.markets) {
+    const v = m.verdict(threshold);
+    if (v === 'BUY') buy++; else if (v === 'SELL') sell++; else flat++;
+  }
+  const total = buy + sell + flat || 1;
+  return `<div class="breadth" data-counts="${buy},${sell}">
+    <div class="breadth-row">
+      <span class="breadth-stat"><b style="color:var(--buy)">${buy}</b> Buy</span>
+      <span class="breadth-stat"><b style="color:var(--sell)">${sell}</b> Sell</span>
+      <span class="breadth-stat"><b>${flat}</b> No-trade</span>
+    </div>
+    <div class="breadth-bar">
+      <span style="width:${(buy / total) * 100}%;background:var(--buy)"></span>
+      <span style="width:${(flat / total) * 100}%;background:var(--neutral-700)"></span>
+      <span style="width:${(sell / total) * 100}%;background:var(--sell)"></span>
+    </div>
+  </div>`;
+}
+
+function filterChips() {
+  const c = (id, label, icon) => `<button class="fchip ${filter === id ? 'on' : ''}" data-filter="${id}">${icon}${label}</button>`;
+  return `<div class="mkt-filters">
+    ${c('all', 'All', '')}
+    ${c('buy', 'Buy', '<i class="ph-fill ph-caret-up" style="color:var(--buy);font-size:11px"></i>')}
+    ${c('sell', 'Sell', '<i class="ph-fill ph-caret-down" style="color:var(--sell);font-size:11px"></i>')}
+    ${c('fav', 'Watchlist', '<i class="ph-fill ph-star" style="color:var(--accent-200);font-size:11px"></i>')}
+  </div>`;
+}
 
 function listHtml() {
   const engine = state.engine;
   const threshold = state.settings.threshold;
   const q = query.trim().toUpperCase();
 
-  const filtered = engine.markets.filter((m) => !q || m.symbol.includes(q) || m.name.toUpperCase().includes(q) || m.exchange.includes(q));
+  const filtered = engine.markets.filter((m) => {
+    if (q && !(m.symbol.includes(q) || m.name.toUpperCase().includes(q) || m.exchange.includes(q))) return false;
+    const v = m.verdict(threshold);
+    if (filter === 'buy' && v !== 'BUY') return false;
+    if (filter === 'sell' && v !== 'SELL') return false;
+    if (filter === 'fav' && !state.homeWatchlist.includes(m.symbol)) return false;
+    return true;
+  });
   const byCategory = CATEGORY_ORDER.map((cat) => ({ cat, list: filtered.filter((m) => m.category === cat) })).filter((g) => g.list.length);
 
   return byCategory.map((g) => `
@@ -61,12 +102,16 @@ export function render(container) {
   <div class="fade-in glow-wrap">
     <div class="dash-glow"></div>
     <h1 class="h-title">Markets</h1>
-    <p class="text-muted" style="font-size:13px;margin:4px 0 16px">${engine.markets.length} global markets — futures, indexes, FX &amp; crypto</p>
+    <p class="text-muted" style="font-size:13px;margin:4px 0 14px">${engine.markets.length} global markets — futures, indexes, FX &amp; crypto</p>
+
+    <div id="breadth-wrap">${breadthHtml()}</div>
 
     <div class="search-input-wrap">
       <i class="ph ph-magnifying-glass"></i>
       <input id="mkt-search" class="search-input" placeholder="Search CME, NSE, LSE, ASX..." value="${escapeHtml(query)}">
     </div>
+
+    <div id="mkt-filters-wrap">${filterChips()}</div>
 
     <div id="market-list-wrap">${listHtml()}</div>
   </div>`;
@@ -74,11 +119,17 @@ export function render(container) {
   const listWrap = document.getElementById('market-list-wrap');
   wireStars(listWrap);
 
+  const rebuild = () => { listWrap.innerHTML = listHtml(); wireStars(listWrap); };
+
   const input = document.getElementById('mkt-search');
-  input.addEventListener('input', () => {
-    query = input.value;
-    listWrap.innerHTML = listHtml();
-    wireStars(listWrap);
+  input.addEventListener('input', () => { query = input.value; rebuild(); });
+
+  container.querySelectorAll('#mkt-filters-wrap .fchip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      filter = chip.dataset.filter;
+      container.querySelectorAll('#mkt-filters-wrap .fchip').forEach((c) => c.classList.toggle('on', c.dataset.filter === filter));
+      rebuild();
+    });
   });
 }
 
@@ -86,6 +137,28 @@ export function refresh(container) {
   const wrap = container.querySelector('#market-list-wrap');
   if (!wrap) return;
   const threshold = state.settings.threshold;
+
+  // Breadth bar: rebuild only when the buy/sell counts actually change.
+  const bWrap = container.querySelector('#breadth-wrap');
+  if (bWrap) {
+    let buy = 0, sell = 0;
+    for (const m of state.engine.markets) { const v = m.verdict(threshold); if (v === 'BUY') buy++; else if (v === 'SELL') sell++; }
+    if (bWrap.querySelector('.breadth')?.dataset.counts !== `${buy},${sell}`) bWrap.innerHTML = breadthHtml();
+  }
+
+  // With a verdict filter active, the visible set changes as verdicts flip —
+  // rebuild only when membership actually differs (otherwise patch in place).
+  if (filter === 'buy' || filter === 'sell') {
+    const q = query.trim().toUpperCase();
+    const want = state.engine.markets.filter((m) => {
+      if (q && !(m.symbol.includes(q) || m.name.toUpperCase().includes(q) || m.exchange.includes(q))) return false;
+      const v = m.verdict(threshold);
+      return filter === 'buy' ? v === 'BUY' : v === 'SELL';
+    }).map((m) => m.symbol).join(',');
+    const have = [...wrap.querySelectorAll('.mkt-row[data-sym]')].map((el) => el.dataset.sym).join(',');
+    if (want !== have) { wrap.innerHTML = listHtml(); wireStars(wrap); return; }
+  }
+
   // Patch every existing row in place — no innerHTML rebuild, so no flicker.
   const rows = wrap.querySelectorAll('.mkt-row[data-sym]');
   if (!rows.length) return;
