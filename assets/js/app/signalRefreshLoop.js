@@ -58,7 +58,10 @@ function refreshAll(engine, stagger) {
     const delay = i++ * stagger;
     setTimeout(async () => {
       try {
-        const candles = await fetchCandles(ySym);
+        // Daily swing strategy needs daily candles (2y for the 200-day trend);
+        // intraday uses 15-minute bars over a month.
+        const daily = state.settings.strategyMode === 'daily';
+        const candles = await fetchCandles(ySym, daily ? { interval: '1d', range: '2y', minCandles: 210 } : {});
         // For cash-index-sourced markets, refresh the basis so the displayed
         // price tracks the real future, and shift the plan levels to match.
         const futureSym = FUTURE_FOR_BASIS[market.symbol];
@@ -67,7 +70,7 @@ function refreshAll(engine, stagger) {
           if (basis != null) market.basis = basis;
         }
         const news = await fetchNews(ySym).catch(() => []); // news is optional — never blocks a signal
-        const signal = computeRealSignal(candles, market, market.rng, news, { targetRatio: state.settings.targetRatio });
+        const signal = computeRealSignal(candles, market, market.rng, news, { targetRatio: state.settings.targetRatio, mode: state.settings.strategyMode });
         if (market.basis) {
           const p = signal.plan;
           for (const k of ['entry', 'stop', 'target1', 'target2', 'target3']) p[k] += market.basis;

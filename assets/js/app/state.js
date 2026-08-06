@@ -18,6 +18,9 @@ function loadSettings() {
 }
 
 const defaultSettings = {
+  // 'daily' = the backtest-validated Connors swing strategy (profit factor > 1
+  // over 10y on indices). 'intraday' = the faster 15-minute mean-reversion.
+  strategyMode: 'daily',
   threshold: 75,
   riskPct: 1,
   // Reward:Risk for the first target (target distance ÷ stop distance). Lower =

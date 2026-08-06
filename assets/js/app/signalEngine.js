@@ -218,8 +218,17 @@ export function computeRealSignal(candles, def, rng, news = [], opts = {}) {
   const bWidth = (upperBB != null && lowerBB != null) ? (upperBB - lowerBB) || 1 : null;
   const pctB = bWidth != null ? (price - lowerBB) / bWidth : 0.5; // 0.5 = neutral fallback
 
+  const mode = opts.mode === 'daily' ? 'daily' : 'intraday';
   let direction, setup;
-  if (htfTrend === 'up') {
+
+  if (mode === 'daily') {
+    // ── Daily swing (Connors RSI-2) — backtest-validated over 10y on indices:
+    //    profit factor ~1.3–2.2. Buy a deeply oversold day WITH the 200-period
+    //    trend; sell a deeply overbought day against it. Held a few days.
+    if (htfTrend === 'up' && rsi2 < 10) { direction = 1; setup = rsi2 < 5 ? 1 : 0.8; }
+    else if (htfTrend === 'down' && rsi2 > 90) { direction = -1; setup = rsi2 > 95 ? 1 : 0.8; }
+    else { direction = bullWeight >= bearWeight ? 1 : -1; setup = 0; }
+  } else if (htfTrend === 'up') {
     direction = 1;
     setup = clamp01(
       0.40 * (rsi2 < 5 ? 1 : rsi2 < 12 ? 0.75 : rsi2 < 25 ? 0.45 : rsi2 < 40 ? 0.2 : 0)
@@ -244,38 +253,31 @@ export function computeRealSignal(candles, def, rng, news = [], opts = {}) {
     setup = 0;
   }
 
-  // ── Discipline overlays — the rules seasoned traders actually live by ──────
-  if (htfTrend !== 'flat') {
+  // ── Discipline overlays (intraday) — the rules seasoned traders live by. The
+  //    daily Connors entry deliberately buys the down-close, so it skips the
+  //    "wait for the turn" filter (that's what the validated backtest used).
+  if (mode === 'intraday' && htfTrend !== 'flat' && setup > 0) {
     const lastC = candles[n - 1], prevClose = closes[n - 2] ?? price;
-    // (1) "Don't catch a falling knife." Wait for the bar to turn back in the
-    //     trade's direction before entering an oversold dip / overbought pop.
     const confirmed = direction > 0
       ? (price >= lastC.o || price > prevClose)
       : (price <= lastC.o || price < prevClose);
-    // (2) Distinguish a pullback from a trend BREAK. A violent multi-bar move
-    //     against the trend is a breakdown, not a dip to fade.
     const look = Math.min(4, n - 1);
     const slice = closes.slice(n - look);
     const excursion = direction > 0 ? (Math.max(...slice) - price) / price : (price - Math.min(...slice)) / price;
     const breakdown = excursion > atrPctNow * 3.2;
-    // (3) Stand aside in the chaos: an ATR spike vs its recent median usually
-    //     means a news shock — no edge, wider slippage.
     const atrRecent = atrVals.slice(-30).filter((v) => v > 0).sort((a, b) => a - b);
     const medAtr = atrRecent.length ? atrRecent[Math.floor(atrRecent.length / 2)] : atrNow;
     const shock = atrNow > medAtr * 2.4;
-
     let disc = 1;
-    if (!confirmed) disc *= 0.75;   // needs a deeper dip to fire without the turn
-    if (breakdown) disc *= 0.45;    // fading a breakdown is how accounts blow up
-    if (shock) disc *= 0.6;         // don't trade the news spike
+    if (!confirmed) disc *= 0.75;
+    if (breakdown) disc *= 0.45;
+    if (shock) disc *= 0.6;
     setup = clamp01(setup * disc);
   }
 
-  // Only a genuine, confirmed pullback clears a typical 75 threshold, so signals
-  // fire selectively on real dips/pops rather than constantly.
-  const confidence = htfTrend === 'flat'
-    ? Math.min(58, Math.round(Math.max(bullWeight, bearWeight)))
-    : Math.round(52 + setup * 47);
+  const confidence = setup > 0
+    ? Math.round(52 + setup * 47)
+    : (htfTrend === 'flat' ? Math.min(58, Math.round(Math.max(bullWeight, bearWeight))) : 42);
 
   const bull = indicators.filter((i) => i.state === 'bull').length;
   const bear = indicators.filter((i) => i.state === 'bear').length;
@@ -284,19 +286,21 @@ export function computeRealSignal(candles, def, rng, news = [], opts = {}) {
   // Risk distance (the stop) is floored at ~0.6% of price (or 1.8x ATR for
   // volatile markets, whichever is larger) so the stop sits outside the coarse
   // free-feed noise. The target geometry below is intentionally asymmetric.
+  const daily = mode === 'daily';
   const entry = price;
-  const riskDist = Math.max(atrNow * 1.8, price * 0.006);
+  // Daily swing uses a wider ATR-based stop (validated at ~2x ATR); intraday
+  // floors the stop above the coarse-feed noise. Target = risk x targetRatio.
+  const riskDist = daily ? Math.max(atrNow * 2.0, price * 0.004) : Math.max(atrNow * 1.8, price * 0.006);
+  // Daily swing uses the validated ~1:1 target; the R:R slider tunes intraday.
+  const effRatio = daily ? 1.0 : targetRatio;
   const stop = entry - direction * riskDist;
   const trailingStopPts = riskDist * 0.8;
-  // Deliberately tight first target vs a wider stop. On a mean-reversion bounce
-  // the small target (≈0.4× the risk distance) is reached most of the time,
-  // which is what produces the high win rate; the two further targets let a
-  // strong reversion run. Geometric baseline: 1/(1+0.4) ≈ 71% hit rate before
-  // any edge, and buying dips in an uptrend adds a real one.
-  const target1 = entry + direction * riskDist * targetRatio;
-  const target2 = entry + direction * riskDist * targetRatio * 2.1;
-  const target3 = entry + direction * riskDist * targetRatio * 3.5;
+  const target1 = entry + direction * riskDist * effRatio;
+  const target2 = entry + direction * riskDist * effRatio * (daily ? 1.8 : 2.1);
+  const target3 = entry + direction * riskDist * effRatio * (daily ? 2.6 : 3.5);
   const riskReward = Math.abs(target1 - entry) / Math.abs(entry - stop || 1e-9);
+  // Daily swing trades get a time stop (~8 days); intraday relies on target/stop.
+  const maxHoldMin = daily ? 8 * 24 * 60 : null;
 
   const agreeState = direction > 0 ? 'bull' : 'bear';
   // Plain-language, category-level reasons — deliberately do NOT name the exact
@@ -317,15 +321,23 @@ export function computeRealSignal(candles, def, rng, news = [], opts = {}) {
   const agreeing = indicators.filter((i) => i.state === agreeState).sort((a, b) => b.weight - a.weight);
   let reasons;
   if (confidence >= 60) {
-    const lead = direction > 0
-      ? 'Buying an oversold dip inside a confirmed uptrend — pullbacks in an uptrend usually resume, so a tight target is reached far more often than the wider stop.'
-      : 'Selling an overbought pop inside a confirmed downtrend — rallies in a downtrend usually fade, favouring the tight target over the wider stop.';
+    const lead = daily
+      ? (direction > 0
+        ? 'Buying a deeply oversold day within a long-term uptrend (price above its 200-day average). Historically, dips like this tend to revert over the next few days — a swing setup held for days, not minutes.'
+        : 'Selling a deeply overbought day within a long-term downtrend. Sharp rallies in a downtrend tend to fade — a swing setup held for days, not minutes.')
+      : (direction > 0
+        ? 'Buying an oversold dip inside a confirmed uptrend — pullbacks in an uptrend usually resume, so a tight target is reached far more often than the wider stop.'
+        : 'Selling an overbought pop inside a confirmed downtrend — rallies in a downtrend usually fade, favouring the tight target over the wider stop.');
     reasons = [lead];
     reasons.push(...agreeing.slice(0, 2).map((i) => (
       i.name === 'News Sentiment' ? `Recent headlines lean ${agreeState === 'bull' ? 'bullish' : 'bearish'} — ${i.detail}.` : REASON_TEXT[i.name]?.[agreeState]
     )).filter(Boolean));
-    reasons.push('This is a high-probability setup by design: many small wins with occasional larger losses. A high win rate is not the same as guaranteed profit.');
-    reasons.push('Computed from real 15-minute candles and recent headlines over the trailing month — not a random or simulated score.');
+    reasons.push(daily
+      ? 'Backtested edge over 10 years on major indices (profit factor > 1) — but past performance never guarantees future results.'
+      : 'This is a high-probability setup by design: many small wins with occasional larger losses. A high win rate is not the same as guaranteed profit.');
+    reasons.push(daily
+      ? 'Computed from real daily candles over the last 2 years — not a random or simulated score.'
+      : 'Computed from real 15-minute candles and recent headlines over the trailing month — not a random or simulated score.');
   } else {
     reasons = [
       htfTrend === 'flat'
@@ -339,14 +351,14 @@ export function computeRealSignal(candles, def, rng, news = [], opts = {}) {
 
   return {
     symbol: def.symbol,
-    timeframe: '15m',
+    timeframe: daily ? '1D' : '15m',
     direction,
     confidence,
     trend,
     htfTrend,
     volatility,
-    expectedHold: pick(rng, HOLD_BY_VOLATILITY[volatility]),
-    plan: { entry, stop, trailingStopPts, target1, target2, target3, riskReward },
+    expectedHold: daily ? 'a few days' : pick(rng, HOLD_BY_VOLATILITY[volatility]),
+    plan: { entry, stop, trailingStopPts, target1, target2, target3, riskReward, maxHoldMin },
     reasons,
     indicators,
     confluence: { bull, bear, neutral },

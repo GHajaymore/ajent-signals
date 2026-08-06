@@ -283,6 +283,9 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .onboard-dots { display: flex; gap: 7px; }
 .onboard-dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--neutral-700); transition: all 0.2s; }
 .onboard-dots span.on { background: var(--buy); width: 20px; border-radius: 4px; }
+.seg-toggle { display: flex; gap: 4px; background: var(--neutral-900); border-radius: 11px; padding: 4px; }
+.seg-opt { flex: 1; border: none; background: transparent; color: var(--text-muted); font: 600 13px var(--font-heading); padding: 9px 8px; border-radius: 8px; cursor: pointer; transition: background 0.15s, color 0.15s; }
+.seg-opt.on { background: var(--accent-800); color: var(--accent-100); }
 .mkt-star { flex: none; background: none; border: none; cursor: pointer; padding: 4px; margin: -4px -2px -4px 0; font-size: 17px; line-height: 1; color: var(--text-muted); opacity: 0.5; transition: opacity 0.15s, color 0.15s, transform 0.1s; }
 .mkt-star:hover { opacity: 1; }
 .mkt-star:active { transform: scale(0.85); }

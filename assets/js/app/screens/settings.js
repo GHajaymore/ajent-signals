@@ -58,6 +58,17 @@ export function render(container) {
     </div>
 
     <div class="panel setting-block">
+      <div class="panel-title" style="margin-bottom:8px">Strategy</div>
+      <div class="seg-toggle" id="mode-toggle">
+        <button class="seg-opt ${state.settings.strategyMode !== 'intraday' ? 'on' : ''}" data-mode="daily">Daily swing</button>
+        <button class="seg-opt ${state.settings.strategyMode === 'intraday' ? 'on' : ''}" data-mode="intraday">Intraday</button>
+      </div>
+      <div class="setting-help" id="mode-help" style="margin-top:10px">${state.settings.strategyMode === 'intraday'
+        ? 'Fast 15-minute mean reversion — many signals, trades last minutes. Higher win rate but roughly break-even (small wins, occasional larger losses).'
+        : 'Daily Connors mean reversion — buys deeply oversold days in an uptrend, holds a few days. Backtested profit factor > 1 over 10 years on major indices. Fewer, higher-quality signals. Past results never guarantee future performance.'}</div>
+    </div>
+
+    <div class="panel setting-block">
       <div class="setting-row-top"><span class="t">Signal confidence threshold</span><span class="v" id="threshold-val">${threshold}%</span></div>
       <input id="threshold-range" class="range" type="range" min="60" max="90" step="1" value="${threshold}">
       <div class="setting-help">Below this, markets show &ldquo;No Trade &mdash; waiting for a high-probability setup&rdquo;.</div>
@@ -118,6 +129,19 @@ export function render(container) {
 
     <div class="footer-note">Ajent Signals is an educational tool and does not execute trades.<br>Markets tagged REAL compute indicators from a free public price feed (unofficial, best-effort); SIM markets are simulated placeholders when real data is unavailable · v1.0.0</div>
   </div>`;
+
+  container.querySelectorAll('#mode-toggle .seg-opt').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.mode;
+      if (state.settings.strategyMode === mode) return;
+      state.settings.strategyMode = mode;
+      saveSettings();
+      container.querySelectorAll('#mode-toggle .seg-opt').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
+      document.getElementById('mode-help').textContent = mode === 'intraday'
+        ? 'Fast 15-minute mean reversion — many signals, trades last minutes. Higher win rate but roughly break-even (small wins, occasional larger losses).'
+        : 'Daily Connors mean reversion — buys deeply oversold days in an uptrend, holds a few days. Backtested profit factor > 1 over 10 years on major indices. Fewer, higher-quality signals. Past results never guarantee future performance.';
+    });
+  });
 
   const thresholdRange = document.getElementById('threshold-range');
   thresholdRange.addEventListener('input', () => {

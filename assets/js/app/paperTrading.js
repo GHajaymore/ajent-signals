@@ -19,7 +19,9 @@ const MAX_CLOSED = 300;
 //       was booking instant losses when price moved between candle and quote.
 //  v6 — switched to the Ajent Pulse mean-reversion core with tight-target,
 //       high-win-rate geometry; prior results were a different strategy.
-const SCHEMA = 6;
+//  v7 — added the daily swing (Connors) strategy + a time stop; results are now
+//       strategy-mode dependent, so start the record clean.
+const SCHEMA = 7;
 
 function fresh() { return { v: SCHEMA, open: {}, closed: [], lastClosedSignalAt: {} }; }
 
@@ -128,6 +130,9 @@ export function maybeOpenPositions(engine, threshold, riskDollars = 250, enabled
       indicatorSnapshot: (s.indicators || []).map((i) => ({ name: i.name, state: i.state })),
       openedAt: Date.now(),
       signalCreatedAt: s.createdAt,
+      // Time stop for swing (daily) trades — close at market after N minutes if
+      // neither target nor stop is hit. null = no time stop (intraday).
+      maxHoldMin: s.plan.maxHoldMin || null,
       // Whether this fill was on the real feed. A position must be judged on the
       // same price stream it opened on — never against the simulator's
       // basePrice-anchored series, which sits at a different scale.
@@ -172,12 +177,18 @@ export function checkOpenPositions(engine, onAlert) {
 
     const hitTarget = isLong ? price >= pos.target1 : price <= pos.target1;
     const hitStop = isLong ? price <= pos.stop : price >= pos.stop;
-    if (!hitTarget && !hitStop) continue;
+    // Swing (daily) trades close at market after the time stop if still open.
+    const timedOut = pos.maxHoldMin && (Date.now() - pos.openedAt) > pos.maxHoldMin * 60000;
+    if (!hitTarget && !hitStop && !timedOut) continue;
 
     let outcome, resultR;
     if (hitTarget) { outcome = 'Win'; resultR = pos.riskReward; }
-    else if (pos.beMoved) { outcome = 'Break-even'; resultR = 0; }
-    else { outcome = 'Loss'; resultR = -1; }
+    else if (hitStop && pos.beMoved) { outcome = 'Break-even'; resultR = 0; }
+    else if (hitStop) { outcome = 'Loss'; resultR = -1; }
+    else { // timed out — exit at the current price, whatever it is
+      resultR = ((isLong ? 1 : -1) * (price - pos.entry)) / risk;
+      outcome = resultR >= 0.05 ? 'Time exit (win)' : resultR <= -0.05 ? 'Time exit (loss)' : 'Break-even';
+    }
 
     const riskDollars = pos.riskDollars || 250;
     const pnl = Math.round(resultR * riskDollars);
