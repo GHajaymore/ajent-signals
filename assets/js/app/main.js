@@ -178,7 +178,7 @@ setInterval(() => {
   const beforeAlerts = state.engine.alerts.length;
   state.engine.tick(state.settings.threshold);
   const enabledPaper = getEnabledPaperMarkets(state.engine.markets.map((m) => m.symbol));
-  maybeOpenPositions(state.engine, state.settings.threshold, perTradeRisk(), enabledPaper);
+  maybeOpenPositions(state.engine, state.settings.threshold, perTradeRisk(), enabledPaper, !!state.settings.scaleByConviction);
   checkOpenPositions(state.engine, (alert) => {
     state.engine.alerts.unshift(alert);
     if (state.engine.alerts.length > 40) state.engine.alerts.pop();

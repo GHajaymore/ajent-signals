@@ -17,17 +17,46 @@ function loadSettings() {
   return null;
 }
 
-// The daily strategy's backtested edge is concentrated in US large-cap indices
-// (S&P, Nasdaq, Dow, Russell — profit factor 1.3–2.2 over 10y). It dilutes to
-// break-even elsewhere, so daily mode auto-trades only these by default.
+// The daily strategy is LONG-ONLY (buys deeply oversold dips in uptrends; the
+// short side backtested as a drag — it lost money on international indices — so
+// it's dropped). Its edge is strongest on US large-cap indices (S&P, Nasdaq, Dow,
+// Russell). Clean 10y test — RSI2<10 flush entry + "first up close" exit, longs
+// only: profit factor ~1.6, win rate ~74%, ~1.6-day avg hold, profitable in every
+// one of five sequential ~2y walk-forward windows AND out-of-sample on four more
+// global indices (ASX 1.6, Euro Stoxx 1.6, Nikkei, TSX). It LOST on India's Nifty
+// 50. Daily mode auto-trades that validated set by default (US indices carry the
+// deepest edge; the internationals add session diversification).
 export const US_INDEX_MARKETS = ['ES', 'MES', 'NQ', 'MNQ', 'YM', 'RTY'];
+
+// Per-market backtested edge for the DAILY strategy, from 10-year out-of-sample
+// tests. 'strong' = clearly profitable (US indices, ASX); 'positive' = profitable
+// (Euro Stoxx, Nikkei, TSX); 'flat' = ~break-even (FTSE, DAX); 'negative' = LOST
+// money — mean reversion works poorly there, so never imply an edge (Indian
+// indices trend hard); anything unlisted is 'untested' (commodities, crypto, FX,
+// and indices we haven't validated — the strategy was designed for equity indices).
+export const DAILY_EDGE = {
+  ES: 'strong', MES: 'strong', NQ: 'strong', MNQ: 'strong', YM: 'strong', RTY: 'strong',
+  XJO: 'strong', SX5E: 'positive', N225: 'positive', TSX: 'positive',
+  FTSE: 'flat', DAX: 'flat',
+  NIFTY: 'negative', BNF: 'negative', SENSEX: 'negative',
+};
+export function dailyEdge(symbol) { return DAILY_EDGE[symbol] || 'untested'; }
+
+// Default daily auto-trade set = one contract per DISTINCT underlying with a
+// validated positive out-of-sample edge. US big-four (micros excluded so ES/MES
+// don't double-count the same S&P signal and inflate the record) plus the four
+// internationals that held up out-of-sample (ASX, Euro Stoxx, Nikkei, TSX). This
+// diversifies across trading sessions too — US, European, and Asia-Pacific
+// indices don't all dip on the same day, which smooths the correlated-cluster
+// risk of trading only US indices.
+export const DAILY_AUTOTRADE_MARKETS = ['ES', 'NQ', 'YM', 'RTY', 'XJO', 'SX5E', 'N225', 'TSX'];
 
 const defaultSettings = {
   // 'daily' = the backtest-validated Connors swing strategy (profit factor > 1
   // over 10y on US indices). 'intraday' = the faster 15-minute mean-reversion.
   strategyMode: 'daily',
-  // Default auto-trade set = the US indices where the daily edge is real.
-  paperMarkets: [...US_INDEX_MARKETS],
+  // Default auto-trade set = the validated-edge indices (US + internationals).
+  paperMarkets: [...DAILY_AUTOTRADE_MARKETS],
   threshold: 75,
   riskPct: 1,
   // Reward:Risk for the first target (target distance ÷ stop distance). Lower =
@@ -35,6 +64,10 @@ const defaultSettings = {
   // Default 0.35 → ~74% geometric win rate (a buffer above the 70% target).
   targetRatio: 0.35,
   accountBalance: 25000,
+  // Optional: risk 1.5x on high-conviction (deep RSI2<5) daily setups. Backtested
+  // to improve return-per-unit-risk and Sharpe, but it deepens drawdowns too — a
+  // genuine, double-edged tradeoff — so it's off by default.
+  scaleByConviction: false,
   chartRange: '1D',
   notifications: { buy: true, sell: true, stop: true, target: true, reversal: true, volatility: true, news: true },
   subscription: { tier: 'trial' },

@@ -1,4 +1,4 @@
-import { state, saveSettings, perTradeRisk, setPaperMarkets, setAllPaperMarkets, US_INDEX_MARKETS } from '../state.js';
+import { state, saveSettings, perTradeRisk, setPaperMarkets, setAllPaperMarkets, DAILY_AUTOTRADE_MARKETS } from '../state.js';
 import { fmtMoney } from '../format.js';
 import { resetPaperTrades } from '../paperTrading.js';
 
@@ -64,8 +64,8 @@ export function render(container) {
         <button class="seg-opt ${state.settings.strategyMode === 'intraday' ? 'on' : ''}" data-mode="intraday">Intraday</button>
       </div>
       <div class="setting-help" id="mode-help" style="margin-top:10px">${state.settings.strategyMode === 'intraday'
-        ? 'Fast 15-minute mean reversion — many signals, trades last minutes. Higher win rate but roughly break-even (small wins, occasional larger losses).'
-        : 'Daily Connors mean reversion — buys deeply oversold days in an uptrend, holds a few days. Backtested profit factor > 1 over 10 years on US indices, where the edge is strongest, so daily mode auto-trades those by default (adjust in Paper Trading). Past results never guarantee future performance.'}</div>
+        ? 'Fast 15-minute Connors mean reversion, long-only — buys oversold dips (RSI2 below 10) that flush below the prior bar\'s low in an intraday uptrend, then exits when RSI2 recovers past 60. On ~60 days of 15-minute US-index data this backtested at profit factor ~1.6 (the old fixed-target version lost money). 60 days is a SMALL sample, so treat intraday as provisional until the live paper record confirms it.'
+        : 'Daily Connors mean reversion, long-only — buys deeply oversold days that flush below the prior day\'s low in an uptrend, then exits on the first day that closes green ("first up close"). (Shorting overbought pops backtested as a drag, so it\'s dropped.) Backtested over 10 years on US indices: profit factor ~1.6, win rate ~74%, ~1.6-day average hold — profitable in every one of five ~2-year walk-forward windows and out-of-sample on four more global indices. The deepest setups (RSI2 below 5, below the lower Bollinger band) are flagged as higher conviction. Daily mode auto-trades the validated set — US indices (deepest edge) plus ASX, Euro Stoxx, Nikkei &amp; TSX for session diversification (adjust in Paper Trading). Past results never guarantee future performance.'}</div>
     </div>
 
     <div class="panel setting-block">
@@ -74,11 +74,6 @@ export function render(container) {
       <div class="setting-help">Below this, markets show &ldquo;No Trade &mdash; waiting for a high-probability setup&rdquo;.</div>
     </div>
 
-    <div class="panel setting-block">
-      <div class="setting-row-top"><span class="t">Reward : Risk (target size)</span><span class="v" id="rr-val">${rr.toFixed(1)} : 1</span></div>
-      <input id="rr-range" class="range" type="range" min="0.2" max="2.5" step="0.1" value="${rr}">
-      <div class="setting-help">First target distance vs the stop. <b id="rr-est" style="color:var(--accent-300)">&asymp; ${estWin}% win rate</b> from geometry. <b>Lower</b> = more frequent, smaller wins (higher win rate); <b>higher</b> = bigger, rarer wins. A high win rate is not the same as profit. Applies to new signals; existing ones update within a few minutes.</div>
-    </div>
 
     <div class="panel setting-block">
       <div class="panel-title">Account &amp; risk</div>
@@ -98,6 +93,12 @@ export function render(container) {
       </div>
       <div class="setting-help">This is what each paper trade risks, and sizes the position calculator on every signal.</div>
       <div class="risk-warning" id="risk-warning" style="display:${contracts < 1 ? 'block' : 'none'}"></div>
+      ${state.settings.strategyMode !== 'intraday' ? `
+      <div class="notif-row" style="padding:12px 0 4px;border-top:1px solid var(--hairline);margin-top:12px">
+        <div class="notif-icon" style="background:var(--buy-dim);color:var(--buy)"><i class="ph-bold ph-arrow-fat-lines-up"></i></div>
+        <div class="notif-label" style="flex:1">Scale up on high-conviction<div class="setting-help" style="margin-top:2px">Risk 1.5&times; on the deepest (RSI2&lt;5) setups. Backtested to lift return-per-risk &mdash; but it deepens drawdowns too. Double-edged, so it&rsquo;s off by default.</div></div>
+        <div class="switch ${state.settings.scaleByConviction ? 'on' : ''}" id="conviction-switch"></div>
+      </div>` : ''}
     </div>
 
     <div class="pro-card" data-nav="#/methodology" style="cursor:pointer">
@@ -137,14 +138,17 @@ export function render(container) {
       state.settings.strategyMode = mode;
       saveSettings();
       // Point the auto-trade set at the markets each strategy is good at: the
-      // US indices for daily (where the edge is proven), all markets for intraday.
+      // validated-edge indices for daily (where the edge is proven out-of-sample),
+      // all markets for intraday.
       const all = state.engine.markets.map((m) => m.symbol);
-      if (mode === 'daily') setPaperMarkets(US_INDEX_MARKETS.filter((s) => all.includes(s)));
+      if (mode === 'daily') setPaperMarkets(DAILY_AUTOTRADE_MARKETS.filter((s) => all.includes(s)));
       else setAllPaperMarkets(true, all);
       container.querySelectorAll('#mode-toggle .seg-opt').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
       document.getElementById('mode-help').textContent = mode === 'intraday'
-        ? 'Fast 15-minute mean reversion — many signals, trades last minutes. Higher win rate but roughly break-even (small wins, occasional larger losses).'
-        : 'Daily Connors mean reversion — buys deeply oversold days in an uptrend, holds a few days. Backtested profit factor > 1 over 10 years on US indices, where the edge is strongest, so daily mode auto-trades those by default (adjust in Paper Trading). Past results never guarantee future performance.';
+        ? 'Fast 15-minute Connors mean reversion, long-only — buys oversold dips (RSI2 below 10) that flush below the prior bar\'s low in an intraday uptrend, then exits when RSI2 recovers past 60. On ~60 days of 15-minute US-index data this backtested at profit factor ~1.6 (the old fixed-target version lost money). 60 days is a small sample, so treat intraday as provisional until the live paper record confirms it.'
+        : 'Daily Connors mean reversion, long-only — buys deeply oversold days that flush below the prior day\'s low in an uptrend, then exits on the first day that closes green ("first up close"). Backtested over 10 years on US indices: profit factor ~1.6, win rate ~74%, and profitable in every one of five ~2-year walk-forward windows. The deepest setups (RSI2 below 5) are flagged as higher conviction. Daily mode auto-trades the validated set — US indices plus ASX, Euro Stoxx, Nikkei & TSX. Past results never guarantee future performance.';
+      // Re-render so the conviction toggle (daily-only) appears/disappears with the mode.
+      render(container);
     });
   });
 
@@ -152,14 +156,6 @@ export function render(container) {
   thresholdRange.addEventListener('input', () => {
     state.settings.threshold = Number(thresholdRange.value);
     document.getElementById('threshold-val').textContent = `${state.settings.threshold}%`;
-    saveSettings();
-  });
-
-  const rrRange = document.getElementById('rr-range');
-  rrRange.addEventListener('input', () => {
-    state.settings.targetRatio = Number(rrRange.value);
-    document.getElementById('rr-val').textContent = `${state.settings.targetRatio.toFixed(1)} : 1`;
-    document.getElementById('rr-est').innerHTML = `&asymp; ${Math.round(100 / (1 + state.settings.targetRatio))}% win rate`;
     saveSettings();
   });
 
@@ -186,6 +182,15 @@ export function render(container) {
       saveSettings();
     });
   });
+
+  const convSwitch = document.getElementById('conviction-switch');
+  if (convSwitch) {
+    convSwitch.addEventListener('click', () => {
+      state.settings.scaleByConviction = !state.settings.scaleByConviction;
+      convSwitch.classList.toggle('on', state.settings.scaleByConviction);
+      saveSettings();
+    });
+  }
 
   const resetBtn = document.getElementById('reset-paper');
   if (resetBtn) {

@@ -219,44 +219,62 @@ export function computeRealSignal(candles, def, rng, news = [], opts = {}) {
   const pctB = bWidth != null ? (price - lowerBB) / bWidth : 0.5; // 0.5 = neutral fallback
 
   const mode = opts.mode === 'daily' ? 'daily' : 'intraday';
-  let direction, setup;
+  let direction, setup, conviction = 'normal';
 
   if (mode === 'daily') {
-    // ── Daily swing (Connors RSI-2) — backtest-validated over 10y on indices:
-    //    profit factor ~1.3–2.2. Buy a deeply oversold day WITH the 200-period
-    //    trend; sell a deeply overbought day against it. Held a few days.
-    if (htfTrend === 'up' && rsi2 < 10) { direction = 1; setup = rsi2 < 5 ? 1 : 0.8; }
-    else if (htfTrend === 'down' && rsi2 > 90) { direction = -1; setup = rsi2 > 95 ? 1 : 0.8; }
-    else { direction = bullWeight >= bearWeight ? 1 : -1; setup = 0; }
-  } else if (htfTrend === 'up') {
+    // ── Daily swing (Connors RSI-2) + "first up close" exit.
+    // Entry: RSI2<10 flush below the prior day's low, with the 200-day uptrend.
+    // The flush gate ("wait for the close THROUGH yesterday's extreme") and the
+    // first-up-close exit are what carry the edge. Walk-forward across five
+    // sequential ~2-year windows kept RSI2<10 profitable in EVERY window (US PF
+    // 1.09–2.40, ~72% win). The tighter RSI2<5 posted a higher AVERAGE (~1.84)
+    // but had an outright losing window and half the trades, so <10 is the more
+    // robust gate; the deeper extremes are graded up as higher conviction instead.
+    //
+    // Conviction = 'high' for the deep (RSI2<5) tier, which backtested ~2x the
+    // per-trade expectancy of the ordinary tier and, unlike the ordinary tier,
+    // stayed positive out-of-sample. Optional position sizing keys off this.
+    //
+    // LONG-ONLY. The short side (selling overbought pops in downtrends) backtested
+    // far weaker — profit factor 1.11 overall and an actual loss (0.90) on
+    // international indices — because equity indices drift upward, so shorting the
+    // bounce fights that drift. Long-only lifted PF 1.46 → 1.61. So a downtrend /
+    // overbought pop is simply "no trade", not a short.
+    const prevLow = n >= 2 ? candles[n - 2].l : -Infinity;
+    const flushedDown = price < prevLow;
+    if (htfTrend === 'up' && rsi2 < 10 && flushedDown) {
+      direction = 1;
+      const deep = rsi2 < 5;                                 // deepest oversold
+      const stretched = lowerBB != null && price < lowerBB;  // below the lower band
+      setup = deep && stretched ? 1 : deep ? 0.9 : 0.8;      // elite → strong → ok
+      conviction = deep ? 'high' : 'normal';
+    } else { direction = bullWeight >= bearWeight ? 1 : -1; setup = 0; }
+  } else if (htfTrend === 'up' && rsi2 < 10 && price < (n >= 2 ? candles[n - 2].l : -Infinity)) {
+    // ── Intraday Connors (15m), LONG-ONLY — same flush structure as the daily
+    //    swing but on 15-minute bars, and it exits when RSI2 RECOVERS (the mean is
+    //    reached) rather than at a fixed target. On ~60 days of 15m US-index bars
+    //    the old fixed tight-target exit LOST money (PF ~0.86, negative expectancy
+    //    at every target size); the RSI2-recovery exit turned it positive (PF ~1.6,
+    //    robust across exit thresholds, stops, and all four indices). NOTE: 60 days
+    //    is a SMALL sample — this is provisional, pending the live paper record.
     direction = 1;
-    setup = clamp01(
-      0.40 * (rsi2 < 5 ? 1 : rsi2 < 12 ? 0.75 : rsi2 < 25 ? 0.45 : rsi2 < 40 ? 0.2 : 0)
-      + 0.26 * (pctB < 0.02 ? 1 : pctB < 0.12 ? 0.6 : pctB < 0.28 ? 0.3 : 0)
-      + 0.20 * (rsi14 < 32 ? 1 : rsi14 < 42 ? 0.5 : 0)
-      + 0.08 * (cciNow < -120 ? 1 : cciNow < -60 ? 0.5 : 0)
-      + 0.06 * (price < ema9Now ? 1 : 0),
-    );
-  } else if (htfTrend === 'down') {
-    direction = -1;
-    setup = clamp01(
-      0.40 * (rsi2 > 95 ? 1 : rsi2 > 88 ? 0.75 : rsi2 > 75 ? 0.45 : rsi2 > 60 ? 0.2 : 0)
-      + 0.26 * (pctB > 0.98 ? 1 : pctB > 0.88 ? 0.6 : pctB > 0.72 ? 0.3 : 0)
-      + 0.20 * (rsi14 > 68 ? 1 : rsi14 > 58 ? 0.5 : 0)
-      + 0.08 * (cciNow > 120 ? 1 : cciNow > 60 ? 0.5 : 0)
-      + 0.06 * (price > ema9Now ? 1 : 0),
-    );
+    const deep = rsi2 < 5;
+    const stretched = lowerBB != null && price < lowerBB;
+    setup = deep && stretched ? 1 : deep ? 0.9 : 0.8;
+    conviction = deep ? 'high' : 'normal';
   } else {
-    // No clear higher-timeframe trend → no mean-reversion edge. Lean with the
-    // confluence but keep confidence low so it stays below the fire threshold.
+    // No qualifying long setup (this includes downtrends — the strategy is
+    // long-only, so an overbought pop is "no trade", not a short). Lean with the
+    // confluence but keep confidence below the fire threshold.
     direction = bullWeight >= bearWeight ? 1 : -1;
     setup = 0;
   }
 
-  // ── Discipline overlays (intraday) — the rules seasoned traders live by. The
-  //    daily Connors entry deliberately buys the down-close, so it skips the
-  //    "wait for the turn" filter (that's what the validated backtest used).
-  if (mode === 'intraday' && htfTrend !== 'flat' && setup > 0) {
+  // ── Discipline overlays — retained only as a guard, currently unused because
+  //    both modes are deliberate Connors dip-buys (they buy the down-close, so the
+  //    "wait for the turn" filter would fight the strategy, exactly as the
+  //    validated backtests were run — without it).
+  if (false && mode === 'intraday' && htfTrend !== 'flat' && setup > 0) {
     const lastC = candles[n - 1], prevClose = closes[n - 2] ?? price;
     const confirmed = direction > 0
       ? (price >= lastC.o || price > prevClose)
@@ -288,19 +306,24 @@ export function computeRealSignal(candles, def, rng, news = [], opts = {}) {
   // free-feed noise. The target geometry below is intentionally asymmetric.
   const daily = mode === 'daily';
   const entry = price;
-  // Daily swing uses a wider ATR-based stop (validated at ~2x ATR); intraday
-  // floors the stop above the coarse-feed noise. Target = risk x targetRatio.
-  const riskDist = daily ? Math.max(atrNow * 2.0, price * 0.004) : Math.max(atrNow * 1.8, price * 0.006);
-  // Daily swing uses the validated ~1:1 target; the R:R slider tunes intraday.
-  const effRatio = daily ? 1.0 : targetRatio;
+  // Both modes now use a ~2x ATR stop (validated). The target levels below are
+  // reference/display only — neither mode exits at a fixed target: daily exits on
+  // the first green day, intraday exits when RSI2 recovers past 60.
+  const riskDist = Math.max(atrNow * 2.0, price * (daily ? 0.004 : 0.006));
   const stop = entry - direction * riskDist;
   const trailingStopPts = riskDist * 0.8;
-  const target1 = entry + direction * riskDist * effRatio;
-  const target2 = entry + direction * riskDist * effRatio * (daily ? 1.8 : 2.1);
-  const target3 = entry + direction * riskDist * effRatio * (daily ? 2.6 : 3.5);
+  // Reference targets (display) — the mean-reversion move typically travels ~1-2.5R.
+  const target1 = entry + direction * riskDist * 1.0;
+  const target2 = entry + direction * riskDist * 1.8;
+  const target3 = entry + direction * riskDist * 2.6;
   const riskReward = Math.abs(target1 - entry) / Math.abs(entry - stop || 1e-9);
-  // Daily swing trades get a time stop (~8 days); intraday relies on target/stop.
-  const maxHoldMin = daily ? 8 * 24 * 60 : null;
+  // Time stop: daily ~5 days; intraday ~1 RTH session (26 x 15-min bars ≈ 390 min).
+  const maxHoldMin = daily ? 5 * 24 * 60 : 390;
+  // Exit rule. Daily = Connors "first up close" (exit the first green day). Intraday
+  // = "rsi2Exit": close when the bounce pushes RSI2 back above 60 (the mean is
+  // reached). Both beat a fixed target in backtests — the fixed intraday target
+  // actually LOST money (PF 0.86) because it capped winners while stops ran full.
+  const exitRule = daily ? 'firstUpClose' : 'rsi2Exit';
 
   const agreeState = direction > 0 ? 'bull' : 'bear';
   // Plain-language, category-level reasons — deliberately do NOT name the exact
@@ -323,8 +346,8 @@ export function computeRealSignal(candles, def, rng, news = [], opts = {}) {
   if (confidence >= 60) {
     const lead = daily
       ? (direction > 0
-        ? 'Buying a deeply oversold day within a long-term uptrend (price above its 200-day average). Historically, dips like this tend to revert over the next few days — a swing setup held for days, not minutes.'
-        : 'Selling a deeply overbought day within a long-term downtrend. Sharp rallies in a downtrend tend to fade — a swing setup held for days, not minutes.')
+        ? 'Buying a deeply oversold day that flushed below yesterday’s low, inside a long-term uptrend (price above its 200-day average). Dips like this tend to revert — the trade exits on the first day that closes green, typically within a day or two.'
+        : 'Selling a deeply overbought day that broke above yesterday’s high, inside a long-term downtrend. Sharp rallies here tend to fade — the trade exits on the first day that closes red, typically within a day or two.')
       : (direction > 0
         ? 'Buying an oversold dip inside a confirmed uptrend — pullbacks in an uptrend usually resume, so a tight target is reached far more often than the wider stop.'
         : 'Selling an overbought pop inside a confirmed downtrend — rallies in a downtrend usually fade, favouring the tight target over the wider stop.');
@@ -333,7 +356,7 @@ export function computeRealSignal(candles, def, rng, news = [], opts = {}) {
       i.name === 'News Sentiment' ? `Recent headlines lean ${agreeState === 'bull' ? 'bullish' : 'bearish'} — ${i.detail}.` : REASON_TEXT[i.name]?.[agreeState]
     )).filter(Boolean));
     reasons.push(daily
-      ? 'Backtested edge over 10 years on major indices (profit factor > 1) — but past performance never guarantees future results.'
+      ? 'Backtested over 10 years on US indices: profit factor ~1.6, win rate ~72%, and profitable in every ~2-year walk-forward window — but past performance never guarantees future results, and the edge is deepest on US indices.'
       : 'This is a high-probability setup by design: many small wins with occasional larger losses. A high win rate is not the same as guaranteed profit.');
     reasons.push(daily
       ? 'Computed from real daily candles over the last 2 years — not a random or simulated score.'
@@ -358,7 +381,13 @@ export function computeRealSignal(candles, def, rng, news = [], opts = {}) {
     htfTrend,
     volatility,
     expectedHold: daily ? 'a few days' : pick(rng, HOLD_BY_VOLATILITY[volatility]),
-    plan: { entry, stop, trailingStopPts, target1, target2, target3, riskReward, maxHoldMin },
+    plan: { entry, stop, trailingStopPts, target1, target2, target3, riskReward, maxHoldMin, exitRule, conviction: daily ? conviction : 'normal' },
+    // Latest daily bar's direction, so the paper engine can apply the "first up
+    // close" exit for daily swing trades. Null for intraday.
+    lastDaily: daily && n >= 2 ? { t: candles[n - 1].t, c: closes[n - 1], prevC: closes[n - 2], up: closes[n - 1] > closes[n - 2] } : null,
+    // Current fast-RSI value, so the paper engine can apply the intraday
+    // "rsi2Exit" (close the long once RSI2 recovers past 60).
+    rsi2: Math.round(rsi2),
     reasons,
     indicators,
     confluence: { bull, bear, neutral },

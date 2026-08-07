@@ -61,6 +61,11 @@ body.landing-body {
 
 .track-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; align-items: stretch; }
 .ring-card { padding: 26px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.rr-row { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+.rr-row > span { flex: none; width: 78px; text-align: left; color: var(--neutral-300); font-family: var(--font-heading); font-weight: 500; }
+.rr-row > b { flex: none; width: 40px; text-align: right; font-family: var(--font-heading); font-weight: 600; color: var(--neutral-100); }
+.rr-bar { flex: 1; height: 9px; border-radius: 5px; background: var(--neutral-900); overflow: hidden; }
+.rr-bar > i { display: block; height: 100%; border-radius: 5px; background: linear-gradient(90deg, var(--accent-200), var(--buy)); }
 .metric-mini-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 16px; }
 .metric-mini { padding: 18px; }
 .metric-mini .k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); }

@@ -21,6 +21,30 @@ function geometryDiagram(ratio) {
 export function render(container) {
   const rr = Number.isFinite(state.settings.targetRatio) ? state.settings.targetRatio : 0.35;
   const estWin = Math.round(100 / (1 + rr));
+  const daily = state.settings.strategyMode !== 'intraday';
+
+  // The exit section differs by strategy: daily swing uses the Connors "first up
+  // close" exit (backtested ~72% win / PF ~1.6 on US indices); intraday uses the
+  // fixed tight-target geometry whose win rate comes from the reward:risk ratio.
+  const exitSection = daily ? `
+    <div class="section-label">3 · The exit — first green close</div>
+    <div class="panel">
+      <p class="text-muted" style="font-size:12.5px;line-height:1.65;margin-top:0"><b style="color:var(--text)">Long-only.</b> The entry waits for a <b style="color:var(--text)">deeply oversold day (RSI2 below 10)</b> that flushes below yesterday's low inside an uptrend. Once in, the trade closes on the <b style="color:var(--text)">first day that finishes green</b> — the classic Connors mean-reversion exit — grabbing the bounce instead of waiting for a fixed target, with a hard <b>2× ATR</b> stop underneath and a 5-day time stop as a backstop. The deepest setups (RSI2 below 5, below the lower Bollinger band) are flagged as higher conviction. (Shorting overbought pops backtested as a drag — indices drift up — so it's dropped.)</p>
+      <div class="text-muted" style="font-size:12px;line-height:1.65;margin-top:10px">
+        Clean 10-year backtest on US indices (S&amp;P, Nasdaq, Dow, Russell): <b style="color:var(--buy)">profit factor ~1.6</b>, <b style="color:var(--buy)">win rate ~72%</b>, ~1.6-day average hold — and it stayed <b>profitable in every one</b> of five sequential ~2-year windows rather than riding one lucky stretch. Tested out-of-sample on five more global indices it held up on four (ASX ~1.8, Euro Stoxx ~1.5, Nikkei ~1.2, TSX ~1.1) but <b>lost on India&rsquo;s Nifty 50</b>, where mean reversion works poorly. Daily mode auto-trades that validated set (US indices plus ASX, Euro Stoxx, Nikkei &amp; TSX) — the internationals also trade in different sessions, which spreads risk instead of piling into four US indices that dip together.
+      </div>
+    </div>` : `
+    <div class="section-label">3 · The exit — ride the bounce to the mean</div>
+    <div class="panel">
+      <p class="text-muted" style="font-size:12.5px;line-height:1.65;margin-top:0"><b style="color:var(--text)">Long-only, 15-minute.</b> Same idea as the daily swing but faster: buy an oversold dip (RSI2 below 10) that flushes below the prior bar's low in an intraday uptrend, then <b style="color:var(--text)">exit when RSI2 recovers past 60</b> — the bounce has reached the mean — with a <b>2× ATR</b> stop and a ~1-session time stop as backstops.</p>
+      <div class="text-muted" style="font-size:12px;line-height:1.65;margin-top:10px">
+        On ~60 days of 15-minute US-index data this backtested at <b style="color:var(--buy)">profit factor ~1.6</b>, positive on all four indices. The earlier version used a fixed tight target and <b>lost money</b> (PF ~0.86) — it capped winners while stops ran full-size. <b>Important:</b> 60 days is a small sample (the free feed's limit for 15-minute history), so intraday is <b>provisional</b> — trust the live paper record over the backtest here.
+      </div>
+    </div>`;
+
+  const catchNote = daily
+    ? 'A high win rate is <b>not</b> the same as profit — but here the two agree: the ~72% win rate <b>and</b> a profit factor around 1.6 both come from the same backtest, which held up in every ~2-year window. That edge is strongest on US indices and drawn from the past; it is never a promise. The Paper Trading tab tracks the real, live profit factor and expectancy so you always see the truth.'
+    : 'A high win rate is <b>not</b> the same as profit. The intraday edge here rests on ~60 days of data — promising, but a small sample. Trust the live paper record, which the Paper Trading tab tracks (profit factor and expectancy), over any backtest number until it has built up.';
 
   container.innerHTML = `
   <div class="fade-in glow-wrap">
@@ -54,21 +78,16 @@ export function render(container) {
       <div class="reason-row"><i class="ph-bold ph-scales" style="color:var(--buy)"></i><span><b style="color:var(--text)">Risk a fixed, small fraction.</b> Every position risks the same set % of the account (yours, in Settings), so no single trade can do outsized damage.</span></div>
     </div>
 
-    <div class="section-label">3 · The exit — why the win rate is high</div>
-    <div class="panel">
-      <p class="text-muted" style="font-size:12.5px;line-height:1.65;margin-top:0">A pullback inside a trend usually resumes, so the trade uses a <b style="color:var(--text)">tight target and a wider stop</b>. The small target gets reached far more often than the distant stop — that asymmetry is the win rate.</p>
-      ${geometryDiagram(rr)}
-      <div class="text-muted" style="font-size:12px;line-height:1.6;margin-top:10px;text-align:center">At your current <b style="color:var(--accent-200)">${rr.toFixed(1)} : 1</b> reward:risk, the geometry alone wins about <b style="color:var(--buy)">${estWin}%</b> of the time. Adjust it any time in Settings.</div>
-    </div>
+    ${exitSection}
 
     <div class="panel" style="border:1px solid var(--hairline)">
-      <div class="reason-row" style="align-items:flex-start"><i class="ph-fill ph-warning-circle" style="color:var(--accent-300)"></i><span><b style="color:var(--text)">The honest catch.</b> A high win rate is <b>not</b> the same as profit. Because wins are small and the occasional loss is larger, the strategy aims to protect capital and hover around break-even — the mean-reversion edge is what can tip it positive. The Paper Trading tab shows the real profit factor and expectancy so you always see the truth, not just the win rate.</span></div>
+      <div class="reason-row" style="align-items:flex-start"><i class="ph-fill ph-warning-circle" style="color:var(--accent-300)"></i><span><b style="color:var(--text)">The honest catch.</b> ${catchNote}</span></div>
     </div>
 
     <div class="section-label">4 · Data &amp; limits</div>
     <div class="panel">
       <div class="text-muted" style="font-size:12.5px;line-height:1.65">
-        Signals compute from <b style="color:var(--text)">real 15-minute candles</b> over the trailing month via a free, unofficial price feed (best-effort, not a licensed data source). Index signals use the real-time cash index; some futures are ~15–25 min delayed on the free tier and are labelled <b>Delayed</b>. When live data is unavailable a market falls back to a labelled <b>SIM</b> placeholder and is not paper-traded.
+        Signals compute from ${daily ? '<b style="color:var(--text)">real daily candles</b> over the last two years' : '<b style="color:var(--text)">real 15-minute candles</b> over the trailing month'} via a free, unofficial price feed (best-effort, not a licensed data source). Index signals use the real-time cash index; some futures are ~15–25 min delayed on the free tier and are labelled <b>Delayed</b>. When live data is unavailable a market falls back to a labelled <b>SIM</b> placeholder and is not paper-traded.
         <br><br>
         Ajent Signals is for <b style="color:var(--text)">education only</b> — it does not execute trades, is not investment advice, and past results (including paper trading) do not guarantee future performance.
       </div>

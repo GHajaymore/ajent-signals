@@ -21,7 +21,20 @@ const MAX_CLOSED = 300;
 //       high-win-rate geometry; prior results were a different strategy.
 //  v7 — added the daily swing (Connors) strategy + a time stop; results are now
 //       strategy-mode dependent, so start the record clean.
-const SCHEMA = 7;
+//  v8 — daily swing now exits on the classic "first up close" (backtested PF
+//       ~1.17 → ~1.6) instead of a fixed 1:1 target, so prior daily results were
+//       booked on a different, weaker exit and must be cleared.
+//  v9 — daily entry graded by conviction (RSI2<5 / below-Bollinger flagged elite)
+//       and the time stop trimmed to 5 days, after a walk-forward showed RSI2<10
+//       is profitable in every ~2y window while <5 had a losing one. Records from
+//       the earlier fixed-target exit are invalid.
+// v10 — daily strategy is now LONG-ONLY. Backtests showed the short side (selling
+//       overbought pops) was a drag — PF 1.11 overall and an outright loss on
+//       international indices — so it's dropped. Prior records included shorts.
+// v11 — intraday rebuilt to match: long-only Connors flush entry + an RSI2-recovery
+//       exit (replacing the fixed tight target, which backtested as a net loser).
+//       Prior intraday records used the losing fixed-target exit.
+const SCHEMA = 11;
 
 function fresh() { return { v: SCHEMA, open: {}, closed: [], lastClosedSignalAt: {} }; }
 
@@ -74,7 +87,7 @@ export function isHighConviction(signal, verdict) {
   return false;
 }
 
-export function maybeOpenPositions(engine, threshold, riskDollars = 250, enabled = null) {
+export function maybeOpenPositions(engine, threshold, riskDollars = 250, enabled = null, scaleByConviction = false) {
   for (const market of engine.markets) {
     // Only auto-trade markets the user opted into (null = all markets).
     if (enabled && !enabled.has(market.symbol)) continue;
@@ -123,8 +136,11 @@ export function maybeOpenPositions(engine, threshold, riskDollars = 250, enabled
       confidence: s.confidence,
       decimals: market.decimals,
       // Virtual dollars staked on this trade — captured at open so the recorded
-      // outcome is a real dollar figure, not an abstract multiple.
-      riskDollars: Math.max(1, Math.round(riskDollars)),
+      // outcome is a real dollar figure, not an abstract multiple. Optionally
+      // scaled up 1.5x on high-conviction (deep RSI2<5) setups, whose backtested
+      // per-trade expectancy is ~2x the ordinary tier's.
+      riskDollars: Math.max(1, Math.round(riskDollars * ((scaleByConviction && s.plan.conviction === 'high') ? 1.5 : 1))),
+      conviction: s.plan.conviction || 'normal',
       // Snapshot each factor's stance at entry so the adaptive layer can credit
       // or blame it when this trade eventually closes.
       indicatorSnapshot: (s.indicators || []).map((i) => ({ name: i.name, state: i.state })),
@@ -133,6 +149,9 @@ export function maybeOpenPositions(engine, threshold, riskDollars = 250, enabled
       // Time stop for swing (daily) trades — close at market after N minutes if
       // neither target nor stop is hit. null = no time stop (intraday).
       maxHoldMin: s.plan.maxHoldMin || null,
+      // Exit rule: 'firstUpClose' (daily swing — exit the first green daily bar)
+      // or 'fixed' (intraday — target/stop). Defaults to fixed for safety.
+      exitRule: s.plan.exitRule || 'fixed',
       // Whether this fill was on the real feed. A position must be judged on the
       // same price stream it opened on — never against the simulator's
       // basePrice-anchored series, which sits at a different scale.
@@ -166,28 +185,48 @@ export function checkOpenPositions(engine, onAlert) {
       continue;
     }
 
-    // Break-even management: once the trade is +1R in our favor, pull the stop
-    // up to entry so a winner that reverses scratches at ~$0 instead of a full
-    // loss. Genuine risk management — it lowers the damage of failed trades.
-    if (!pos.beMoved) {
+    const firstUpClose = pos.exitRule === 'firstUpClose';
+    const rsi2Exit = pos.exitRule === 'rsi2Exit';
+    const dynamicExit = firstUpClose || rsi2Exit;
+
+    // Break-even management (fixed-target trades only): once +1R in our favor,
+    // pull the stop to entry so a winner that reverses scratches at ~$0. The
+    // dynamic Connors exits (first-up-close / rsi2-recovery) book the bounce
+    // quickly and were backtested without break-even management, so they opt out.
+    if (!dynamicExit && !pos.beMoved) {
       const oneRLevel = isLong ? pos.entry + risk : pos.entry - risk;
       const reached = isLong ? price >= oneRLevel : price <= oneRLevel;
       if (reached) { pos.stop = pos.entry; pos.beMoved = true; }
     }
 
-    const hitTarget = isLong ? price >= pos.target1 : price <= pos.target1;
     const hitStop = isLong ? price <= pos.stop : price >= pos.stop;
-    // Swing (daily) trades close at market after the time stop if still open.
+    // Only fixed-target (legacy) trades exit at a preset target1; dynamic-exit
+    // trades never do — they ride to the mean-reversion exit below.
+    const hitTarget = !dynamicExit && (isLong ? price >= pos.target1 : price <= pos.target1);
+    // Dynamic mean-reversion exit:
+    //  • firstUpClose (daily): exit on the first COMPLETED daily bar strictly after
+    //    the entry day that closes in our favor (green for a long).
+    //  • rsi2Exit (intraday): exit once fast RSI2 recovers past 60 (long) — the
+    //    bounce has reached the mean. The fresh signal carries both each refresh.
+    let dynExited = false;
+    if (firstUpClose && market.signal && market.signal.lastDaily) {
+      const ld = market.signal.lastDaily;
+      const laterDay = ld.t && new Date(ld.t).toDateString() !== new Date(pos.openedAt).toDateString() && ld.t > pos.openedAt;
+      dynExited = laterDay && (isLong ? ld.up === true : ld.up === false);
+    } else if (rsi2Exit && market.signal && typeof market.signal.rsi2 === 'number') {
+      dynExited = isLong ? market.signal.rsi2 > 60 : market.signal.rsi2 < 40;
+    }
+    // Swing/intraday trades close at market after the time stop if still open.
     const timedOut = pos.maxHoldMin && (Date.now() - pos.openedAt) > pos.maxHoldMin * 60000;
-    if (!hitTarget && !hitStop && !timedOut) continue;
+    if (!hitTarget && !hitStop && !dynExited && !timedOut) continue;
 
     let outcome, resultR;
     if (hitTarget) { outcome = 'Win'; resultR = pos.riskReward; }
     else if (hitStop && pos.beMoved) { outcome = 'Break-even'; resultR = 0; }
     else if (hitStop) { outcome = 'Loss'; resultR = -1; }
-    else { // timed out — exit at the current price, whatever it is
+    else { // dynamic mean-reversion exit OR timed out — exit at the current price
       resultR = ((isLong ? 1 : -1) * (price - pos.entry)) / risk;
-      outcome = resultR >= 0.05 ? 'Time exit (win)' : resultR <= -0.05 ? 'Time exit (loss)' : 'Break-even';
+      outcome = resultR >= 0.05 ? 'Win' : resultR <= -0.05 ? 'Loss' : 'Break-even';
     }
 
     const riskDollars = pos.riskDollars || 250;
@@ -207,9 +246,14 @@ export function checkOpenPositions(engine, onAlert) {
 
     if (onAlert) {
       const money = `${pnl >= 0 ? '+$' : '-$'}${Math.abs(pnl).toLocaleString('en-US')}`;
-      const title = hitTarget ? 'Target hit' : (pos.beMoved ? 'Closed at break-even' : 'Stopped out');
+      const isWin = outcome === 'Win';
+      const title = hitTarget ? 'Target hit'
+        : dynExited ? (isWin ? 'Closed on the bounce' : 'Exited on reversal')
+        : (hitStop && pos.beMoved) ? 'Closed at break-even'
+        : hitStop ? 'Stopped out'
+        : isWin ? 'Time exit (win)' : 'Time exit';
       onAlert({
-        type: hitTarget ? 'TARGET' : 'STOP',
+        type: (hitTarget || (dynExited && isWin)) ? 'TARGET' : 'STOP',
         symbol,
         title: `${title} · ${symbol}`,
         body: `${pos.name} paper ${pos.side.toLowerCase()} closed for ${money} (virtual). No real money involved.`,

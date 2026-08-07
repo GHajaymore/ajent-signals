@@ -1,4 +1,20 @@
-import { state, saveSettings, toggleWatchlist, isInWatchlist, getEnabledPaperMarkets } from '../state.js';
+import { state, saveSettings, toggleWatchlist, isInWatchlist, getEnabledPaperMarkets, dailyEdge } from '../state.js';
+
+// Honest per-market note about the DAILY strategy's backtested edge on this
+// specific market (daily mode only). Never implies an edge the backtest didn't
+// show — especially flags markets where it historically LOST.
+function edgeNote(symbol) {
+  if (state.settings.strategyMode === 'intraday') return '';
+  const edge = dailyEdge(symbol);
+  if (edge === 'strong' || edge === 'positive') return '';
+  const map = {
+    flat: ['var(--flat)', 'ph-scales', 'Backtested roughly break-even on this market — the daily edge is strongest on US indices. Trade it for information, not for a proven edge.'],
+    negative: ['var(--sell)', 'ph-warning-octagon', 'Heads up: this daily strategy has historically LOST money on this market (mean reversion works poorly on hard-trending indices). Shown for information only — it is not a backtested edge here.'],
+    untested: ['var(--neutral-500)', 'ph-flask', 'Not backtested on this market. The daily strategy is validated on developed-market equity indices; treat signals here as informational only.'],
+  };
+  const [color, icon, text] = map[edge] || map.untested;
+  return `<div class="reason-row" style="align-items:flex-start;margin-top:2px"><i class="ph-fill ${icon}" style="color:${color}"></i><span style="font-size:12px;color:var(--text-muted);line-height:1.55">${text}</span></div>`;
+}
 import { fmtPrice, fmtCountdown, verdictColorVar, countryFlag } from '../format.js';
 import { confidenceRing, verdictIcon, indicatorRow, planRow, dataTag } from '../components.js';
 import { YAHOO_SYMBOL } from '../liveData.js';
@@ -211,7 +227,12 @@ function renderSignalTab(market, verdict, color) {
     ${planRow('Timeframe', s.timeframe, 'var(--neutral-500)')}
   </div>` : `
   <div class="panel">
-    <div class="panel-title">Trade plan</div>
+    <div class="panel-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <span>Trade plan</span>
+      ${s.plan.conviction === 'high' ? '<span style="display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;letter-spacing:.03em;color:var(--buy);background:var(--buy-dim);padding:4px 9px;border-radius:999px"><i class="ph-fill ph-arrow-fat-lines-up"></i>HIGH CONVICTION</span>' : ''}
+    </div>
+    ${s.plan.conviction === 'high' ? `<div class="text-muted" style="font-size:11.5px;line-height:1.5;margin:0 2px 8px">Deepest oversold tier (RSI2&lt;5) — backtested ~2&times; the ordinary setup's per-trade edge.${state.settings.scaleByConviction ? ' Sized 1.5&times; (conviction sizing on).' : ''}</div>` : ''}
+    ${edgeNote(market.symbol)}
     ${planRow('Suggested entry', fmtPrice(s.plan.entry, market.decimals), 'var(--accent)')}
     ${planRow('Stop loss', fmtPrice(s.plan.stop, market.decimals), 'var(--sell)')}
     ${planRow('Trailing stop', `${s.plan.trailingStopPts.toFixed(2)} pts`, 'var(--neutral-500)')}
