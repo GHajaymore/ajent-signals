@@ -237,10 +237,13 @@ class MarketModel {
     // values: keep the same direction ~85% of the time and drift confidence a
     // little. This makes the simulated fallback behave like a slowly-changing
     // real signal rather than flickering between long and short.
-    const prevDir = this.signal ? this.signal.direction : (rng() > 0.5 ? 1 : -1);
-    const direction = rng() < 0.85 ? prevDir : -prevDir;
-    const prevConf = this.signal ? this.signal.confidence : Math.round(45 + rng() * 30);
-    const confidence = Math.max(32, Math.min(94, Math.round(prevConf + (rng() - 0.5) * 16)));
+    // Simulated placeholder markets must never fabricate a tradeable setup: the
+    // strategy is long-only, and without a live feed there is no genuine signal.
+    // So a SIM market leans long but its confidence stays well below the fire
+    // threshold — it always reads "No trade", and it is never paper-traded.
+    const direction = 1;
+    const prevConf = this.signal ? this.signal.confidence : Math.round(38 + rng() * 12);
+    const confidence = Math.max(28, Math.min(56, Math.round(prevConf + (rng() - 0.5) * 10)));
     const agreeState = direction > 0 ? 'bull' : 'bear';
     const disagreeState = direction > 0 ? 'bear' : 'bull';
 
@@ -274,16 +277,13 @@ class MarketModel {
     const trend = confidence >= 70 ? (direction > 0 ? 'Bullish' : 'Bearish') : rng() > 0.5 ? (direction > 0 ? 'Bullish' : 'Bearish') : 'Neutral';
     const volLevel = this.atrPct >= 0.02 ? 'High' : this.atrPct >= 0.01 ? 'Medium' : 'Low';
 
-    if (confidence >= 75) {
-      reasons = agreeing.slice(0, 3).map((i) => REASONS[i.name]?.[agreeState]).filter(Boolean);
-      reasons.push(MTF_REASON);
-    } else {
-      reasons = [
-        `Confidence of ${confidence}% falls short of the confidence threshold.`,
-        `Indicators are split — ${bull} bullish vs ${bear} bearish, ${neutral} neutral.`,
-        'Waiting for stronger multi-timeframe alignment before risking capital.',
-      ];
-    }
+    // SIM markets are placeholders shown when the live feed is unavailable — so
+    // the reasons say exactly that, rather than inventing a technical rationale.
+    reasons = [
+      'Simulated placeholder — no live data for this market right now, so there is no real signal.',
+      'The price shown is illustrative movement only, and this market is not paper-traded.',
+      'A genuine BUY appears once a live feed returns and a real oversold setup fires.',
+    ];
 
     this.signal = {
       symbol: this.symbol,

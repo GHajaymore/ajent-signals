@@ -35,7 +35,7 @@ function strategyChip() {
   return `<div class="stat-card strat-card" data-nav="#/settings">
     <div class="stat-label">Strategy</div>
     <div class="stat-value" style="font-size:14px;display:flex;align-items:center;gap:5px"><i class="ph-fill ${daily ? 'ph-calendar-check' : 'ph-lightning'}" style="color:var(--accent-300);font-size:14px"></i>${daily ? 'Daily' : 'Intraday'}</div>
-    <div class="stat-sub">${daily ? 'swing · US indices' : '15-min · all markets'}</div>
+    <div class="stat-sub">${daily ? 'swing · long-only' : '15-min · long-only'}</div>
   </div>`;
 }
 
@@ -64,14 +64,15 @@ function setupRow(m, v) {
 }
 
 function topSetupsHtml(engine, threshold) {
+  // Only REAL signals qualify — simulated placeholders never surface as setups.
   const setups = engine.markets
     .map((m) => ({ m, v: m.verdict(threshold) }))
-    .filter((x) => x.v !== 'NO_TRADE')
+    .filter((x) => x.v !== 'NO_TRADE' && x.m.signalIsReal)
     .sort((a, b) => b.m.signal.confidence - a.m.signal.confidence)
     .slice(0, 4);
   if (!setups.length) {
     return `<div class="card" style="padding:22px 16px;text-align:center">
-      <div class="text-muted" style="font-size:12.5px;line-height:1.6">No clean setups right now — Ajent Pulse is waiting for a genuine oversold dip in an uptrend, or an overbought pop in a downtrend. Check back shortly.</div>
+      <div class="text-muted" style="font-size:12.5px;line-height:1.6">No live setups right now — Ajent Pulse is waiting for a genuine oversold dip in an uptrend on a market with a live feed. Most of the time the honest answer is &ldquo;no trade&rdquo;; a setup appears here the moment one fires.</div>
     </div>`;
   }
   return `<div class="card" style="padding:2px 12px">${setups.map((x) => setupRow(x.m, x.v)).join('')}</div>`;

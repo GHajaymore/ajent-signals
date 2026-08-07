@@ -352,7 +352,7 @@ function renderChartTab(market, color, verdict) {
   </div>` : `
   <div class="panel">
     <div class="panel-title">Key levels</div>
-    <div class="text-muted" style="font-size:12.5px;line-height:1.6;padding:6px 2px">No active setup — entry, stop and target levels appear once a BUY or SELL signal fires.</div>
+    <div class="text-muted" style="font-size:12.5px;line-height:1.6;padding:6px 2px">No active setup — entry, stop and target levels appear once a BUY signal fires. The strategy is long-only, so a downtrend simply reads &ldquo;no trade&rdquo;.</div>
   </div>`}`;
 }
 

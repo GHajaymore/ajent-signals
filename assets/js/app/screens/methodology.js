@@ -60,7 +60,7 @@ export function render(container) {
     <div class="panel" style="text-align:center;padding:20px 16px">
       <i class="ph-fill ph-pulse" style="font-size:30px;color:var(--buy)"></i>
       <div style="font:800 20px var(--font-heading);margin-top:8px">Mean reversion, in the direction of the trend</div>
-      <p class="text-muted" style="font-size:13px;line-height:1.65;margin-top:8px">Ajent Pulse doesn't chase breakouts. It waits for price to stretch <b style="color:var(--text)">against</b> a healthy trend — then bets the trend resumes. Buy the dip in an uptrend; sell the pop in a downtrend.</p>
+      <p class="text-muted" style="font-size:13px;line-height:1.65;margin-top:8px">Ajent Pulse doesn't chase breakouts. It waits for price to stretch <b style="color:var(--text)">against</b> a healthy uptrend — a deep oversold dip — then bets the trend resumes. It's <b style="color:var(--text)">long-only</b>: buy the dip in an uptrend, and simply stand aside otherwise.</p>
     </div>
 
     <div class="section-label">1 · The setup</div>
