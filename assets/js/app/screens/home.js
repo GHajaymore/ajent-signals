@@ -156,8 +156,7 @@ export function render(container) {
       ${strategyChip()}
     </div>
 
-    <div class="section-label">Top signal</div>
-    <div id="hero-wrap">${heroCard(featured, featuredVerdict)}</div>
+    <div id="hero-wrap" style="margin-top:6px">${heroCard(featured, featuredVerdict)}</div>
 
     <div class="section-label">Top setups now</div>
     <div id="setups-wrap">${topSetupsHtml(engine, threshold)}</div>

@@ -114,8 +114,9 @@ export function heroCard(market, verdict) {
     ? 'Waiting for a high-probability setup'
     : (verdict === 'BUY' ? 'Long setup confirmed' : 'Short setup confirmed');
   return `
-  <div class="hero-card" data-nav="#/signal/${market.symbol}" data-sym="${market.symbol}" data-verdict="${verdict}" data-createdat="${s.createdAt || 0}" style="background:linear-gradient(150deg, ${color}, transparent 65%); box-shadow:0 12px 34px -18px ${color}">
+  <div class="hero-card" data-nav="#/signal/${market.symbol}" data-sym="${market.symbol}" data-verdict="${verdict}" data-createdat="${s.createdAt || 0}" style="--vc:${color}">
     <div class="hero-inner">
+      <div class="hero-eyebrow"><i class="ph-fill ph-pulse"></i>Top signal</div>
       <div class="hero-top">
         <div class="hero-symbol">
           ${symTile(market.symbol)}
