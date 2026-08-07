@@ -187,7 +187,7 @@ function renderSignalTab(market, verdict, color) {
     <span>${status.text}</span>
   </div>` : '';
   return `
-  <div class="verdict-frame" style="border-color:${color}">
+  <div class="verdict-frame" style="--vc:${color}">
     <div class="verdict-big" style="color:${color}">${verdictIcon(verdict)}${verdict === 'NO_TRADE' ? 'NO TRADE' : verdict}</div>
     <div class="verdict-sub">${subline}</div>
     ${confidenceRing(s.confidence, color)}
