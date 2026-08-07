@@ -311,28 +311,21 @@ export function render(container) {
   const closed = getClosedTrades();
   const maxAbs = Math.max(...perf.monthlyPnl.map((m) => Math.abs(m.value)), 1);
   const pnlColor = perf.totalPnl >= 0 ? 'var(--buy)' : 'var(--sell)';
+  const up = perf.totalPnl >= 0;
+  const pfStr = perf.profitFactor === Infinity ? '∞' : perf.profitFactor.toFixed(2);
 
   container.innerHTML = `
   <div class="fade-in glow-wrap">
     ${intro()}
-    ${honestBanner()}
-    ${pnlHelp()}
-    ${marketSelector()}
 
-    <div class="panel" style="text-align:center;padding:20px 16px 18px">
-      <div class="stat-label">Net virtual profit &amp; loss</div>
-      <div style="font:800 40px var(--font-heading);color:${pnlColor};margin-top:2px;letter-spacing:-1px">${money(perf.totalPnl)}</div>
-      <div class="text-muted" style="font-size:12px;margin-top:2px">across ${closed.length} completed trade${closed.length === 1 ? '' : 's'}</div>
+    <div class="pf-hero ${up ? 'up' : 'down'}">
+      <div class="pf-hero-label">Net virtual P&amp;L · ${closed.length} trade${closed.length === 1 ? '' : 's'}</div>
+      <div class="pf-hero-value" style="color:${pnlColor}">${money(perf.totalPnl)}</div>
+      <div class="pf-hero-meta"><span style="color:var(--buy)">${perf.winRate}% win</span> · PF ${pfStr} · ${perf.wins}W / ${perf.losses}L</div>
+      ${closed.length >= 2 ? `<div class="pf-hero-chart">${equityChart(perf.equity)}</div>` : ''}
     </div>
 
-    ${closed.length >= 2 ? `
-    <div class="panel">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
-        <div class="panel-title" style="margin-bottom:0">Equity curve</div>
-        <span class="text-muted" style="font-size:12px">cumulative virtual $</span>
-      </div>
-      ${equityChart(perf.equity)}
-    </div>` : ''}
+    ${honestBanner()}
 
     <div class="stat2-grid">
       <div class="stat-card"><div class="stat-label">Win rate</div><div class="stat-value" style="color:var(--buy)">${perf.winRate}%</div><div class="stat-sub">${perf.wins}W / ${perf.losses}L</div></div>
@@ -389,6 +382,10 @@ export function render(container) {
         </div>`;
       }).join('')}
     </div>
+
+    <div class="section-label" style="margin-top:20px">Setup</div>
+    ${marketSelector()}
+    ${pnlHelp()}
 
     <p class="text-faint" style="text-align:center;font-size:11px;margin-top:14px">Virtual money only · educational · past results don't guarantee future performance.</p>
   </div>`;
