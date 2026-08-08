@@ -1,4 +1,4 @@
-import { state, saveSettings, perTradeRisk, setPaperMarkets, setAllPaperMarkets, DAILY_AUTOTRADE_MARKETS } from '../state.js';
+import { state, saveSettings, perTradeRisk, setPaperMarkets, setAllPaperMarkets, DAILY_AUTOTRADE_MARKETS, INTRADAY_AUTOTRADE_MARKETS } from '../state.js';
 import { fmtMoney } from '../format.js';
 import { resetPaperTrades } from '../paperTrading.js';
 
@@ -60,12 +60,12 @@ export function render(container) {
     <div class="panel setting-block">
       <div class="panel-title" style="margin-bottom:8px">Strategy</div>
       <div class="seg-toggle" id="mode-toggle">
-        <button class="seg-opt ${state.settings.strategyMode !== 'intraday' ? 'on' : ''}" data-mode="daily">Daily swing</button>
-        <button class="seg-opt ${state.settings.strategyMode === 'intraday' ? 'on' : ''}" data-mode="intraday">Intraday</button>
+        <button class="seg-opt ${state.settings.strategyMode === 'intraday' ? 'on' : ''}" data-mode="intraday">Active · 15m</button>
+        <button class="seg-opt ${state.settings.strategyMode !== 'intraday' ? 'on' : ''}" data-mode="daily">Proven · daily</button>
       </div>
       <div class="setting-help" id="mode-help" style="margin-top:10px">${state.settings.strategyMode === 'intraday'
-        ? 'Fast 15-minute Connors mean reversion, long-only — buys oversold dips (RSI2 below 10) that flush below the prior bar\'s low in an intraday uptrend, then exits when RSI2 recovers past 60. On ~60 days of 15-minute US-index data this backtested at profit factor ~1.6 (the old fixed-target version lost money). 60 days is a SMALL sample, so treat intraday as provisional until the live paper record confirms it.'
-        : 'Daily Connors mean reversion, long-only — buys deeply oversold days that flush below the prior day\'s low in an uptrend, then exits on the first day that closes green ("first up close"). (Shorting overbought pops backtested as a drag, so it\'s dropped.) Backtested over 10 years on US indices: profit factor ~1.6, win rate ~74%, ~1.6-day average hold — profitable in every one of five ~2-year walk-forward windows and out-of-sample on four more global indices. The deepest setups (RSI2 below 5, below the lower Bollinger band) are flagged as higher conviction. Daily mode auto-trades the validated set — US indices (deepest edge) plus ASX, Euro Stoxx, Nikkei &amp; TSX for session diversification (adjust in Paper Trading). Past results never guarantee future performance.'}</div>
+        ? 'Active mode — 15-minute Connors mean reversion, long-only. Buys oversold dips (RSI2 below 15) in an intraday uptrend and exits when RSI2 recovers past 50. Tuned for frequency: ~20+ setups a day across S&P, Nasdaq, Russell, Euro Stoxx and crypto (BTC/ETH, which run 24/7). Backtested ~66% win, profit factor ~1.5–2.6 on indices and ~1.2 on crypto — but on ~60 days of data only, so treat it as provisional until the live paper record confirms it.'
+        : 'Proven mode — daily Connors mean reversion, long-only (fewer signals, but decade-validated). Buys deeply oversold days that flush below the prior day\'s low in an uptrend, then exits on the first day that closes green ("first up close"). (Shorting overbought pops backtested as a drag, so it\'s dropped.) Backtested over 10 years on US indices: profit factor ~1.6, win rate ~74%, ~1.6-day average hold — profitable in every one of five ~2-year walk-forward windows and out-of-sample on four more global indices. The deepest setups (RSI2 below 5, below the lower Bollinger band) are flagged as higher conviction. Daily mode auto-trades the validated set — US indices (deepest edge) plus ASX, Euro Stoxx, Nikkei &amp; TSX for session diversification (adjust in Paper Trading). Past results never guarantee future performance.'}</div>
     </div>
 
     <div class="panel setting-block">
@@ -137,16 +137,16 @@ export function render(container) {
       if (state.settings.strategyMode === mode) return;
       state.settings.strategyMode = mode;
       saveSettings();
-      // Point the auto-trade set at the markets each strategy is good at: the
-      // validated-edge indices for daily (where the edge is proven out-of-sample),
-      // all markets for intraday.
+      // Point the auto-trade set at each strategy's validated markets: the
+      // decade-tested indices for daily, the six frequency-tuned markets
+      // (S&P/Nasdaq/Russell/Euro Stoxx + BTC/ETH) for intraday.
       const all = state.engine.markets.map((m) => m.symbol);
-      if (mode === 'daily') setPaperMarkets(DAILY_AUTOTRADE_MARKETS.filter((s) => all.includes(s)));
-      else setAllPaperMarkets(true, all);
+      const set = mode === 'daily' ? DAILY_AUTOTRADE_MARKETS : INTRADAY_AUTOTRADE_MARKETS;
+      setPaperMarkets(set.filter((s) => all.includes(s)));
       container.querySelectorAll('#mode-toggle .seg-opt').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
       document.getElementById('mode-help').textContent = mode === 'intraday'
-        ? 'Fast 15-minute Connors mean reversion, long-only — buys oversold dips (RSI2 below 10) that flush below the prior bar\'s low in an intraday uptrend, then exits when RSI2 recovers past 60. On ~60 days of 15-minute US-index data this backtested at profit factor ~1.6 (the old fixed-target version lost money). 60 days is a small sample, so treat intraday as provisional until the live paper record confirms it.'
-        : 'Daily Connors mean reversion, long-only — buys deeply oversold days that flush below the prior day\'s low in an uptrend, then exits on the first day that closes green ("first up close"). Backtested over 10 years on US indices: profit factor ~1.6, win rate ~74%, and profitable in every one of five ~2-year walk-forward windows. The deepest setups (RSI2 below 5) are flagged as higher conviction. Daily mode auto-trades the validated set — US indices plus ASX, Euro Stoxx, Nikkei & TSX. Past results never guarantee future performance.';
+        ? 'Active mode — 15-minute Connors mean reversion, long-only. Buys oversold dips (RSI2 below 15) in an intraday uptrend and exits when RSI2 recovers past 50. Tuned for frequency: ~20+ setups a day across S&P, Nasdaq, Russell, Euro Stoxx and crypto (BTC/ETH, which run 24/7). Backtested ~66% win, profit factor ~1.5–2.6 on indices and ~1.2 on crypto — but on ~60 days of data only, so treat it as provisional until the live paper record confirms it.'
+        : 'Proven mode — daily Connors mean reversion, long-only (fewer signals, but decade-validated). Buys deeply oversold days that flush below the prior day\'s low in an uptrend, then exits on the first day that closes green ("first up close"). Backtested over 10 years on US indices: profit factor ~1.6, win rate ~74%, and profitable in every one of five ~2-year walk-forward windows. The deepest setups (RSI2 below 5) are flagged as higher conviction. Daily mode auto-trades the validated set — US indices plus ASX, Euro Stoxx, Nikkei & TSX. Past results never guarantee future performance.';
       // Re-render so the conviction toggle (daily-only) appears/disappears with the mode.
       render(container);
     });

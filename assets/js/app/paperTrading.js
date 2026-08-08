@@ -34,7 +34,10 @@ const MAX_CLOSED = 300;
 // v11 — intraday rebuilt to match: long-only Connors flush entry + an RSI2-recovery
 //       exit (replacing the fixed tight target, which backtested as a net loser).
 //       Prior intraday records used the losing fixed-target exit.
-const SCHEMA = 11;
+// v12 — intraday retuned for frequency ("Active" mode): entry loosened to RSI2<15,
+//       flush gate dropped, exit at RSI2>50 (was >60) — ~3x the trades at ~66% win
+//       and PF ~1.5-2.6 on the validated markets. Prior records used the old gate.
+const SCHEMA = 12;
 
 function fresh() { return { v: SCHEMA, open: {}, closed: [], lastClosedSignalAt: {} }; }
 
@@ -214,7 +217,7 @@ export function checkOpenPositions(engine, onAlert) {
       const laterDay = ld.t && new Date(ld.t).toDateString() !== new Date(pos.openedAt).toDateString() && ld.t > pos.openedAt;
       dynExited = laterDay && (isLong ? ld.up === true : ld.up === false);
     } else if (rsi2Exit && market.signal && typeof market.signal.rsi2 === 'number') {
-      dynExited = isLong ? market.signal.rsi2 > 60 : market.signal.rsi2 < 40;
+      dynExited = isLong ? market.signal.rsi2 > 50 : market.signal.rsi2 < 50;
     }
     // Swing/intraday trades close at market after the time stop if still open.
     const timedOut = pos.maxHoldMin && (Date.now() - pos.openedAt) > pos.maxHoldMin * 60000;

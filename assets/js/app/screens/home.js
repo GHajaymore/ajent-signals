@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { heroCard, watchlistRow, patchRow, patchHero, symTile, dataTag, sparklineSvg } from '../components.js';
-import { getPerformanceSummary } from '../paperTrading.js';
+import { getPerformanceSummary, getOpenCount } from '../paperTrading.js';
 
 function pfLabel(perf) { return perf.profitFactor === Infinity ? '∞' : perf.profitFactor.toFixed(2); }
 
@@ -34,8 +34,8 @@ function strategyChip() {
   const daily = state.settings.strategyMode !== 'intraday';
   return `<div class="stat-card strat-card" data-nav="#/settings">
     <div class="stat-label">Strategy</div>
-    <div class="stat-value" style="font-size:14px;display:flex;align-items:center;gap:5px"><i class="ph-fill ${daily ? 'ph-calendar-check' : 'ph-lightning'}" style="color:var(--accent-300);font-size:14px"></i>${daily ? 'Daily' : 'Intraday'}</div>
-    <div class="stat-sub">${daily ? 'swing · long-only' : '15-min · long-only'}</div>
+    <div class="stat-value" style="font-size:14px;display:flex;align-items:center;gap:5px"><i class="ph-fill ${daily ? 'ph-calendar-check' : 'ph-lightning'}" style="color:var(--accent-300);font-size:14px"></i>${daily ? 'Proven' : 'Active'}</div>
+    <div class="stat-sub">${daily ? 'daily · long-only' : '15-min · long-only'}</div>
   </div>`;
 }
 
@@ -142,11 +142,16 @@ export function render(container) {
 
     <div id="portfolio-wrap">${portfolioCard(perf)}</div>
 
-    <div class="stat-row">
+    <div class="stat-row" style="grid-template-columns:repeat(2,1fr)">
       <div class="stat-card">
         <div class="stat-label">Open signals</div>
         <div class="stat-value" id="stat-open-signals">${openSignals.length}</div>
         <div class="stat-sub" id="stat-avg-conf">avg ${avgConf}%</div>
+      </div>
+      <div class="stat-card" data-nav="#/track">
+        <div class="stat-label">Open trades</div>
+        <div class="stat-value" id="stat-open-trades" style="color:${getOpenCount() ? 'var(--buy)' : 'var(--text)'}">${getOpenCount()}</div>
+        <div class="stat-sub">live paper positions</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Daily trend</div>
@@ -204,8 +209,14 @@ export function refresh(container) {
   const openSignalsEl = container.querySelector('#stat-open-signals');
   const avgConfEl = container.querySelector('#stat-avg-conf');
   const trendEl = container.querySelector('#stat-daily-trend');
+  const openTradesEl = container.querySelector('#stat-open-trades');
   if (openSignalsEl) openSignalsEl.textContent = String(openSignals.length);
   if (avgConfEl) avgConfEl.textContent = `avg ${avgConf}%`;
+  if (openTradesEl) {
+    const oc = getOpenCount();
+    openTradesEl.textContent = String(oc);
+    openTradesEl.style.color = oc ? 'var(--buy)' : 'var(--text)';
+  }
   if (trendEl) {
     trendEl.style.color = riskOn ? 'var(--buy)' : 'var(--sell)';
     trendEl.innerHTML = `<i class="ph-bold ${riskOn ? 'ph-trend-up' : 'ph-trend-down'}"></i>${riskOn ? 'Up' : 'Down'}`;

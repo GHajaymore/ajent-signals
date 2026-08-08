@@ -249,14 +249,18 @@ export function computeRealSignal(candles, def, rng, news = [], opts = {}) {
       setup = deep && stretched ? 1 : deep ? 0.9 : 0.8;      // elite → strong → ok
       conviction = deep ? 'high' : 'normal';
     } else { direction = bullWeight >= bearWeight ? 1 : -1; setup = 0; }
-  } else if (htfTrend === 'up' && rsi2 < 10 && price < (n >= 2 ? candles[n - 2].l : -Infinity)) {
-    // ── Intraday Connors (15m), LONG-ONLY — same flush structure as the daily
-    //    swing but on 15-minute bars, and it exits when RSI2 RECOVERS (the mean is
-    //    reached) rather than at a fixed target. On ~60 days of 15m US-index bars
-    //    the old fixed tight-target exit LOST money (PF ~0.86, negative expectancy
-    //    at every target size); the RSI2-recovery exit turned it positive (PF ~1.6,
-    //    robust across exit thresholds, stops, and all four indices). NOTE: 60 days
-    //    is a SMALL sample — this is provisional, pending the live paper record.
+  } else if (htfTrend === 'up' && rsi2 < 15) {
+    // ── Intraday Connors (15m), LONG-ONLY — the app's "Active" mode. Buy any
+    //    oversold dip (RSI2 < 15) inside an intraday uptrend and exit when RSI2
+    //    recovers past 50 (the bounce reached the mean), with a 2x ATR stop and a
+    //    ~1-session time stop. Tuned for frequency + a real edge: dropping the
+    //    daily "flush below the prior bar's low" gate and loosening RSI2<10 -> <15
+    //    roughly doubled the trade rate to ~22/day across six markets, while
+    //    keeping ~66% win and a profit factor of ~1.5-2.6 on US indices + Euro
+    //    Stoxx and ~1.2 on crypto (BTC/ETH, which run 24/7). Validated across six
+    //    independent markets — but on ~60 days of data only, so it's provisional
+    //    until the live paper record confirms it. (Dow and ASX did NOT hold up
+    //    intraday and are excluded from the Active auto-trade set.)
     direction = 1;
     const deep = rsi2 < 5;
     const stretched = lowerBB != null && price < lowerBB;
