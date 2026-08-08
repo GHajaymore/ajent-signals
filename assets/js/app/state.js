@@ -51,11 +51,13 @@ export function dailyEdge(symbol) { return DAILY_EDGE[symbol] || 'untested'; }
 // risk of trading only US indices.
 export const DAILY_AUTOTRADE_MARKETS = ['ES', 'NQ', 'YM', 'RTY', 'XJO', 'SX5E', 'N225', 'TSX'];
 
-// Intraday ("Active" mode) auto-trade set = the DISTINCT markets where the
-// 15-minute strategy backtested profitably: S&P, Nasdaq, Russell, Euro Stoxx, and
-// crypto (BTC/ETH, which run 24/7 for round-the-clock signals). Dow and ASX did
-// NOT hold up intraday, so they're left out. Higher frequency than daily by design.
-export const INTRADAY_AUTOTRADE_MARKETS = ['ES', 'NQ', 'RTY', 'SX5E', 'BTC', 'ETH'];
+// Intraday ("Active" mode) auto-trade set = every DISTINCT market where the
+// 15-minute strategy backtested profitably (PF ≥ 1.2 on ~60 days). US indices
+// (S&P/Nasdaq/Russell) + European (Euro Stoxx, DAX) + Asian (Hang Seng) + Canada
+// (TSX), plus crypto (BTC/ETH) and metals/energy futures (Silver, Crude) — many of
+// which trade nearly 24/7, for round-the-clock signals. Excluded because they lost
+// or broke even intraday: Dow, ASX, Nikkei, Nifty, Gold. Provisional (60d sample).
+export const INTRADAY_AUTOTRADE_MARKETS = ['ES', 'NQ', 'RTY', 'SX5E', 'DAX', 'TSX', 'HSI', 'BTC', 'ETH', 'SI', 'CL'];
 
 const defaultSettings = {
   // Default = 'intraday' ("Active"): the higher-frequency 15-minute mean-reversion,
