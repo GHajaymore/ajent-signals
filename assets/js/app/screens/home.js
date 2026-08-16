@@ -35,7 +35,7 @@ function strategyChip() {
   return `<div class="stat-card strat-card" data-nav="#/settings">
     <div class="stat-label">Strategy</div>
     <div class="stat-value" style="font-size:14px;display:flex;align-items:center;gap:5px"><i class="ph-fill ${daily ? 'ph-calendar-check' : 'ph-lightning'}" style="color:var(--accent-300);font-size:14px"></i>${daily ? 'Proven' : 'Active'}</div>
-    <div class="stat-sub">${daily ? 'daily · long-only' : '15-min · long-only'}</div>
+    <div class="stat-sub">${daily ? 'daily · long-only' : '15-min · long &amp; short'}</div>
   </div>`;
 }
 

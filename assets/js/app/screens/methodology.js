@@ -36,7 +36,7 @@ export function render(container) {
     </div>` : `
     <div class="section-label">3 · The exit — ride the bounce to the mean</div>
     <div class="panel">
-      <p class="text-muted" style="font-size:12.5px;line-height:1.65;margin-top:0"><b style="color:var(--text)">Long-only, 15-minute.</b> Same idea as the daily swing but faster: buy an oversold dip (RSI2 below 10) that flushes below the prior bar's low in an intraday uptrend, then <b style="color:var(--text)">exit when RSI2 recovers past 60</b> — the bounce has reached the mean — with a <b>2× ATR</b> stop and a ~1-session time stop as backstops.</p>
+      <p class="text-muted" style="font-size:12.5px;line-height:1.65;margin-top:0"><b style="color:var(--text)">Both directions, 15-minute.</b> Buy an oversold dip (RSI2 below 10) or short an overbought pop (RSI2 above 90) — in any condition, no trend filter — then <b style="color:var(--text)">exit when RSI2 reverts to 50</b> (the move has reached the mean), with a <b>2× ATR</b> stop and a ~1-session time stop as backstops. On 15-minute bars there's no overnight drift, so shorting works here where it doesn't on the daily swing.</p>
       <div class="text-muted" style="font-size:12px;line-height:1.65;margin-top:10px">
         On ~60 days of 15-minute US-index data this backtested at <b style="color:var(--buy)">profit factor ~1.6</b>, positive on all four indices. The earlier version used a fixed tight target and <b>lost money</b> (PF ~0.86) — it capped winners while stops ran full-size. <b>Important:</b> 60 days is a small sample (the free feed's limit for 15-minute history), so intraday is <b>provisional</b> — trust the live paper record over the backtest here.
       </div>
@@ -60,7 +60,7 @@ export function render(container) {
     <div class="panel" style="text-align:center;padding:20px 16px">
       <i class="ph-fill ph-pulse" style="font-size:30px;color:var(--buy)"></i>
       <div style="font:800 20px var(--font-heading);margin-top:8px">Mean reversion, in the direction of the trend</div>
-      <p class="text-muted" style="font-size:13px;line-height:1.65;margin-top:8px">Ajent Pulse doesn't chase breakouts. It waits for price to stretch <b style="color:var(--text)">against</b> a healthy uptrend — a deep oversold dip — then bets the trend resumes. It's <b style="color:var(--text)">long-only</b>: buy the dip in an uptrend, and simply stand aside otherwise.</p>
+      <p class="text-muted" style="font-size:13px;line-height:1.65;margin-top:8px">Ajent Pulse doesn't chase breakouts. It waits for price to stretch <b style="color:var(--text)">against</b> a healthy uptrend — a deep oversold dip — then bets it snaps back. ${daily ? 'The daily swing is <b style="color:var(--text)">long-only</b> — buy the dip in an uptrend, stand aside otherwise.' : 'Active mode trades <b style="color:var(--text)">both ways</b> — buy oversold dips and short overbought pops.'}</p>
     </div>
 
     <div class="section-label">1 · The setup</div>

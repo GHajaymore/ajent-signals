@@ -139,7 +139,7 @@ export function heroCard(market, verdict) {
       </div>
       <div class="hero-subline"><span data-f="subline">${s.trend} · ${s.volatility} volatility</span> · <span class="hero-live" data-f="live">${liveTag(market)}</span></div>
       ${verdict === 'NO_TRADE' ? `
-      <div class="hero-no-setup">No active setup — entry, stop &amp; target appear once a BUY fires (the strategy is long-only).</div>` : `
+      <div class="hero-no-setup">No active setup — entry, stop &amp; target appear once a signal fires.</div>` : `
       <div class="hero-quad">
         <div class="hero-quad-cell"><div class="k">Entry</div><div class="v tabular">${fmtPrice(s.plan.entry, market.decimals)}</div></div>
         <div class="hero-quad-cell"><div class="k">Stop</div><div class="v tabular" style="color:var(--sell)">${fmtPrice(s.plan.stop, market.decimals)}</div></div>

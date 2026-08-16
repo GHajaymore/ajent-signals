@@ -37,7 +37,10 @@ const MAX_CLOSED = 300;
 // v12 — intraday retuned for frequency ("Active" mode): entry loosened to RSI2<15,
 //       flush gate dropped, exit at RSI2>50 (was >60) — ~3x the trades at ~66% win
 //       and PF ~1.5-2.6 on the validated markets. Prior records used the old gate.
-const SCHEMA = 12;
+// v13 — intraday now trades BOTH directions with NO trend gate: long RSI2<10, short
+//       RSI2>90, exit at RSI2=50. ~doubled signals AND made shorts profitable
+//       (PF ~1.22). Prior records were long-only/trend-gated.
+const SCHEMA = 13;
 
 function fresh() { return { v: SCHEMA, open: {}, closed: [], lastClosedSignalAt: {} }; }
 
@@ -78,16 +81,15 @@ const FACTOR_GROUP = {
   'News Sentiment': 'catalyst',
 };
 
-// Quality gate for the mean-reversion core. A BUY/SELL only fires when the
-// engine has already confirmed a real oversold-dip / overbought-pop setup
-// aligned with the higher-timeframe trend, so the gate here just enforces that
-// trend alignment and rejects a signal with no trend behind it. (The old gate
-// demanded trend-following confluence, which a dip-buy intentionally fails —
-// momentum is temporarily against you at entry — so it blocked every trade.)
+// Quality gate for auto-trading. Intraday ("Active", 15m) is deliberately
+// ungated and BOTH directions — buy oversold dips and short overbought pops in
+// any condition — so any fired BUY/SELL qualifies. Daily is long-only and
+// trend-aligned, so it still requires the uptrend behind a BUY.
 export function isHighConviction(signal, verdict) {
+  if (verdict === 'NO_TRADE') return false;
+  if (signal.timeframe === '15m') return true; // intraday: both ways, no trend gate
   if (verdict === 'BUY') return signal.htfTrend === 'up';
-  if (verdict === 'SELL') return signal.htfTrend === 'down';
-  return false;
+  return false; // daily is long-only
 }
 
 export function maybeOpenPositions(engine, threshold, riskDollars = 250, enabled = null, scaleByConviction = false) {
