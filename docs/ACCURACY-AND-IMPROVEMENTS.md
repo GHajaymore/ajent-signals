@@ -21,6 +21,11 @@ Current truth (as of 2026-08-14):
 - 2026-08-07 — SIM/no-feed markets fabricated confident BUY/SELL → now read "No trade".
 - 2026-08 — Removed fabricated landing stats (68% win, fake trades/testimonials).
 
+## Launch / marketing (2026-08-14)
+- Public landing page (`index.html`) is now the showcase design: hero, phone mockups, "Open the app free" CTA → `/app/`, and an email **waitlist** form. Chosen model (per user): open app + email waitlist now; real accounts (Cognito/Clerk + serverless backend) later when they sync data or gate a paywall.
+- [ ] **Wire the waitlist endpoint** — `index.html` script has `WAITLIST_ENDPOINT=''`; until set, sign-ups only save to the visitor's localStorage (not collected). Paste a Formspree form ID (2-min) OR scaffold an API Gateway→Lambda→DynamoDB(+SES) endpoint.
+- [ ] **Add social preview image** — `assets/img/og-cover.png` (1200×630) referenced by OG/Twitter tags but not yet created; links currently share with no image.
+
 ## Improvement backlog (honest, evidence-gated)
 - [ ] **Validate Active over more time** — only ~60 days of 15m history from the free feed. The live paper record is the true forward test; revisit thresholds once it accumulates.
 - [ ] **Trim weak cells** — DAX-short, S&P-short, BTC-long were near break-even. Consider per-market/direction gating once live data confirms (avoid overfitting to 60 days).
