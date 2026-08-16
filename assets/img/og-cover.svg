@@ -1,0 +1,64 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="gG" cx="82%" cy="6%" r="65%">
+      <stop offset="0" stop-color="#2fe0a6" stop-opacity="0.22"/><stop offset="1" stop-color="#2fe0a6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="gB" cx="4%" cy="-4%" r="60%">
+      <stop offset="0" stop-color="#4d9bff" stop-opacity="0.18"/><stop offset="1" stop-color="#4d9bff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="acc" x1="0" y1="0" x2="1" y2="0.3">
+      <stop offset="0" stop-color="#2fe0a6"/><stop offset="1" stop-color="#4d9bff"/>
+    </linearGradient>
+    <linearGradient id="mk" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2fe0a6"/><stop offset="1" stop-color="#66f2c8"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="#0b0d16"/>
+  <rect width="1200" height="630" fill="url(#gG)"/>
+  <rect width="1200" height="630" fill="url(#gB)"/>
+  <rect x="1" y="1" width="1198" height="628" rx="0" fill="none" stroke="rgba(255,255,255,0.06)"/>
+
+  <!-- candlestick motif (upper right, clear of the text) -->
+  <g transform="translate(26,-132)"><line x1="770" y1="480" x2="770" y2="445" stroke="#2fe0a6" stroke-width="2.5" opacity="0.85"/><rect x="758" y="452" width="24" height="18" rx="3" fill="#2fe0a6" opacity="0.9"/><line x1="812" y1="470" x2="812" y2="452" stroke="#ff5c7c" stroke-width="2.5" opacity="0.85"/><rect x="800" y="452" width="24" height="10" rx="3" fill="#ff5c7c" opacity="0.9"/><line x1="854" y1="468" x2="854" y2="424" stroke="#2fe0a6" stroke-width="2.5" opacity="0.85"/><rect x="842" y="430" width="24" height="32" rx="3" fill="#2fe0a6" opacity="0.9"/><line x1="896" y1="438" x2="896" y2="404" stroke="#2fe0a6" stroke-width="2.5" opacity="0.85"/><rect x="884" y="410" width="24" height="20" rx="3" fill="#2fe0a6" opacity="0.9"/><line x1="938" y1="428" x2="938" y2="404" stroke="#ff5c7c" stroke-width="2.5" opacity="0.85"/><rect x="926" y="410" width="24" height="10" rx="3" fill="#ff5c7c" opacity="0.9"/><line x1="980" y1="426" x2="980" y2="378" stroke="#2fe0a6" stroke-width="2.5" opacity="0.85"/><rect x="968" y="384" width="24" height="36" rx="3" fill="#2fe0a6" opacity="0.9"/><line x1="1022" y1="392" x2="1022" y2="354" stroke="#2fe0a6" stroke-width="2.5" opacity="0.85"/><rect x="1010" y="360" width="24" height="24" rx="3" fill="#2fe0a6" opacity="0.9"/><line x1="1064" y1="380" x2="1064" y2="354" stroke="#ff5c7c" stroke-width="2.5" opacity="0.85"/><rect x="1052" y="360" width="24" height="12" rx="3" fill="#ff5c7c" opacity="0.9"/><line x1="1106" y1="380" x2="1106" y2="322" stroke="#2fe0a6" stroke-width="2.5" opacity="0.85"/><rect x="1094" y="330" width="24" height="42" rx="3" fill="#2fe0a6" opacity="0.9"/></g>
+
+  <!-- brand -->
+  <g transform="translate(80,74)">
+    <rect width="62" height="62" rx="17" fill="url(#mk)"/>
+    <path d="M14 40 L26 40 L32 22 L45 58 L52 34 L60 34" fill="none" stroke="#08130d" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="82" y="26" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="24" font-weight="800" letter-spacing="0.3" fill="#eef0f7">Ajent Signals</text>
+    <text x="82" y="52" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="14.5" font-weight="700" letter-spacing="3.5" fill="#4d9bff">LONG &amp; SHORT · MEAN REVERSION</text>
+  </g>
+
+  <!-- headline -->
+  <text x="78" y="300" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="98" font-weight="800" letter-spacing="-2.5" fill="#eef0f7">Buy the dip.</text>
+  <text x="78" y="406" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="98" font-weight="800" letter-spacing="-2.5" fill="url(#acc)">Short the rip.</text>
+
+  <!-- subtitle -->
+  <text x="80" y="470" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="29" font-weight="500" fill="rgba(238,240,247,0.62)">Signals fade overstretched markets &#8212; tracked honestly on a real record.</text>
+
+  <!-- honest chips (no performance claims) -->
+  <g transform="translate(80,510)">
+    
+  <g transform="translate(0,0)">
+    <rect x="0" y="0" width="160" height="42" rx="21" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.1)"/>
+    <circle cx="20" cy="21" r="4" fill="#2fe0a6"/>
+    <text x="34" y="28" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="21" font-weight="600" fill="rgba(238,240,247,0.82)">43 markets</text>
+  </g>
+    
+  <g transform="translate(196,0)">
+    <rect x="0" y="0" width="235.6" height="42" rx="21" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.1)"/>
+    <circle cx="20" cy="21" r="4" fill="#2fe0a6"/>
+    <text x="34" y="28" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="21" font-weight="600" fill="rgba(238,240,247,0.82)">Long &amp; short</text>
+  </g>
+    
+  <g transform="translate(414,0)">
+    <rect x="0" y="0" width="260.79999999999995" height="42" rx="21" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.1)"/>
+    <circle cx="20" cy="21" r="4" fill="#2fe0a6"/>
+    <text x="34" y="28" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="21" font-weight="600" fill="rgba(238,240,247,0.82)">100% virtual money</text>
+  </g>
+  </g>
+
+  <!-- footer -->
+  <text x="80" y="600" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="19" font-weight="500" fill="rgba(238,240,247,0.4)">ghajaymore.github.io/ajent-signals&#8195;&#183;&#8195;Educational tool, not investment advice</text>
+</svg>
