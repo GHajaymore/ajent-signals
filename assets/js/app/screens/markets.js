@@ -32,7 +32,14 @@ const CAT_COLOR = {
 };
 
 let query = '';
-let filter = 'all'; // all | buy | sell | fav
+let filter = 'all'; // all | buy | sell | conv | fav
+
+// A fired, real signal the engine flags as its strongest tier (deepest RSI2 +
+// Bollinger extreme). Only meaningful for markets currently printing a signal.
+function isHiConv(m, threshold) {
+  return m.signalIsReal && m.verdict(threshold) !== 'NO_TRADE'
+    && m.signal && m.signal.plan && m.signal.plan.conviction === 'high';
+}
 
 // Live market-breadth bar — how the whole board is leaning right now.
 function breadthHtml() {
@@ -63,6 +70,7 @@ function filterChips() {
     ${c('all', 'All', '')}
     ${c('buy', 'Buy', '<i class="ph-fill ph-caret-up" style="color:var(--buy);font-size:11px"></i>')}
     ${c('sell', 'Sell', '<i class="ph-fill ph-caret-down" style="color:var(--sell);font-size:11px"></i>')}
+    ${c('conv', 'Conviction', '<i class="ph-fill ph-star" style="color:var(--flat);font-size:11px"></i>')}
     ${c('fav', 'Watchlist', '<i class="ph-fill ph-star" style="color:var(--accent-200);font-size:11px"></i>')}
   </div>`;
 }
@@ -77,6 +85,7 @@ function listHtml() {
     const v = m.verdict(threshold);
     if (filter === 'buy' && v !== 'BUY') return false;
     if (filter === 'sell' && v !== 'SELL') return false;
+    if (filter === 'conv' && !isHiConv(m, threshold)) return false;
     if (filter === 'fav' && !state.homeWatchlist.includes(m.symbol)) return false;
     return true;
   });
@@ -92,7 +101,10 @@ function listHtml() {
         ${g.list.map((m) => marketRow(m, m.verdict(threshold))).join('')}
       </div>
     </details>
-  `).join('') || '<p class="text-muted" style="text-align:center;margin-top:40px">No contracts match your search.</p>';
+  `).join('') || `<p class="text-muted" style="text-align:center;margin-top:40px">${
+    filter === 'conv' ? 'No high-conviction setups right now — the deepest oversold/overbought extremes are rare. Check back, or browse All.'
+    : filter === 'buy' || filter === 'sell' ? `No ${filter.toUpperCase()} signals firing right now.`
+    : 'No contracts match your search.'}</p>`;
 }
 
 export function render(container) {
@@ -148,11 +160,12 @@ export function refresh(container) {
 
   // With a verdict filter active, the visible set changes as verdicts flip —
   // rebuild only when membership actually differs (otherwise patch in place).
-  if (filter === 'buy' || filter === 'sell') {
+  if (filter === 'buy' || filter === 'sell' || filter === 'conv') {
     const q = query.trim().toUpperCase();
     const want = state.engine.markets.filter((m) => {
       if (q && !(m.symbol.includes(q) || m.name.toUpperCase().includes(q) || m.exchange.includes(q))) return false;
       const v = m.verdict(threshold);
+      if (filter === 'conv') return isHiConv(m, threshold);
       return filter === 'buy' ? v === 'BUY' : v === 'SELL';
     }).map((m) => m.symbol).join(',');
     const have = [...wrap.querySelectorAll('.mkt-row[data-sym]')].map((el) => el.dataset.sym).join(',');

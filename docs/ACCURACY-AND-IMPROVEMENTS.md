@@ -26,7 +26,7 @@ Current truth (as of 2026-08-14):
 - [ ] **Trim weak cells** — DAX-short, S&P-short, BTC-long were near break-even. Consider per-market/direction gating once live data confirms (avoid overfitting to 60 days).
 - [ ] **Conviction position sizing for Active** — opt-in 1.5× exists for daily; extend if the RSI2+Bollinger high-conviction tier (PF ~1.4–1.5) proves out live.
 - [ ] **Data feed reliability** — free CORS proxies rate-limit / go stale; a licensed/robust feed matters if the app goes commercial.
-- [x] **Signal quality vs. frequency** (2026-08-14) — Active is ~100+ signals/day. Home "Top setups now" now sorts high-conviction setups (deepest RSI2 + Bollinger extreme) to the top and flags them with a gold "High conviction" badge, so the best stand out from the stream. Next: a "High conviction" filter on the Markets screen; validate the tier's live edge before claiming a PF on the badge.
+- [x] **Signal quality vs. frequency** (2026-08-14) — Active is ~100+ signals/day. Home "Top setups now" sorts high-conviction setups (deepest RSI2 + Bollinger extreme) to the top with a gold "High conviction" badge; the Markets screen has a **Conviction** filter chip to see them all. No PF is claimed on the badge — deliberately: the conviction tier is too rare to measure reliably on a 60-day backtest (very few trades), so its edge must be proven by the LIVE record, not a small-sample number. That validation is genuinely live-data-gated.
 
 ## Pending review
 - **Live-tracker check** — evaluate Active mode's real profit factor, expectancy, and trade count from the in-app paper record (see [[ajent-signals-strategy]]).
