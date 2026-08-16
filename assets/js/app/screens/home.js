@@ -46,14 +46,17 @@ function money(n) {
 
 // One ranked "best opportunity" row — the strongest current dip-buy / pop-sell
 // setups the engine sees, ordered by confidence.
+function isHiConv(m) { return !!(m.signal && m.signal.plan && m.signal.plan.conviction === 'high'); }
+
 function setupRow(m, v) {
   const isBuy = v === 'BUY';
   const color = isBuy ? 'var(--buy)' : 'var(--sell)';
   const conf = m.signal.confidence;
-  return `<div class="setup-row" data-nav="#/signal/${m.symbol}" data-sym="${m.symbol}">
+  const hi = isHiConv(m);
+  return `<div class="setup-row${hi ? ' hi-conv' : ''}" data-nav="#/signal/${m.symbol}" data-sym="${m.symbol}">
     ${symTile(m.symbol, 34)}
     <div class="setup-body">
-      <div class="setup-name">${m.name} <span style="vertical-align:middle">${dataTag(m)}</span></div>
+      <div class="setup-name">${m.name} <span style="vertical-align:middle">${dataTag(m)}</span>${hi ? ' <span class="conv-badge"><i class="ph-fill ph-star"></i>High conviction</span>' : ''}</div>
       <div class="setup-type" style="color:${color}"><i class="ph-fill ${isBuy ? 'ph-caret-up' : 'ph-caret-down'}"></i>${isBuy ? 'Buy the dip' : 'Sell the pop'}</div>
     </div>
     <div class="setup-conf">
@@ -65,14 +68,16 @@ function setupRow(m, v) {
 
 function topSetupsHtml(engine, threshold) {
   // Only REAL signals qualify — simulated placeholders never surface as setups.
+  // High-conviction setups (deepest RSI2 + Bollinger extreme) sort to the top, so
+  // the strongest opportunities stand out from the wider stream.
   const setups = engine.markets
     .map((m) => ({ m, v: m.verdict(threshold) }))
     .filter((x) => x.v !== 'NO_TRADE' && x.m.signalIsReal)
-    .sort((a, b) => b.m.signal.confidence - a.m.signal.confidence)
+    .sort((a, b) => (isHiConv(b.m) - isHiConv(a.m)) || (b.m.signal.confidence - a.m.signal.confidence))
     .slice(0, 4);
   if (!setups.length) {
     return `<div class="card" style="padding:22px 16px;text-align:center">
-      <div class="text-muted" style="font-size:12.5px;line-height:1.6">No live setups right now — Ajent Pulse is waiting for a genuine oversold dip in an uptrend on a market with a live feed. Most of the time the honest answer is &ldquo;no trade&rdquo;; a setup appears here the moment one fires.</div>
+      <div class="text-muted" style="font-size:12.5px;line-height:1.6">No live setups right now — Ajent Pulse is waiting for a genuine oversold dip or overbought pop on a market with a live feed. Most of the time the honest answer is &ldquo;no trade&rdquo;; a setup appears here the moment one fires.</div>
     </div>`;
   }
   return `<div class="card" style="padding:2px 12px">${setups.map((x) => setupRow(x.m, x.v)).join('')}</div>`;

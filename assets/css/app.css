@@ -275,6 +275,9 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .mkt-verdict { flex: none; width: 82px; display: flex; justify-content: flex-end; }
 .setup-row { display: flex; align-items: center; gap: 11px; padding: 10px 4px; border-bottom: 1px solid var(--divider); cursor: pointer; }
 .setup-row:last-child { border-bottom: none; }
+.setup-row.hi-conv { margin: 0 -8px; padding: 10px 12px; border-bottom: none; border-radius: 12px; background: linear-gradient(100deg, color-mix(in srgb, var(--flat) 12%, transparent), transparent 70%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--flat) 32%, transparent); }
+.conv-badge { display: inline-flex; align-items: center; gap: 3px; font: 700 9px var(--font-heading); text-transform: uppercase; letter-spacing: 0.04em; color: var(--flat); background: color-mix(in srgb, var(--flat) 16%, transparent); padding: 2px 6px; border-radius: 999px; vertical-align: middle; margin-left: 4px; }
+.conv-badge i { font-size: 9px; }
 .setup-body { flex: 1; min-width: 0; }
 .setup-name { font: 600 13px var(--font-heading); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .setup-type { font: 600 11px var(--font-heading); display: flex; align-items: center; gap: 3px; margin-top: 2px; }
