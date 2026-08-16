@@ -16,6 +16,7 @@ Current truth (as of 2026-08-14):
 - Rejected on data (do not re-add without new evidence): trend-following (MACD/EMA cross, ~30% win); daily shorts (lost on intl indices); intraday markets that lost — Dow, ASX, Nikkei, Nifty, Gold.
 
 ## Fixed (accuracy issues caught & corrected)
+- 2026-08-14 — Disclaimers made precise & accurate for public launch: landing footer + app gate now state the app is **simulated/virtual money (no real orders, holds no funds)**, cover all instrument types (not just "futures"), note "not a registered investment adviser/broker", and that hypothetical/past performance does not guarantee future results. NOTE: `terms/` and `privacy/` pages (linked from the gate) are separate legal docs — have a lawyer review before a serious public launch.
 - 2026-08-14 — News frozen: `news.js` missing `cache:'no-store'` and tried the dead `allorigins` proxy first → added no-store + corsproxy-first + timeout.
 - 2026-08-14 — Landing page + showcase still said "long-only" after Active went both-ways → corrected (long-only now scoped only to Proven daily).
 - 2026-08-07 — SIM/no-feed markets fabricated confident BUY/SELL → now read "No trade".
