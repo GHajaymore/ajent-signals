@@ -27,6 +27,13 @@ Current truth (as of 2026-08-14):
 - [ ] **Wire the waitlist endpoint** — `index.html` script has `WAITLIST_ENDPOINT=''`; until set, sign-ups only save to the visitor's localStorage (not collected). Paste a Formspree form ID (2-min) OR scaffold an API Gateway→Lambda→DynamoDB(+SES) endpoint.
 - [x] **Social preview image** (2026-08-14) — `assets/img/og-cover.png` (1200×630) built from `scripts/build-og.js` (SVG → sharp → PNG; source `og-cover.svg`). On-brand, no performance claims. Re-run `node scripts/build-og.js` to regenerate if the tagline/brand changes.
 
+## Monetization — two tiers (2026-08-14)
+- Simplified to **Free** and **Pro** (the phantom "Plus" never existed in code). Single source of truth: `FREE_FEATURES` / `PRO_FEATURES` in `screens/paywall.js`.
+  - **Free:** both strategies (Active + Proven), core US index markets, full paper record, in-app signals/methodology. No card.
+  - **Pro:** all 43 markets (crypto/commodities/global), real-time data, push alerts, high-conviction filter/alerts, position-size calculator.
+- **Enforcement is OFF** for the free early-access launch — everything is unlocked for all users; the paywall shows the split + an "early access, all unlocked" note. On web, `isPro()` is always false (real IAP only in the native App Store build), so enforcing now would lock out every web user.
+- [ ] **Turn on gating when monetizing** — gate `PRO_FEATURES` behind `isPro()` (market lock in Markets/Home, alerts, conviction filter, calculator). Needs: App Store IAP live (native) and/or accounts+backend for web entitlement. Reconcile pricing with the "Free" landing before flipping.
+
 ## Improvement backlog (honest, evidence-gated)
 - [ ] **Validate Active over more time** — only ~60 days of 15m history from the free feed. The live paper record is the true forward test; revisit thresholds once it accumulates.
 - [ ] **Trim weak cells** — DAX-short, S&P-short, BTC-long were near break-even. Consider per-market/direction gating once live data confirms (avoid overfitting to 60 days).

@@ -1,12 +1,21 @@
 import { state } from '../state.js';
 import { isNative, isPro, purchase, restore, priceString, hasTrial } from '../iap.js';
 
-const FEATURES = [
-  { icon: 'ph-infinity', text: 'Unlimited real-time signals across all markets' },
-  { icon: 'ph-chart-line-up', text: 'Full indicator breakdown & confluence scoring' },
-  { icon: 'ph-bell-ringing', text: 'Instant push alerts for entries, stops & targets' },
-  { icon: 'ph-calendar-check', text: 'Economic-calendar signal guarding' },
-  { icon: 'ph-crosshair-simple', text: 'Position-size & risk calculator' },
+// The two tiers (single source of truth for the split). Enforcement is currently
+// OFF for the free early-access launch — everything below is unlocked for all
+// users. When subscriptions go live, gate the PRO items behind isPro().
+const FREE_FEATURES = [
+  { icon: 'ph-swap', text: 'Both strategies — Active (long &amp; short) &amp; Proven (daily)' },
+  { icon: 'ph-flag-banner', text: 'Core US index markets (S&amp;P, Nasdaq, Dow, Russell)' },
+  { icon: 'ph-notebook', text: 'The full, honest paper-trading record' },
+  { icon: 'ph-book-open-text', text: 'In-app signals, breakdown &amp; methodology' },
+];
+const PRO_FEATURES = [
+  { icon: 'ph-globe-hemisphere-west', text: 'All 43 markets — crypto, commodities &amp; global indices' },
+  { icon: 'ph-lightning', text: 'Real-time data (Free is delayed)' },
+  { icon: 'ph-bell-ringing', text: 'Instant push alerts — entries, stops &amp; targets' },
+  { icon: 'ph-star', text: 'High-conviction filter &amp; alerts' },
+  { icon: 'ph-crosshair-simple', text: 'Position-size &amp; risk calculator' },
 ];
 
 function ctaLabel(billing) {
@@ -33,7 +42,7 @@ export function render(container) {
         <div class="paywall-sub">Every signal, alert and tool is unlocked. Thank you.</div>
       </div>
       <div class="panel" style="margin-top:18px">
-        ${FEATURES.map((f) => `<div class="pw-feature"><span class="i"><i class="ph-bold ${f.icon}"></i></span>${f.text}</div>`).join('')}
+        ${PRO_FEATURES.map((f) => `<div class="pw-feature"><span class="i"><i class="ph-bold ${f.icon}"></i></span>${f.text}</div>`).join('')}
       </div>
       <button class="btn btn-primary btn-block" style="height:52px;font-size:15px;margin-top:8px" data-back>Back to signals</button>
     </div>`;
@@ -47,12 +56,28 @@ export function render(container) {
 
     <div class="paywall-hero">
       <div class="paywall-crown"><i class="ph-fill ph-crown-simple"></i></div>
-      <div class="paywall-title">Ajent Pro</div>
-      <div class="paywall-sub">Trade the full edge, every session.</div>
+      <div class="paywall-title">Free &amp; Pro</div>
+      <div class="paywall-sub">The core is free. Pro unlocks the full board.</div>
     </div>
 
-    <div class="panel" style="margin-top:18px">
-      ${FEATURES.map((f) => `<div class="pw-feature"><span class="i"><i class="ph-bold ${f.icon}"></i></span>${f.text}</div>`).join('')}
+    <div style="background:var(--buy-dim);border:1px solid color-mix(in srgb,var(--buy) 30%,transparent);border-radius:12px;padding:11px 14px;margin-top:16px;font-size:12.5px;line-height:1.5;color:var(--buy)">
+      <b>Early access:</b> <span style="color:var(--text)">everything below is unlocked, free.</span> Pro pricing is shown for when subscriptions launch.
+    </div>
+
+    <div class="panel" style="margin-top:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font:700 14px var(--font-heading)">Free</span>
+        <span style="font-size:11px;color:var(--text-muted);background:var(--neutral-900);padding:3px 9px;border-radius:20px">no card, ever</span>
+      </div>
+      ${FREE_FEATURES.map((f) => `<div class="pw-feature"><span class="i" style="background:var(--buy-dim);color:var(--buy)"><i class="ph-bold ${f.icon}"></i></span>${f.text}</div>`).join('')}
+    </div>
+
+    <div class="panel" style="margin-top:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font:700 14px var(--font-heading);color:var(--accent-200)"><i class="ph-fill ph-crown-simple" style="font-size:13px;margin-right:4px"></i>Pro adds</span>
+        <span style="font-size:11px;color:var(--text-muted)">everything in Free, plus&hellip;</span>
+      </div>
+      ${PRO_FEATURES.map((f) => `<div class="pw-feature"><span class="i"><i class="ph-bold ${f.icon}"></i></span>${f.text}</div>`).join('')}
     </div>
 
     <div class="plan-option ${billing === 'monthly' ? 'selected' : ''}" data-plan="monthly">
