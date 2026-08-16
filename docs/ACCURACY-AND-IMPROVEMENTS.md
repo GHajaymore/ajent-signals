@@ -32,7 +32,9 @@ Current truth (as of 2026-08-14):
   - **Free:** both strategies (Active + Proven), core US index markets, full paper record, in-app signals/methodology. No card.
   - **Pro:** all 43 markets (crypto/commodities/global), real-time data, push alerts, high-conviction filter/alerts, position-size calculator.
 - **Enforcement is OFF** for the free early-access launch — everything is unlocked for all users; the paywall shows the split + an "early access, all unlocked" note. On web, `isPro()` is always false (real IAP only in the native App Store build), so enforcing now would lock out every web user.
-- [ ] **Turn on gating when monetizing** — gate `PRO_FEATURES` behind `isPro()` (market lock in Markets/Home, alerts, conviction filter, calculator). Needs: App Store IAP live (native) and/or accounts+backend for web entitlement. Reconcile pricing with the "Free" landing before flipping.
+- **DECISION (2026-08-14):** keep everything unlocked & free for the web launch. Turn Pro gating ON only when publishing to the **Apple App Store + Google Play**. Until then Free = Pro in practice.
+- [ ] **Turn on gating at store launch** — gate `PRO_FEATURES` behind `isPro()` (market lock in Markets/Home, push alerts, conviction filter, calculator). Reconcile pricing with the "Free" landing before flipping.
+- [ ] **Android IAP gap** — `iap.js` currently registers **Apple App Store only** (cordova-plugin-purchase, `Platform.APPLE_APPSTORE`). Google Play billing must be added for Pro entitlement on Android, or Android stays free while iOS gates.
 
 ## Improvement backlog (honest, evidence-gated)
 - [ ] **Validate Active over more time** — only ~60 days of 15m history from the free feed. The live paper record is the true forward test; revisit thresholds once it accumulates.
