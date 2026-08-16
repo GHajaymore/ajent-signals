@@ -3,9 +3,12 @@
 // chain as candles.js/liveData.js. Sentiment is a simple keyword scan over
 // real headline text, not a licensed NLP/sentiment service.
 
+// corsproxy first (allorigins is frequently CORS-blocked / down). Order and
+// no-store caching mirror liveData.js — without no-store the browser serves a
+// cached news response and headlines never refresh.
 const PROXIES = [
-  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
   (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
 ];
 
 const NEWS_STALE_MS = 48 * 60 * 60 * 1000; // ignore headlines older than 2 days
@@ -35,7 +38,12 @@ export async function fetchNews(yahooSymbol) {
   let lastErr;
   for (const wrap of PROXIES) {
     try {
-      const res = await fetch(wrap(url));
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 12000);
+      // cache:'no-store' is critical — otherwise the browser HTTP-caches the
+      // proxied response and the headlines never update.
+      const res = await fetch(wrap(url), { cache: 'no-store', signal: ctrl.signal });
+      clearTimeout(timer);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const items = Array.isArray(data?.news) ? data.news : [];
