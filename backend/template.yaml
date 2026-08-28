@@ -1,0 +1,65 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Ajent Signals backend — server-side signals + 24/7 paper trading.
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 90
+    MemorySize: 256
+    Environment:
+      Variables:
+        TABLE: !Ref DataTable
+        # RISK_DOLLARS: virtual $ staked per paper trade (for the recorded P&L).
+        RISK_DOLLARS: '250'
+  Api:
+    Cors:
+      AllowMethods: "'GET,OPTIONS'"
+      AllowOrigins: "'*'"   # tighten to your domain in production
+
+Resources:
+  DataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+
+  # Runs every 15 min. Fetches data, computes signals, manages paper positions.
+  SchedulerFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/scheduler.handler
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref DataTable }
+      Events:
+        Tick:
+          Type: Schedule
+          Properties:
+            Schedule: 'rate(15 minutes)'
+
+  # Read API the app calls: GET /signals, GET /trades.
+  ApiFn:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/api.handler
+      Policies:
+        - DynamoDBReadPolicy: { TableName: !Ref DataTable }
+      Events:
+        Signals:
+          Type: HttpApi
+          Properties: { Path: /signals, Method: GET }
+        Trades:
+          Type: HttpApi
+          Properties: { Path: /trades, Method: GET }
+
+Outputs:
+  ApiUrl:
+    Description: Base URL the app should call.
+    Value: !Sub 'https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+  TableName:
+    Value: !Ref DataTable

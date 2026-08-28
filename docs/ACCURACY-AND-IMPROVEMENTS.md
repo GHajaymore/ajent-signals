@@ -52,6 +52,13 @@ Key findings still open:
 - [ ] **Strategy edge unproven live** — 2 weeks losing. Re-backtesting the same ~60-day free data would overfit. The honest options: (a) revert the default to the decade-validated **Proven daily** mode while Active is unproven; (b) rebuild on a **reliable data feed** (backend) before trusting any backtest. No indicator set can be *guaranteed* profitable.
 - [ ] **Trade when app is closed** — impossible client-side; needs the backend below.
 
+## Backend SCAFFOLDED (2026-08-14) — `backend/`
+Deployable AWS SAM app: EventBridge (15 min) → Scheduler Lambda (server-side data
+fetch → Proven daily signals → 24/7 paper trading) → DynamoDB; HTTP API (`/signals`,
+`/trades`) for the app to read. Core logic verified against live data locally.
+- [ ] **Deploy** — `cd backend && npm install && sam build && sam deploy --guided` (needs the user's AWS account). Then swap `src/data.js` for a licensed feed (Alpaca/Twelve Data/Polygon) for real-time reliability.
+- [ ] **Connect the app** — point the app at the API `ApiUrl` (read signals/trades from the backend instead of computing client-side). This is what makes the app show the 24/7 server record.
+
 ## Recommended backend (the real fix — AWS serverless)
 EventBridge Scheduler (cron, market hours) → **Lambda** (fetch real data from a proper API — Alpaca/Twelve Data/Polygon free tiers — compute signals, open/close paper trades) → **DynamoDB** (signals, positions, trades). **API Gateway** read endpoint the app calls instead of browser proxies. Solves: 24/7 trading, reliable + real-time data, fresh news, consistent signals. Cost ~a few $/mo at launch scale (free tier / Activate credits). Deploy needs the user's AWS account; the code/IaC can be scaffolded here.
 
