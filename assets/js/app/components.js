@@ -1,5 +1,6 @@
 import { fmtPrice, fmtPct, verdictColorVar, verdictChipClass, stateColorVar, countryFlag } from './format.js';
 import { isInWatchlist } from './state.js';
+import { marketSession } from './marketHours.js';
 
 // Star toggle for a market row — filled when the market is in the watchlist.
 // The click is handled by a delegated listener (see markets.js) which stops it
@@ -84,7 +85,7 @@ export function verdictIcon(verdict) {
 // candles) vs. the simulator fallback — the more important trust signal than
 // price alone, since price is now live for nearly every symbol regardless.
 export function dataTag(market) {
-  const closed = market.isClosed
+  const closed = marketSession(market) === 'closed'
     ? ' <span class="data-tag closed" title="Exchange is closed — price is the last traded value and won\'t move until it reopens">CLOSED</span>'
     : '';
   return (market.signalIsReal
@@ -92,19 +93,28 @@ export function dataTag(market) {
     : '<span class="data-tag sim" title="Simulated — real analysis unavailable right now">SIM</span>') + closed;
 }
 
-// Live-status pill for the hero: a pulsing dot + label that makes it obvious the
-// card is streaming, instead of a climbing "updated Ns ago" that reads as stale.
+// Live-status pill. Session (open/closed) is CLOCK-based, so it's correct the
+// instant the app opens — e.g. "Market open" the moment US equities open at 9:30
+// ET, without waiting for a quote. Freshness (live vs delayed vs connecting) is
+// then layered on from the real feed.
 export function liveTag(market) {
-  if (market.isClosed) return '<span class="live-dot off"></span>Market closed';
-  // Honest freshness: free CME-futures quotes lag ~15–25 min, so a quote older
-  // than ~2 min is labelled Delayed rather than pretending it's real-time.
+  const dot = (on) => `<span class="live-dot${on ? '' : ' off'}"></span>`;
+  const sess = marketSession(market);
   const age = market.quoteAgeSec;
-  if (age != null && age > 120) {
-    const mins = Math.max(1, Math.round(age / 60));
-    return `<span class="live-dot off"></span>Delayed ~${mins}m`;
+  const live = market.isLiveFresh;
+  const delayed = live && age != null && age > 180;
+  const mins = age != null ? Math.max(1, Math.round(age / 60)) : 0;
+
+  if (sess === 'closed') return `${dot(false)}Market closed`;
+  if (sess === 'open') {
+    if (delayed) return `${dot(false)}Market open · delayed ~${mins}m`;
+    if (live) return `${dot(true)}Market open`;
+    return `${dot(false)}Market open · connecting…`;
   }
-  if (market.isLiveFresh) return '<span class="live-dot"></span>Live';
-  return '<span class="live-dot off"></span>Simulated';
+  // Untracked exchange (unknown session) — fall back to raw feed freshness.
+  if (delayed) return `${dot(false)}Delayed ~${mins}m`;
+  if (live) return `${dot(true)}Live`;
+  return `${dot(false)}Simulated`;
 }
 
 export function heroCard(market, verdict) {

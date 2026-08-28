@@ -1,6 +1,7 @@
 import { state } from '../state.js';
 import { heroCard, watchlistRow, patchRow, patchHero, symTile, dataTag, sparklineSvg } from '../components.js';
 import { getPerformanceSummary, getOpenCount } from '../paperTrading.js';
+import { marketSession } from '../marketHours.js';
 
 function pfLabel(perf) { return perf.profitFactor === Infinity ? '∞' : perf.profitFactor.toFixed(2); }
 
@@ -90,13 +91,22 @@ function greeting() {
   return 'Good evening';
 }
 
-// Real session status for the featured market — no hardcoded "Market open".
+// Clock-based session status for the featured market — correct the instant the
+// app opens (e.g. "Market open" at 9:30 ET) without waiting on a quote.
 function marketStatus(m) {
   if (!m) return { label: 'Loading', color: 'var(--text-muted)', pulse: false };
-  if (m.isClosed) return { label: 'Market closed', color: 'var(--text-muted)', pulse: false };
+  const sess = marketSession(m);
+  if (sess === 'closed') return { label: 'Market closed', color: 'var(--text-muted)', pulse: false };
   const age = m.quoteAgeSec;
-  if (age != null && age > 120) return { label: `Delayed ~${Math.max(1, Math.round(age / 60))}m`, color: '#f5b35a', pulse: false };
-  if (m.isLiveFresh) return { label: 'Market open', color: 'var(--buy)', pulse: true };
+  const delayed = m.isLiveFresh && age != null && age > 180;
+  if (sess === 'open') {
+    if (delayed) return { label: `Open · delayed ~${Math.max(1, Math.round(age / 60))}m`, color: '#f5b35a', pulse: false };
+    if (m.isLiveFresh) return { label: 'Market open', color: 'var(--buy)', pulse: true };
+    return { label: 'Market open · connecting…', color: 'var(--text-muted)', pulse: false };
+  }
+  // Untracked exchange — fall back to feed freshness.
+  if (delayed) return { label: `Delayed ~${Math.max(1, Math.round(age / 60))}m`, color: '#f5b35a', pulse: false };
+  if (m.isLiveFresh) return { label: 'Live', color: 'var(--buy)', pulse: true };
   return { label: 'Simulated', color: 'var(--text-muted)', pulse: false };
 }
 function statusPillInner(st) {

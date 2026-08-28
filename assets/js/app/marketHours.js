@@ -1,0 +1,61 @@
+// Clock-based exchange sessions. This makes "Market open / closed" instant and
+// reliable — derived from the current time in the exchange's own timezone (DST is
+// handled by the IANA zone), NOT from a fetched quote's marketState (which lags
+// behind the proxy and can't tell us anything until a quote arrives).
+
+const TZ = {
+  US: 'America/New_York', CA: 'America/Toronto', IN: 'Asia/Kolkata', GB: 'Europe/London',
+  DE: 'Europe/Berlin', EU: 'Europe/Berlin', JP: 'Asia/Tokyo', HK: 'Asia/Hong_Kong',
+  CN: 'Asia/Shanghai', AU: 'Australia/Sydney', BR: 'America/Sao_Paulo', SG: 'Asia/Singapore',
+};
+
+// Regular cash-session [openMinute, closeMinute] in local exchange time, Mon–Fri.
+const SESSION = {
+  US: [570, 960],   // 09:30–16:00 ET
+  CA: [570, 960],   // 09:30–16:00 ET
+  IN: [555, 930],   // 09:15–15:30 IST
+  GB: [480, 990],   // 08:00–16:30 London
+  DE: [540, 1050], EU: [540, 1050], // 09:00–17:30 CET
+  JP: [540, 900],   // 09:00–15:00 JST
+  HK: [570, 960],   // 09:30–16:00 HKT
+  CN: [570, 900],   // 09:30–15:00 CST
+  AU: [600, 960],   // 10:00–16:00 AEST
+  BR: [600, 1020],  // 10:00–17:00 BRT
+  SG: [540, 1020],  // 09:00–17:00 SGT
+};
+
+const WD = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+
+// { day: 0–6, min: minutes-since-local-midnight } for a given IANA timezone.
+function localNow(tz) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz, weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(new Date());
+    const get = (t) => parts.find((p) => p.type === t)?.value;
+    return { day: WD[get('weekday')] ?? 1, min: (parseInt(get('hour'), 10) % 24) * 60 + parseInt(get('minute'), 10) };
+  } catch (e) {
+    return null;
+  }
+}
+
+// Returns 'open' | 'closed' | 'unknown'. Crypto is always open; FX is 24/5.
+export function marketSession(market) {
+  const cat = market.category;
+  if (cat === 'Crypto') return 'open';
+  if (cat === 'Currencies') {
+    const n = localNow('America/New_York'); if (!n) return 'unknown';
+    if (n.day === 6) return 'closed';                       // Saturday
+    if (n.day === 5 && n.min >= 17 * 60) return 'closed';   // after Fri 5pm ET
+    if (n.day === 0 && n.min < 17 * 60) return 'closed';    // before Sun 5pm ET
+    return 'open';
+  }
+  const tz = TZ[market.country], sess = SESSION[market.country];
+  if (!tz || !sess) return 'unknown';
+  const n = localNow(tz); if (!n) return 'unknown';
+  if (n.day === 0 || n.day === 6) return 'closed';          // weekend
+  return (n.min >= sess[0] && n.min < sess[1]) ? 'open' : 'closed';
+}
+
+export function isMarketOpen(market) { return marketSession(market) === 'open'; }
+export function isMarketClosed(market) { return marketSession(market) === 'closed'; }
