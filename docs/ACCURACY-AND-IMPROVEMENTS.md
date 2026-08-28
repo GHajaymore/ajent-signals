@@ -36,6 +36,25 @@ Current truth (as of 2026-08-14):
 - [ ] **Turn on gating at store launch** — gate `PRO_FEATURES` behind `isPro()` (market lock in Markets/Home, push alerts, conviction filter, calculator). Reconcile pricing with the "Free" landing before flipping.
 - [ ] **Android IAP gap** — `iap.js` currently registers **Apple App Store only** (cordova-plugin-purchase, `Platform.APPLE_APPSTORE`). Google Play billing must be added for Pro entitlement on Android, or Android stays free while iOS gates.
 
+## AUDIT — post 2-week live feedback (2026-08-14)
+Live result: **paper record losing most of the time.** Functional + navigational test: all 11 screens render, navigation works, **0 JS errors** after fixes.
+
+Fixed this pass:
+- **Market status** was quote-driven (couldn't say "Market open" until a proxy quote arrived; showed "Delayed" on any >2-min timestamp) → now **clock-based** (`marketHours.js`), instant + DST-safe.
+- **Paper-trading closed/stale markets** → now only opens on a market that is **actually open** with a quote **<5 min old**. Trading closed markets on stale prices (buying a dip that reversed 15-25 min ago on the delayed feed) was a systematic loss source *independent of strategy*. Likely a big chunk of the live losses.
+- **App icons**: iOS ignored the SVG icon (wrong home-screen logo) → real PNG apple-touch + maskable icons.
+- **signalDetail crash** when a signal lacked `confluence` → guarded.
+
+ROOT CAUSE (the honest core): the app is **client-only and depends on flaky free CORS proxies for delayed data**. That single fact drives most complaints — stale news, unreliable Buy/Sell, can't-trade-when-closed, and mispriced paper fills → losses. **These need a backend**, not more client tweaks.
+
+Key findings still open:
+- [ ] **Signal breakdown is stale/misleading** — the detail/breakdown screen still presents the OLD multi-indicator "confluence" model (EMA Stack, Supertrend, MACD, Ichimoku…) as if it drives the signal, but the real engine is pure **RSI2 mean-reversion + Bollinger**. The "why" shown to users does not match the actual logic. Rewrite the breakdown to reflect RSI2/Bollinger/trend honestly.
+- [ ] **Strategy edge unproven live** — 2 weeks losing. Re-backtesting the same ~60-day free data would overfit. The honest options: (a) revert the default to the decade-validated **Proven daily** mode while Active is unproven; (b) rebuild on a **reliable data feed** (backend) before trusting any backtest. No indicator set can be *guaranteed* profitable.
+- [ ] **Trade when app is closed** — impossible client-side; needs the backend below.
+
+## Recommended backend (the real fix — AWS serverless)
+EventBridge Scheduler (cron, market hours) → **Lambda** (fetch real data from a proper API — Alpaca/Twelve Data/Polygon free tiers — compute signals, open/close paper trades) → **DynamoDB** (signals, positions, trades). **API Gateway** read endpoint the app calls instead of browser proxies. Solves: 24/7 trading, reliable + real-time data, fresh news, consistent signals. Cost ~a few $/mo at launch scale (free tier / Activate credits). Deploy needs the user's AWS account; the code/IaC can be scaffolded here.
+
 ## Improvement backlog (honest, evidence-gated)
 - [ ] **Validate Active over more time** — only ~60 days of 15m history from the free feed. The live paper record is the true forward test; revisit thresholds once it accumulates.
 - [ ] **Trim weak cells** — DAX-short, S&P-short, BTC-long were near break-even. Consider per-market/direction gating once live data confirms (avoid overfitting to 60 days).
