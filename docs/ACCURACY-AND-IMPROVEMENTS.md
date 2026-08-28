@@ -27,6 +27,13 @@ Current truth (as of 2026-08-14):
 - [ ] **Wire the waitlist endpoint** — `index.html` script has `WAITLIST_ENDPOINT=''`; until set, sign-ups only save to the visitor's localStorage (not collected). Paste a Formspree form ID (2-min) OR scaffold an API Gateway→Lambda→DynamoDB(+SES) endpoint.
 - [x] **Social preview image** (2026-08-14) — `assets/img/og-cover.png` (1200×630) built from `scripts/build-og.js` (SVG → sharp → PNG; source `og-cover.svg`). On-brand, no performance claims. Re-run `node scripts/build-og.js` to regenerate if the tagline/brand changes.
 
+## Monetization — THE BACKEND IS PRO (2026-08-14, updated)
+Chosen design: **Free = client-side** (in-browser, delayed data, app-open-only, core US, Proven daily — $0 to serve). **Pro = the backend** (`worker/`, Cloudflare: 24/7 server-side trading, real-time reliable data, all markets, Active, alerts). The gate on the Worker's `/signals` + `/trades` endpoints IS the paywall — Free users never hit it. Aligns cost with revenue (the Worker + data feed only serves payers).
+- Pro gate: HMAC bearer token (`worker/src/auth.js`), issued by the payment flow after verifying a purchase; open until `PRO_SECRET` is set. App sends it (`window.__AJENT_PRO_TOKEN` / localStorage `ajent_pro_token`).
+- [ ] **Deploy the Worker** — `cd worker && npm i && npx wrangler login && wrangler kv namespace create AJENT_KV` (paste id) `&& npx wrangler deploy`. Set `window.__AJENT_API` to the Worker URL.
+- [ ] **Payment → token flow** — Stripe (web) and/or App Store/Play receipt validation → call `issueProToken()` → return to app. THIS is the real remaining build for monetization.
+- Two AWS + Cloudflare backends now exist (`backend/` SAM, `worker/` CF) — pick ONE; Cloudflare is the recommendation.
+
 ## Monetization — two tiers (2026-08-14)
 - Simplified to **Free** and **Pro** (the phantom "Plus" never existed in code). Single source of truth: `FREE_FEATURES` / `PRO_FEATURES` in `screens/paywall.js`.
   - **Free:** both strategies (Active + Proven), core US index markets, full paper record, in-app signals/methodology. No card.
