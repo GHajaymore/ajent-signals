@@ -14,15 +14,23 @@ function base() {
 
 export function backendConfigured() { return !!base(); }
 
+// Pro token — issued by the payment flow after a verified purchase, stored here.
+function proToken() {
+  try { return (typeof window !== 'undefined' && window.__AJENT_PRO_TOKEN) || localStorage.getItem('ajent_pro_token') || ''; } catch (e) { return ''; }
+}
+
 async function getJson(pathname) {
   const b = base();
   if (!b) return null;
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 10000);
   try {
-    const r = await fetch(b + pathname, { cache: 'no-store', signal: ctrl.signal });
+    const headers = {};
+    const tok = proToken();
+    if (tok) headers.Authorization = `Bearer ${tok}`;
+    const r = await fetch(b + pathname, { cache: 'no-store', signal: ctrl.signal, headers });
     clearTimeout(t);
-    if (!r.ok) return null;
+    if (!r.ok) return null; // 402 (not Pro) or any error -> fall back to client-side
     return await r.json();
   } catch (e) { clearTimeout(t); return null; }
 }

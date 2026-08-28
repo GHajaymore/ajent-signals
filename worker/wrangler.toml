@@ -1,0 +1,22 @@
+name = "ajent-signals-worker"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+
+# The 24/7 loop — runs every 15 minutes whether or not anyone's app is open.
+[triggers]
+crons = ["*/15 * * * *"]
+
+# KV store for signals + the paper record.
+# Create it once:  wrangler kv namespace create AJENT_KV
+# then paste the id below.
+[[kv_namespaces]]
+binding = "AJENT_KV"
+id = "REPLACE_WITH_KV_ID"
+
+[vars]
+DATA_PROVIDER = "yahoo"   # or "twelvedata"
+RISK_DOLLARS = "250"
+
+# Secrets (not in this file) — set with wrangler:
+#   wrangler secret put DATA_API_KEY   # only if DATA_PROVIDER=twelvedata
+#   wrangler secret put PRO_SECRET     # enables the Pro gate; unset = gate open
