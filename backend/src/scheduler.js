@@ -12,7 +12,7 @@ const dayKey = (ms) => new Date(ms).toISOString().slice(0, 10);
 
 async function handleMarket(symbol) {
   const meta = MARKETS[symbol];
-  const { candles, live } = await fetchDailyCandles(meta.yahoo);
+  const { candles, live } = await fetchDailyCandles(meta);
   const sig = computeSignal(candles, live);
   const now = Date.now();
 

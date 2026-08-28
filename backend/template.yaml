@@ -2,6 +2,18 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Ajent Signals backend — server-side signals + 24/7 paper trading.
 
+Parameters:
+  DataProvider:
+    Type: String
+    Default: yahoo
+    AllowedValues: [yahoo, twelvedata]
+    Description: Market-data provider. 'yahoo' needs no key; 'twelvedata' needs DataApiKey.
+  DataApiKey:
+    Type: String
+    Default: ''
+    NoEcho: true
+    Description: API key for the data provider (leave empty for yahoo).
+
 Globals:
   Function:
     Runtime: nodejs20.x
@@ -12,6 +24,8 @@ Globals:
         TABLE: !Ref DataTable
         # RISK_DOLLARS: virtual $ staked per paper trade (for the recorded P&L).
         RISK_DOLLARS: '250'
+        DATA_PROVIDER: !Ref DataProvider
+        DATA_API_KEY: !Ref DataApiKey
   Api:
     Cors:
       AllowMethods: "'GET,OPTIONS'"

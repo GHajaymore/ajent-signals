@@ -44,10 +44,18 @@ The output `ApiUrl` is what the app calls. Point the app at it by setting
 PAY_PER_REQUEST DynamoDB + a 15-min Lambda + HTTP API ≈ **a few dollars/month** at
 launch scale — comfortably inside the AWS free tier / Activate credits.
 
-## Data source
-`src/data.js` currently fetches daily candles from Yahoo's public chart endpoint
-**server-side** (reliable enough to start, no CORS). For production, replace
-`fetchDailyCandles` with a licensed feed and set the API key as a Lambda env var.
+## Data source (one-key swap)
+`src/data.js` has a pluggable provider. It defaults to **Yahoo** server-side (no
+key, reliable enough to start). To switch to a licensed feed, pass two deploy
+parameters — no code change:
+```bash
+sam deploy --parameter-overrides DataProvider=twelvedata DataApiKey=YOUR_KEY
+```
+- **twelvedata** is implemented (free tier: 800 req/day). US index symbols are
+  mapped (`SPX/NDX/DJI/RUT`); add the `td:` symbol for the international indices in
+  `src/markets.js` from your Twelve Data dashboard (they fall back / skip until then).
+- To add **Alpaca / Polygon**, write one `async (symbol) => ({ candles, live })`
+  function in `src/data.js` and register it in `PROVIDERS`.
 
 ## Strategy
 `src/strategy.js` implements the **Proven daily** long-only Connors mean-reversion
