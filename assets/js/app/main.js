@@ -14,7 +14,8 @@ import { startLiveDataLoop, startFocusDataLoop } from './liveData.js';
 import { applyGeoDefaults } from './geo.js';
 import { startUpdateWatcher } from './updateCheck.js';
 import { startSignalRefreshLoop } from './signalRefreshLoop.js';
-import { maybeOpenPositions, checkOpenPositions } from './paperTrading.js';
+import { maybeOpenPositions, checkOpenPositions, applyServerRecord } from './paperTrading.js';
+import { backendConfigured, fetchServerTrades } from './backendApi.js';
 import { initIap } from './iap.js';
 
 const TABS = [
@@ -174,15 +175,28 @@ initIap(() => {
   if (parseHash()[0] === 'paywall') renderRoute();
 });
 
+// When the backend is connected it runs the paper account 24/7, so the client
+// stops trading locally and instead syncs the server's record (which keeps
+// growing whether or not the app is open). Poll it every 30s + once on load.
+async function syncServerRecord() {
+  if (!backendConfigured()) return;
+  const data = await fetchServerTrades();
+  if (data) { applyServerRecord(data); const route = parseHash(); if (route[0] === 'track' || route[0] === 'home') refreshRoute(); }
+}
+if (backendConfigured()) { syncServerRecord(); setInterval(syncServerRecord, 30000); }
+
 setInterval(() => {
   const beforeAlerts = state.engine.alerts.length;
   state.engine.tick(state.settings.threshold);
-  const enabledPaper = getEnabledPaperMarkets(state.engine.markets.map((m) => m.symbol));
-  maybeOpenPositions(state.engine, state.settings.threshold, perTradeRisk(), enabledPaper, !!state.settings.scaleByConviction);
-  checkOpenPositions(state.engine, (alert) => {
-    state.engine.alerts.unshift(alert);
-    if (state.engine.alerts.length > 40) state.engine.alerts.pop();
-  });
+  // Local paper trading only when there's no backend running it server-side.
+  if (!backendConfigured()) {
+    const enabledPaper = getEnabledPaperMarkets(state.engine.markets.map((m) => m.symbol));
+    maybeOpenPositions(state.engine, state.settings.threshold, perTradeRisk(), enabledPaper, !!state.settings.scaleByConviction);
+    checkOpenPositions(state.engine, (alert) => {
+      state.engine.alerts.unshift(alert);
+      if (state.engine.alerts.length > 40) state.engine.alerts.pop();
+    });
+  }
   if (state.engine.alerts.length > beforeAlerts && state.lastTab !== 'alerts' && parseHash()[0] !== 'alerts') {
     state.hasUnreadAlerts = true;
   }

@@ -25,6 +25,9 @@
   <main class="app-content" id="app-content"></main>
   <nav class="tabbar" id="tabbar"></nav>
 </div>
+<!-- Backend connection. After deploying backend/ (sam deploy), paste the API URL
+     here (the stack's `ApiUrl` output). Leave empty to run fully client-side. -->
+<script>window.__AJENT_API = '';</script>
 <script type="module" src="../assets/js/app/main.js"></script>
 </body>
 </html>

@@ -276,6 +276,33 @@ export function checkOpenPositions(engine, onAlert) {
   save();
 }
 
+// Replace the local record with the backend's 24/7 server record. Maps the
+// server item shapes into the local store so every existing reader
+// (getPerformanceSummary, getClosedTrades, getOpenPositions, getOpenCount) keeps
+// working unchanged. Called only when the backend is connected.
+export function applyServerRecord(data) {
+  if (!data || typeof data !== 'object') return;
+  const closed = Array.isArray(data.closed) ? data.closed : [];
+  const open = Array.isArray(data.open) ? data.open : [];
+  store.closed = closed.map((c) => ({
+    symbol: c.symbol, name: c.name, side: c.side || 'LONG', entry: c.entry, exit: c.exit,
+    resultR: c.resultR, pnl: c.pnl, riskDollars: c.riskDollars, outcome: c.outcome,
+    holdMin: (c.openedAt && c.closedAt) ? Math.max(1, Math.round((c.closedAt - c.openedAt) / 60000)) : 1,
+    decimals: c.decimals ?? 2, closedAt: c.closedAt || Date.now(),
+  })).sort((a, b) => b.closedAt - a.closedAt);
+  if (store.closed.length > MAX_CLOSED) store.closed.length = MAX_CLOSED;
+  store.open = {};
+  for (const p of open) {
+    if (!p || !p.symbol) continue;
+    store.open[p.symbol] = {
+      symbol: p.symbol, name: p.name, side: p.side || 'LONG', entry: p.entry, stop: p.stop,
+      target1: p.target1, risk: p.risk, riskDollars: p.riskDollars, conviction: p.conviction,
+      maxHoldMin: p.maxHoldMin, exitRule: p.exitRule || 'firstUpClose', openedAt: p.openedAt, openedLive: true,
+    };
+  }
+  save();
+}
+
 export function getClosedTrades() { return store.closed; }
 export function getOpenPositions() { return Object.values(store.open); }
 export function getOpenCount() { return Object.keys(store.open).length; }
