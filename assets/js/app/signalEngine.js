@@ -394,6 +394,11 @@ export function computeRealSignal(candles, def, rng, news = [], opts = {}) {
     // Current fast-RSI value, so the paper engine can apply the intraday
     // "rsi2Exit" (close the long once RSI2 recovers past 60).
     rsi2: Math.round(rsi2),
+    // Real mean-reversion factors, for an honest signal breakdown. pctB = where
+    // price sits in the Bollinger bands (0 = lower band, 1 = upper; <0 below,
+    // >1 above). These, not the legacy indicator list, are what drive the signal.
+    pctB: pctB != null ? +pctB.toFixed(2) : null,
+    rsi14: rsi14 != null ? Math.round(rsi14) : null,
     reasons,
     indicators,
     confluence: { bull, bear, neutral },

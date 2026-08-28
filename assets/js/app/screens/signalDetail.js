@@ -258,33 +258,54 @@ function renderSignalTab(market, verdict, color) {
 }
 
 function renderBreakdownTab(market, color) {
-  const { bull = 0, bear = 0, neutral = 0 } = market.signal.confluence || {};
-  const total = bull + bear + neutral;
-  const pct = market.signal.confidence;
+  const s = market.signal;
+  if (!market.signalIsReal) {
+    return `<div class="panel"><div class="panel-title">Signal breakdown</div>
+      <div class="text-muted" style="font-size:12.5px;line-height:1.6;margin-top:6px">A live-data computation for this market is temporarily unavailable, so there's no real signal to break down right now. When the feed returns, this shows exactly what the mean-reversion engine sees — the fast RSI, the Bollinger stretch, and the trend.</div></div>`;
+  }
+  const { rsi2, pctB, htfTrend: trend } = s;
+  const conv = s.plan && s.plan.conviction === 'high';
+  const intraday = s.timeframe !== '1D';
+
+  const factor = (label, tone, text) => {
+    const c = tone === 'bull' ? 'var(--buy)' : tone === 'bear' ? 'var(--sell)' : 'var(--text-muted)';
+    const icon = tone === 'bull' ? 'ph-arrow-up' : tone === 'bear' ? 'ph-arrow-down' : 'ph-minus';
+    return `<div class="reason-row"><i class="ph-bold ${icon}" style="color:${c}"></i><span><b style="color:var(--text)">${label}.</b> ${text}</span></div>`;
+  };
+
+  const rsi2Row = rsi2 == null ? ''
+    : rsi2 <= 10 ? factor('Fast RSI (RSI-2)', 'bull', `Deeply oversold at ${rsi2} — the mean-reversion buy trigger.`)
+    : rsi2 >= 90 ? factor('Fast RSI (RSI-2)', 'bear', `Overbought at ${rsi2} — the short trigger.`)
+    : factor('Fast RSI (RSI-2)', 'neutral', `${rsi2} — not stretched far enough to trigger a trade.`);
+
+  const bbRow = pctB == null ? ''
+    : pctB < 0 ? factor('Bollinger bands', 'bull', 'Price has pierced below the lower band — an extreme stretch (marks the strongest setups).')
+    : pctB > 1 ? factor('Bollinger bands', 'bear', 'Price has pierced above the upper band — an extreme stretch (marks the strongest setups).')
+    : pctB < 0.25 ? factor('Bollinger bands', 'neutral', 'Sitting near the lower band.')
+    : pctB > 0.75 ? factor('Bollinger bands', 'neutral', 'Sitting near the upper band.')
+    : factor('Bollinger bands', 'neutral', 'Mid-band — no volatility extreme.');
+
+  const trendRow = trend === 'up' ? factor('Trend (200-period)', 'bull', 'Price is above its 200-period average — the longer trend is up.')
+    : trend === 'down' ? factor('Trend (200-period)', 'bear', 'Price is below its 200-period average — the longer trend is down.')
+    : factor('Trend (200-period)', 'neutral', 'No clear longer-term trend.');
+
   return `
   <div class="panel">
     <div class="confluence-head">
       <div>
-        <div class="panel-title" style="margin-bottom:2px">Confluence score</div>
-        <div class="text-muted" style="font-size:12px">${bull} bullish · ${bear} bearish · ${neutral} neutral</div>
+        <div class="panel-title" style="margin-bottom:2px">Signal strength</div>
+        <div class="text-muted" style="font-size:12px">${conv ? 'High-conviction setup' : 'Standard setup'} · ${intraday ? '15-minute' : 'daily'}</div>
       </div>
-      <div class="confluence-pct" style="color:${color}">${pct}%</div>
+      <div class="confluence-pct" style="color:${color}">${s.confidence}%</div>
     </div>
-    <div class="confluence-bar">
-      <span style="width:${(bull / total) * 100}%;background:var(--buy)"></span>
-      <span style="width:${(neutral / total) * 100}%;background:var(--neutral-700)"></span>
-      <span style="width:${(bear / total) * 100}%;background:var(--sell)"></span>
-    </div>
+    <div class="confluence-bar"><span style="width:${s.confidence}%;background:${color}"></span></div>
   </div>
 
-  <div class="section-label">Signal factors</div>
-  ${categoryRows(market.signal.indicators)}
+  <div class="section-label">What the engine actually sees</div>
+  <div class="panel">${rsi2Row}${bbRow}${trendRow}</div>
 
   <div class="text-muted" style="font-size:11.5px;line-height:1.6;margin-top:8px;padding:0 4px">
-    A BUY/SELL only fires once Ajent's confluence score clears your confidence threshold (currently ${state.settings.threshold}%, adjustable in Settings).
-    ${market.signalIsReal
-      ? "Ajent scores real trend, momentum, volume, volatility, structure and catalyst factors from live price and headlines into one score. The exact factor mix and weighting are proprietary. This is a rule-based score, not a statistically calibrated probability — no method guarantees a given win rate."
-      : 'A real-data computation for this market is temporarily unavailable, so this breakdown is a simulated placeholder — not based on current price action.'}
+    This is a <b style="color:var(--text)">mean-reversion</b> signal — <b>not</b> a multi-indicator confluence score. It buys a deeply oversold dip (RSI-2 low) or short-sells an overbought pop (RSI-2 high); the Bollinger stretch flags the strongest setups and the 200-period trend is context. A trade fires only once the setup clears your ${state.settings.threshold}% confidence threshold (adjustable in Settings). Rule-based — no method guarantees a win rate.
   </div>`;
 }
 

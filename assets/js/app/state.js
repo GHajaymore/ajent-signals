@@ -60,12 +60,14 @@ export const DAILY_AUTOTRADE_MARKETS = ['ES', 'NQ', 'YM', 'RTY', 'XJO', 'SX5E', 
 export const INTRADAY_AUTOTRADE_MARKETS = ['ES', 'NQ', 'RTY', 'SX5E', 'DAX', 'TSX', 'HSI', 'BTC', 'ETH', 'SI', 'CL'];
 
 const defaultSettings = {
-  // Default = 'intraday' ("Active"): the higher-frequency 15-minute mean-reversion,
-  // so the app actually surfaces trades day to day. 'daily' is the slower,
-  // decade-validated Connors swing — fewer signals, deeper validation.
-  strategyMode: 'intraday',
-  // Default auto-trade set matches the default (intraday) mode's validated markets.
-  paperMarkets: [...INTRADAY_AUTOTRADE_MARKETS],
+  // Default = 'daily' ("Proven"): the decade-validated Connors swing (10y +
+  // walk-forward + out-of-sample). Reverted from 'intraday' after two weeks of
+  // live losses on the Active mode — its ~60-day edge hasn't held up live, so the
+  // safer, more-validated strategy is the honest default. Active stays one tap
+  // away in Settings for users who want the higher-frequency, both-directions run.
+  strategyMode: 'daily',
+  // Default auto-trade set matches the default (daily) mode's validated markets.
+  paperMarkets: [...DAILY_AUTOTRADE_MARKETS],
   threshold: 75,
   riskPct: 1,
   // Reward:Risk for the first target (target distance ÷ stop distance). Lower =
