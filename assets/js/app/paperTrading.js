@@ -5,6 +5,7 @@
 // either level, and the outcome is recorded permanently. This is what lets
 // the app report a genuine, evolving win rate instead of an illustrative one.
 import { recordOutcome, isMarketAllowed } from './adaptiveWeights.js';
+import { isMarketOpen } from './marketHours.js';
 
 const LS_KEY = 'ajent_paper_trades_v1';
 const MAX_CLOSED = 300;
@@ -100,6 +101,12 @@ export function maybeOpenPositions(engine, threshold, riskDollars = 250, enabled
     // Only paper-trade on the real feed, so entry/stop/target and the price we
     // later judge them against come from the same stream (never the simulator).
     if (!market.isLiveFresh) continue;
+    // Never open on a CLOSED market or a heavily-DELAYED quote. Both mis-price the
+    // fill — e.g. buying an "oversold dip" that actually reversed 15-25 min ago in
+    // real time on the free delayed feed — a systematic source of paper losses
+    // that has nothing to do with the strategy's edge.
+    if (!isMarketOpen(market)) continue;
+    if (market.quoteAgeSec != null && market.quoteAgeSec > 300) continue;
     if (store.open[market.symbol]) continue;
     // Skip markets the adaptive layer has benched for poor recent performance.
     if (!isMarketAllowed(market.symbol)) continue;

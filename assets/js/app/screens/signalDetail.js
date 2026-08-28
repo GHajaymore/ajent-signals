@@ -258,7 +258,7 @@ function renderSignalTab(market, verdict, color) {
 }
 
 function renderBreakdownTab(market, color) {
-  const { bull, bear, neutral } = market.signal.confluence;
+  const { bull = 0, bear = 0, neutral = 0 } = market.signal.confluence || {};
   const total = bull + bear + neutral;
   const pct = market.signal.confidence;
   return `
