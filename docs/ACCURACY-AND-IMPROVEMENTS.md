@@ -34,6 +34,14 @@ Chosen design: **Free = client-side** (in-browser, delayed data, app-open-only, 
 - [ ] **Payment → token flow** — Stripe (web) and/or App Store/Play receipt validation → call `issueProToken()` → return to app. THIS is the real remaining build for monetization.
 - Two AWS + Cloudflare backends now exist (`backend/` SAM, `worker/` CF) — pick ONE; Cloudflare is the recommendation.
 
+## Free-tier market limit — ENFORCED (2026-08-28)
+Per user: **Free auto-trades ONE market at a time; Pro unlocks all.** This is the first real gate turned on (ahead of store launch) as a conversion lever.
+- Enforced in `state.js`: `FREE_MARKET_LIMIT = 1`, capped at **read time** in `getEnabledPaperMarkets()` (so it holds no matter what's stored) plus the setters (`setPaperMarketEnabled` = one-at-a-time swap; `setAllPaperMarkets`/`setPaperMarkets` = slice to 1). Gate = `isEntitled()` from `backendApi.js` (native purchase OR Pro token OR `window.__AJENT_UNLOCK_ALL`).
+- UI (`screens/track.js`): "Auto-traded markets" shows a crown nudge "Free: 1 market at a time · Go Pro for all 43"; switches re-sync from real state after each action (enabling one visibly turns others off); "Select all" routes Free users to `#/paywall`.
+- Paywall copy (`screens/paywall.js`) updated: Free = "Auto-trade one market at a time"; Pro = "Auto-trade all markets at once", "Trades 24/7".
+- Verified in browser: default 8 → capped to 1; one-at-a-time swap works; Select-all→paywall; unlock override lifts cap to 43. 0 JS errors (only the known flaky-proxy network errors).
+- Other conversion levers recommended (not yet built): see the levers list in the session notes — 24/7 trading, real-time data, Active-mode gating, push alerts, conviction filter, 7-day trial, show-locked-with-crown.
+
 ## Monetization — two tiers (2026-08-14)
 - Simplified to **Free** and **Pro** (the phantom "Plus" never existed in code). Single source of truth: `FREE_FEATURES` / `PRO_FEATURES` in `screens/paywall.js`.
   - **Free:** both strategies (Active + Proven), core US index markets, full paper record, in-app signals/methodology. No card.

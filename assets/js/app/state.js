@@ -1,4 +1,9 @@
 import { createEngine } from './mockEngine.js';
+import { isEntitled } from './backendApi.js';
+
+// Free tier auto-trades ONE market at a time; Pro unlocks all. Enforced at read
+// time (getEnabledPaperMarkets) so it holds regardless of what's stored.
+export const FREE_MARKET_LIMIT = 1;
 
 const LS_ACCEPT = 'ajent_disclaimer_accepted_v1';
 const LS_SETTINGS = 'ajent_settings_v1';
@@ -97,11 +102,15 @@ export function perTradeRisk() {
 // setting is absent (default), every market is eligible.
 export function getEnabledPaperMarkets(allSymbols) {
   const pm = state.settings.paperMarkets;
-  if (!Array.isArray(pm)) return new Set(allSymbols);
-  return new Set(pm.filter((s) => allSymbols.includes(s)));
+  let set = !Array.isArray(pm) ? new Set(allSymbols) : new Set(pm.filter((s) => allSymbols.includes(s)));
+  // Free tier: cap to one market. Pro (entitled) unlocks all.
+  if (!isEntitled() && set.size > FREE_MARKET_LIMIT) set = new Set([...set].slice(0, FREE_MARKET_LIMIT));
+  return set;
 }
 
 export function setPaperMarketEnabled(symbol, on, allSymbols) {
+  // Free: one market at a time — enabling a market makes it THE one.
+  if (on && !isEntitled()) { state.settings.paperMarkets = [symbol]; saveSettings(); return; }
   const cur = getEnabledPaperMarkets(allSymbols);
   if (on) cur.add(symbol); else cur.delete(symbol);
   state.settings.paperMarkets = [...cur];
@@ -109,13 +118,14 @@ export function setPaperMarketEnabled(symbol, on, allSymbols) {
 }
 
 export function setAllPaperMarkets(on, allSymbols) {
+  if (on && !isEntitled()) { state.settings.paperMarkets = allSymbols.slice(0, FREE_MARKET_LIMIT); saveSettings(); return; }
   state.settings.paperMarkets = on ? [...allSymbols] : [];
   saveSettings();
 }
 
 // Replace the auto-trade set with an explicit list (used by the region presets).
 export function setPaperMarkets(symbols) {
-  state.settings.paperMarkets = [...symbols];
+  state.settings.paperMarkets = isEntitled() ? [...symbols] : symbols.slice(0, FREE_MARKET_LIMIT);
   saveSettings();
 }
 

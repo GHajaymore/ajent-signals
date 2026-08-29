@@ -6,12 +6,14 @@ import { isNative, isPro, purchase, restore, priceString, hasTrial } from '../ia
 // users. When subscriptions go live, gate the PRO items behind isPro().
 const FREE_FEATURES = [
   { icon: 'ph-swap', text: 'Both strategies — Active (long &amp; short) &amp; Proven (daily)' },
-  { icon: 'ph-flag-banner', text: 'Core US index markets (S&amp;P, Nasdaq, Dow, Russell)' },
+  { icon: 'ph-target', text: 'Auto-trade <b>one</b> market at a time' },
   { icon: 'ph-notebook', text: 'The full, honest paper-trading record' },
   { icon: 'ph-book-open-text', text: 'In-app signals, breakdown &amp; methodology' },
 ];
 const PRO_FEATURES = [
+  { icon: 'ph-squares-four', text: 'Auto-trade <b>all</b> markets at once — not one at a time' },
   { icon: 'ph-globe-hemisphere-west', text: 'All 43 markets — crypto, commodities &amp; global indices' },
+  { icon: 'ph-clock-countdown', text: 'Trades 24/7 — even when the app is closed' },
   { icon: 'ph-lightning', text: 'Real-time data (Free is delayed)' },
   { icon: 'ph-bell-ringing', text: 'Instant push alerts — entries, stops &amp; targets' },
   { icon: 'ph-star', text: 'High-conviction filter &amp; alerts' },

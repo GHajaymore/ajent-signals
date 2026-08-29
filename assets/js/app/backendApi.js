@@ -3,6 +3,7 @@
 // 24/7 server-side paper-trading record from it. When it's empty, the app runs
 // exactly as before — fully client-side. Nothing here throws on a missing/bad
 // endpoint; callers get null and fall back.
+import { isPro as isProNative } from './iap.js';
 
 function base() {
   try {
@@ -17,6 +18,15 @@ export function backendConfigured() { return !!base(); }
 // Pro token — issued by the payment flow after a verified purchase, stored here.
 function proToken() {
   try { return (typeof window !== 'undefined' && window.__AJENT_PRO_TOKEN) || localStorage.getItem('ajent_pro_token') || ''; } catch (e) { return ''; }
+}
+export function hasProToken() { return !!proToken(); }
+
+// Entitled to Pro features (all markets, 24/7, Active, alerts…)? True for a native
+// purchase, a valid Pro token, or an explicit early-access override. Client-side
+// gate only — the backend enforces the real gate server-side.
+export function isEntitled() {
+  try { if (typeof window !== 'undefined' && window.__AJENT_UNLOCK_ALL) return true; } catch (e) { /* ignore */ }
+  return isProNative() || hasProToken();
 }
 
 async function getJson(pathname) {

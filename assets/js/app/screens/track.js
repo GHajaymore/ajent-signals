@@ -1,6 +1,7 @@
 import { getClosedTrades, getPerformanceSummary, getOpenPositions, tradePnl } from '../paperTrading.js';
 import { fmtPrice } from '../format.js';
-import { state, getEnabledPaperMarkets, setPaperMarketEnabled, setAllPaperMarkets, setPaperMarkets } from '../state.js';
+import { state, getEnabledPaperMarkets, setPaperMarketEnabled, setAllPaperMarkets, setPaperMarkets, FREE_MARKET_LIMIT } from '../state.js';
+import { isEntitled } from '../backendApi.js';
 import { CATEGORY_ORDER } from '../mockEngine.js';
 
 // Coarse region grouping for the quick paper-trade presets, from each market's
@@ -42,6 +43,7 @@ function marketSelector() {
       <div>
         <div class="panel-title" style="margin-bottom:2px">Auto-traded markets</div>
         <div class="text-muted" style="font-size:12px" id="pm-count">${enabled.size} of ${all.length} · only these auto-trade signals</div>
+        ${isEntitled() ? '' : `<div style="font-size:11.5px;color:var(--accent-200);margin-top:3px;display:flex;align-items:center;gap:5px"><i class="ph-fill ph-crown-simple" style="font-size:12px;color:#ffca4d"></i> Free: ${FREE_MARKET_LIMIT} market at a time · <a href="#/paywall" style="color:var(--accent-100);text-decoration:underline">Go Pro for all ${all.length}</a></div>`}
       </div>
       <button class="btn btn-ghost" id="pm-toggle" style="height:34px;padding:0 16px;font-size:13px;flex:none">Edit</button>
     </div>
@@ -92,7 +94,15 @@ function wireSelector(container) {
     });
   }
   const all = state.engine.markets.map((m) => m.symbol);
+  // Re-paint every switch from the ACTUAL enabled set (which the state layer
+  // caps to FREE_MARKET_LIMIT for Free users) so the UI never lies — e.g. on
+  // Free, enabling one market visibly turns the others off.
+  const syncSwitches = () => {
+    const enabledNow = getEnabledPaperMarkets(all);
+    container.querySelectorAll('[data-pm-sym]').forEach((sw) => sw.classList.toggle('on', enabledNow.has(sw.dataset.pmSym)));
+  };
   const updateCount = () => {
+    syncSwitches();
     const el = container.querySelector('#pm-count');
     if (el) el.textContent = `${getEnabledPaperMarkets(all).size} of ${all.length} · only these auto-trade signals`;
     // Keep each collapsible group's "on/total" badge in sync.
@@ -105,7 +115,6 @@ function wireSelector(container) {
   container.querySelectorAll('[data-pm-sym]').forEach((sw) => {
     sw.addEventListener('click', () => {
       const on = !sw.classList.contains('on');
-      sw.classList.toggle('on', on);
       setPaperMarketEnabled(sw.dataset.pmSym, on, all);
       updateCount();
     });
@@ -113,13 +122,13 @@ function wireSelector(container) {
   const allBtn = container.querySelector('#pm-all');
   const noneBtn = container.querySelector('#pm-none');
   if (allBtn) allBtn.addEventListener('click', () => {
+    // Free tier can't select all — send them to the paywall instead.
+    if (!isEntitled()) { window.location.hash = '#/paywall'; return; }
     setAllPaperMarkets(true, all);
-    container.querySelectorAll('[data-pm-sym]').forEach((sw) => sw.classList.add('on'));
     updateCount();
   });
   if (noneBtn) noneBtn.addEventListener('click', () => {
     setAllPaperMarkets(false, all);
-    container.querySelectorAll('[data-pm-sym]').forEach((sw) => sw.classList.remove('on'));
     updateCount();
   });
   // Quick-select every market currently printing a BUY or SELL signal.
@@ -128,7 +137,6 @@ function wireSelector(container) {
     const threshold = state.settings.threshold;
     const syms = new Set(state.engine.markets.filter((m) => m.verdict(threshold) !== 'NO_TRADE').map((m) => m.symbol));
     setPaperMarkets([...syms]);
-    container.querySelectorAll('[data-pm-sym]').forEach((sw) => sw.classList.toggle('on', syms.has(sw.dataset.pmSym)));
     updateCount();
   });
   // Region presets: limit auto-trading to one region in a tap. The individual
@@ -137,7 +145,6 @@ function wireSelector(container) {
     chip.addEventListener('click', () => {
       const syms = new Set(symbolsInRegion(chip.dataset.region));
       setPaperMarkets([...syms]);
-      container.querySelectorAll('[data-pm-sym]').forEach((sw) => sw.classList.toggle('on', syms.has(sw.dataset.pmSym)));
       updateCount();
     });
   });
