@@ -49,3 +49,27 @@ async function getJson(pathname) {
 export function fetchServerTrades() { return getJson('/trades'); }
 // { updatedAt, signals:[] } or null.
 export function fetchServerSignals() { return getJson('/signals'); }
+
+// --- Signal-export webhooks (Pro) -------------------------------------------
+// Manage the user's "signal → my own bot/TradingView" webhooks on the backend.
+// All return null on any failure (no backend, not Pro, network) so the UI can
+// degrade gracefully. Educational only — the backend never places orders.
+async function sendJson(pathname, method, body) {
+  const b = base();
+  if (!b) return null;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 10000);
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    const tok = proToken();
+    if (tok) headers.Authorization = `Bearer ${tok}`;
+    const r = await fetch(b + pathname, { method, cache: 'no-store', signal: ctrl.signal, headers, body: body ? JSON.stringify(body) : undefined });
+    clearTimeout(t);
+    if (!r.ok) return { error: `HTTP ${r.status}`, status: r.status };
+    return await r.json();
+  } catch (e) { clearTimeout(t); return null; }
+}
+export function listWebhooks() { return getJson('/webhooks'); }
+export function createWebhook(url, events) { return sendJson('/webhooks', 'POST', { url, events }); }
+export function deleteWebhook(id) { return sendJson(`/webhooks/${encodeURIComponent(id)}`, 'DELETE'); }
+export function testWebhooks() { return sendJson('/webhooks/test', 'POST'); }

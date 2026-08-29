@@ -2,6 +2,7 @@
 import { MARKETS, isOpen } from './markets.js';
 import { fetchDailyCandles } from './data.js';
 import { computeSignal } from './strategy.js';
+import { deliverEvents } from './webhooks.js';
 
 const dayKey = (ms) => new Date(ms).toISOString().slice(0, 10);
 
@@ -37,14 +38,30 @@ export async function processPosition({ symbol, meta, sig, live, open, store, no
 
 export async function runTick(env, store) {
   const risk = Number(env.RISK_DOLLARS || 250);
+  const events = []; // fresh signal/position events to push to Pro webhooks
+  const strategyLabel = 'Proven daily (RSI2 mean-reversion)';
   for (const symbol of Object.keys(MARKETS)) {
     try {
       const meta = MARKETS[symbol];
       const { candles, live } = await fetchDailyCandles(meta, env);
       const sig = computeSignal(candles, live);
       const now = Date.now();
+      // A verdict that flips INTO BUY/SELL (vs last tick) is a fresh signal.
+      const prev = await store.get('SIGNAL', symbol);
+      const actionable = sig.verdict === 'BUY' || sig.verdict === 'SELL';
+      if (actionable && (!prev || prev.verdict !== sig.verdict)) {
+        events.push({ type: 'signal', event: sig.verdict, symbol, name: meta.name, price: live ?? sig.price, strategy: strategyLabel, plan: sig.plan, signal: sig, at: now });
+      }
       await store.put({ pk: 'SIGNAL', sk: symbol, symbol, name: meta.name, updatedAt: now, ...sig, live });
-      await processPosition({ symbol, meta, sig, live, open: isOpen(meta.country), store, now, risk });
+      const res = await processPosition({ symbol, meta, sig, live, open: isOpen(meta.country), store, now, risk });
+      if (res === 'open') {
+        events.push({ type: 'position.open', event: 'open', symbol, name: meta.name, price: live ?? sig.price, strategy: strategyLabel, plan: sig.plan, signal: sig, at: now });
+      } else if (typeof res === 'string' && res.startsWith('exit:')) {
+        events.push({ type: 'position.close', event: res.slice(5), symbol, name: meta.name, price: live ?? sig.price, strategy: strategyLabel, signal: sig, at: now });
+      }
     } catch (e) { /* skip this market this tick */ }
   }
+  // Fan out the fresh events to registered Pro webhooks (best-effort).
+  try { await deliverEvents(store, events); } catch (e) { /* delivery never blocks trading */ }
+  return { events: events.length };
 }

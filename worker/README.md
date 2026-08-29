@@ -47,6 +47,37 @@ payment flow issues after verifying the purchase server-side**:
 The app stores the token and sends it on every backend call. **Until you set
 `PRO_SECRET`, the gate is open** (so you can wire things up first).
 
+## Signal export API (the Pro "API into your own tooling")
+Pro's headline feature — **without any broker obligation**. A Pro user registers a
+webhook URL (their own bot, a TradingView alert relay, Zapier, a Discord relay…);
+when a fresh signal fires, the Worker POSTs a **signed, educational** payload there.
+**We never place an order or touch a broker** — we hand over the signal; the user
+decides what to do with it. This keeps Ajent squarely educational.
+
+Endpoints (all Pro-gated, scoped to the token's `sub`):
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/webhooks` | list your webhooks |
+| POST | `/webhooks` `{url, events?}` | register (returns a one-time signing `secret`) |
+| DELETE | `/webhooks/<id>` | remove one |
+| POST | `/webhooks/test` | send a sample event to your webhooks |
+
+`events` ⊆ `["signal","position.open","position.close"]` (default: all). Max 5 per user.
+Only **public https** URLs are accepted (localhost/private ranges rejected).
+
+**Payload** (educational — no order fields ever):
+```json
+{ "type":"signal", "event":"BUY", "symbol":"ES", "price":5123.5,
+  "strategy":"Proven daily (RSI2 mean-reversion)", "conviction":"high",
+  "plan":{"entry":5123.5,"stop":5108,"target1":5139}, "rsi2":7.8,
+  "mode":"educational-simulated", "disclaimer":"Educational signal only…" }
+```
+**Verify it's really us:** each POST carries `X-Ajent-Signature: sha256=<hex>` =
+HMAC-SHA256 of the raw body with your webhook's `secret`. Recompute and compare.
+
+A dead endpoint is retried best-effort and auto-paused after repeated failures;
+delivery never blocks the trading loop. Local test: `npm run test:webhooks`.
+
 ## Connect the app
 Set the Worker URL + the user's Pro token in the app:
 ```js

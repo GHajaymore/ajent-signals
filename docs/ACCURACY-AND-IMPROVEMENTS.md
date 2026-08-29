@@ -34,6 +34,15 @@ Chosen design: **Free = client-side** (in-browser, delayed data, app-open-only, 
 - [ ] **Payment → token flow** — Stripe (web) and/or App Store/Play receipt validation → call `issueProToken()` → return to app. THIS is the real remaining build for monetization.
 - Two AWS + Cloudflare backends now exist (`backend/` SAM, `worker/` CF) — pick ONE; Cloudflare is the recommendation.
 
+## Signal export API — BUILT (2026-08-28) — the Pro moat, zero broker obligation
+Decision (per user): the compelling Pro feature is **exporting signals to the user's OWN tools**, NOT real-money auto-execution. We stay strictly **educational** — Ajent posts the signal over a signed webhook; it never places an order, connects to a broker, or holds funds. Execution + risk stay entirely on the user's side.
+- **Worker** (`worker/src/webhooks.js`): per-user (token `sub`) webhooks. Register/list/delete + `/webhooks/test`. Endpoints Pro-gated in `src/index.js`. `src/auth.js` gained `readProToken()` (returns `{sub,exp}`) so hooks scope per user.
+- **Delivery**: `scheduler.js` `runTick` detects verdict flips INTO BUY/SELL + position open/close, and `deliverEvents()` POSTs each to matching hooks. Signed `X-Ajent-Signature: sha256=HMAC(rawBody, per-hook secret)` (GitHub/Stripe style). Only public https URLs (SSRF guard rejects localhost/private IPs). Auto-pauses a dead endpoint after 20 fails; never blocks trading.
+- **Payload is educational-only**: `mode:'educational-simulated'` + `disclaimer`; carries signal/plan levels, **no order/execute/broker fields** (asserted in tests).
+- **App** (`screens/signalExport.js`, shown in Settings): locked preview when no backend / not Pro → paywall; full add/list/delete + test when Pro+connected. Client methods in `backendApi.js` (`listWebhooks/createWebhook/deleteWebhook/testWebhooks`).
+- **Tests**: `worker/test/webhooks.mjs` — 17/17 pass (URL guard, per-user limit/scoping, signed end-to-end delivery, educational payload, no-order-fields, inactive-skip). `npm run test:webhooks`.
+- **Regulatory line held**: real-money auto-execution deliberately NOT built — would risk CTA/CPO (futures) or RIA (securities) registration + liability on an unproven-live strategy. Gate any future real-money path behind a proven live record + legal review.
+
 ## Free-tier market limit — ENFORCED (2026-08-28)
 Per user: **Free auto-trades ONE market at a time; Pro unlocks all.** This is the first real gate turned on (ahead of store launch) as a conversion lever.
 - Enforced in `state.js`: `FREE_MARKET_LIMIT = 1`, capped at **read time** in `getEnabledPaperMarkets()` (so it holds no matter what's stored) plus the setters (`setPaperMarketEnabled` = one-at-a-time swap; `setAllPaperMarkets`/`setPaperMarkets` = slice to 1). Gate = `isEntitled()` from `backendApi.js` (native purchase OR Pro token OR `window.__AJENT_UNLOCK_ALL`).

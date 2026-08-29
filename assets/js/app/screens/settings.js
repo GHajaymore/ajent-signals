@@ -1,6 +1,7 @@
 import { state, saveSettings, perTradeRisk, setPaperMarkets, setAllPaperMarkets, DAILY_AUTOTRADE_MARKETS, INTRADAY_AUTOTRADE_MARKETS } from '../state.js';
 import { fmtMoney } from '../format.js';
 import { resetPaperTrades } from '../paperTrading.js';
+import { wireSignalExport, signalExportHtml } from './signalExport.js';
 
 const NOTIF_ROWS = [
   { key: 'buy', label: 'Buy signals', icon: 'ph-arrow-up-right', color: 'var(--buy)' },
@@ -128,6 +129,8 @@ export function render(container) {
       </div>
     </div>
 
+    ${signalExportHtml()}
+
     <div class="footer-note">Ajent Signals is an educational tool and does not execute trades.<br>Markets tagged REAL compute indicators from a free public price feed (unofficial, best-effort); SIM markets are simulated placeholders when real data is unavailable · v1.0.0</div>
   </div>`;
 
@@ -204,4 +207,6 @@ export function render(container) {
   }
 
   patchRiskCalc();
+  // Signal export API (Pro) — async: loads webhooks from the backend when connected.
+  wireSignalExport(container);
 }

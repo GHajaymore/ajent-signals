@@ -24,18 +24,27 @@ export async function issueProToken(sub, ttlDays, secret) {
 }
 
 export async function verifyProToken(token, secret) {
+  return !!(await readProToken(token, secret));
+}
+
+// Like verifyProToken but returns the decoded { sub, exp } on success (null on
+// failure). The `sub` identifies the user — used to scope their webhooks.
+export async function readProToken(token, secret) {
   const [payload, sig] = String(token || '').split('.');
-  if (!payload || !sig) return false;
-  if (sig !== await hmac(payload, secret)) return false;
+  if (!payload || !sig) return null;
+  if (sig !== await hmac(payload, secret)) return null;
   try {
-    const { exp } = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
-    return typeof exp === 'number' && exp > Date.now();
-  } catch (e) { return false; }
+    const claims = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return (typeof claims.exp === 'number' && claims.exp > Date.now()) ? claims : null;
+  } catch (e) { return null; }
 }
 
 export async function requirePro(request, env) {
-  if (!env.PRO_SECRET) return { ok: true, note: 'gate open (PRO_SECRET not set)' };
+  // Gate open until PRO_SECRET is set (handy while wiring things up). Webhooks are
+  // still scoped per-token; with no secret everyone shares the 'anon' scope.
+  if (!env.PRO_SECRET) return { ok: true, sub: 'anon', note: 'gate open (PRO_SECRET not set)' };
   const token = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
   if (!token) return { ok: false, reason: 'missing Pro token' };
-  return (await verifyProToken(token, env.PRO_SECRET)) ? { ok: true } : { ok: false, reason: 'invalid or expired Pro token' };
+  const claims = await readProToken(token, env.PRO_SECRET);
+  return claims ? { ok: true, sub: String(claims.sub || 'anon') } : { ok: false, reason: 'invalid or expired Pro token' };
 }
