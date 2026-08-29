@@ -15,7 +15,7 @@ import { applyGeoDefaults } from './geo.js';
 import { startUpdateWatcher } from './updateCheck.js';
 import { startSignalRefreshLoop } from './signalRefreshLoop.js';
 import { maybeOpenPositions, checkOpenPositions, applyServerRecord } from './paperTrading.js';
-import { backendConfigured, fetchServerTrades, redeemSession, refreshProToken } from './backendApi.js';
+import { backendConfigured, fetchServerTrades, redeemSession, refreshProToken, confirmEntitlement } from './backendApi.js';
 import { initIap } from './iap.js';
 import * as proSuccess from './screens/proSuccess.js';
 
@@ -201,8 +201,14 @@ async function handleBillingReturn() {
       history.replaceState(null, '', location.pathname + (location.hash || '#/home'));
       location.hash = r && r.token ? '#/pro-success' : '#/paywall';
     } else {
-      // On a normal launch, refresh the token so renewals extend entitlement.
-      refreshProToken();
+      // On a normal launch: renew the token (extends active subscriptions), then
+      // confirm with the server — a faked/expired token gets purged so a free
+      // user can't keep Pro unlocked by editing localStorage. Re-render if the
+      // entitlement changed so the UI reflects the true tier.
+      await refreshProToken();
+      const hadToken = !!localStorage.getItem('ajent_pro_token');
+      await confirmEntitlement();
+      if (hadToken && !localStorage.getItem('ajent_pro_token')) { renderRoute(); refreshRoute(); }
     }
   } catch (e) { /* non-fatal */ }
 }

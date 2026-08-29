@@ -94,6 +94,12 @@ export function render(container) {
     return;
   }
 
+  // Payments are "live" only when there's a real purchase path: the native
+  // StoreKit build, or the web build with the backend (Stripe) connected. Until
+  // then Pro isn't buyable, so the CTA collects waitlist interest instead of
+  // dead-ending on the market cap.
+  const canBuy = isNative() || backendConfigured();
+
   container.innerHTML = `
   <div class="fade-in" style="position:relative;padding-top:6px">
     <button class="paywall-close" data-back><i class="ph-bold ph-x"></i></button>
@@ -107,7 +113,9 @@ export function render(container) {
     ${realRecordPanel()}
 
     <div style="background:var(--buy-dim);border:1px solid color-mix(in srgb,var(--buy) 30%,transparent);border-radius:12px;padding:11px 14px;margin-top:16px;font-size:12.5px;line-height:1.5;color:var(--buy)">
-      <b>Early access:</b> <span style="color:var(--text)">everything below is unlocked, free.</span> Pro pricing is shown for when subscriptions launch.
+      ${canBuy
+        ? '<b>Free stays free.</b> <span style="color:var(--text)">Pro adds the extras below — no card for Free, ever.</span>'
+        : '<b>Pro isn’t open yet.</b> <span style="color:var(--text)">Free is fully usable now (one market at a time). Join the waitlist and we’ll email you the moment Pro launches — pricing below is a preview.</span>'}
     </div>
 
     <div class="panel" style="margin-top:14px">
@@ -135,10 +143,9 @@ export function render(container) {
       <div class="price">$399.00<div class="per">/yr</div></div>
     </div>
 
-    <button class="btn btn-primary btn-block" id="pw-cta" style="height:52px;font-size:15px;margin-top:8px">${ctaLabel(billing)}</button>
-    <button class="btn btn-ghost btn-block" id="pw-restore" style="height:44px;font-size:13px;margin-top:8px">Restore purchases</button>
-    <p class="text-faint" style="text-align:center;font-size:11px;margin-top:12px">Auto-renews · cancel anytime · Terms apply</p>
-    ${isNative() ? '' : '<p class="text-faint" style="text-align:center;font-size:11px;margin-top:4px">Subscriptions are available in the App Store version.</p>'}
+    <button class="btn btn-primary btn-block" id="pw-cta" style="height:52px;font-size:15px;margin-top:8px">${canBuy ? ctaLabel(billing) : 'Join the waitlist'}</button>
+    ${canBuy && isNative() ? '<button class="btn btn-ghost btn-block" id="pw-restore" style="height:44px;font-size:13px;margin-top:8px">Restore purchases</button>' : ''}
+    <p class="text-faint" style="text-align:center;font-size:11px;margin-top:12px">${canBuy ? 'Auto-renews · cancel anytime · Terms apply' : 'No card needed to join the list · we’ll only email about Ajent Pro'}</p>
   </div>`;
 
   container.querySelectorAll('.plan-option').forEach((el) => {
@@ -165,8 +172,7 @@ export function render(container) {
         }
         return;
       }
-      // Web: Stripe Checkout, once the backend is connected. Until then, the web
-      // build stays early-access (no purchase configured).
+      // Web: Stripe Checkout, once the backend is connected.
       if (backendConfigured()) {
         cta.disabled = true;
         const prev = cta.textContent;
@@ -177,7 +183,11 @@ export function render(container) {
         cta.disabled = false;
         cta.textContent = prev;
         alert('Could not start checkout. Please try again.');
+        return;
       }
+      // Pre-launch (no purchase path yet): collect waitlist interest instead of
+      // dead-ending. Send them to the landing page's waitlist section.
+      location.href = '../#waitlist';
     });
   }
 

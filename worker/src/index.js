@@ -53,6 +53,13 @@ export default {
           const status = await handleStripeEvent(env, store, event);
           return json({ received: true, status });
         }
+        if (url.pathname === '/billing/status' && request.method === 'GET') {
+          // Definitive entitlement check for the client — lets the app clear a
+          // faked/expired local token instead of trusting it. Ungated on purpose
+          // (you must be able to learn you are NOT entitled).
+          const gate = await requirePro(request, env);
+          return json({ entitled: !!gate.ok });
+        }
         if (url.pathname === '/billing/token' && request.method === 'GET') {
           const r = await tokenForSession(store, url.searchParams.get('session_id') || '');
           return r ? json(r) : json({ error: 'not ready' }, 404);

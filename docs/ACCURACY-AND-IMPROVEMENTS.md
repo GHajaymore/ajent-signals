@@ -34,6 +34,14 @@ Chosen design: **Free = client-side** (in-browser, delayed data, app-open-only, 
 - [ ] **Payment → token flow** — Stripe (web) and/or App Store/Play receipt validation → call `issueProToken()` → return to app. THIS is the real remaining build for monetization.
 - Two AWS + Cloudflare backends now exist (`backend/` SAM, `worker/` CF) — pick ONE; Cloudflare is the recommendation.
 
+## Pre-revenue polish + anti-freeloading (2026-08-28)
+- **No dead-end on the Free cap**: paywall CTA is `canBuy = isNative() || backendConfigured()`. When payments aren't live it reads **"Join the waitlist"** and routes to the landing `../#waitlist`; the banner no longer falsely says "everything unlocked" (it now says "Pro isn't open yet · Free is usable now"). Pricing stays visible as a preview.
+- **Two-layer gate — a free user can't run away with Pro:**
+  1. **Client cap is a soft nudge** — the 1-market limit (`isEntitled()`) is client-side, so a determined user could unlock it locally, but there's nothing costly behind it: it only runs more *simulated* markets on *delayed* data in their own browser.
+  2. **The valuable stuff is hard-gated server-side** — 24/7 backend trading, real-time data, and the signal-export API require a valid **HMAC Pro token** the client can't forge without `PRO_SECRET`. `/signals`, `/trades`, `/webhooks*` return 402 without it.
+  3. **Server-confirmed entitlement** — new ungated `GET /billing/status` returns `{entitled}`. On launch the app calls `refreshProToken()` then `confirmEntitlement()`; a **faked/expired local token is purged** (`clearProToken`) and the UI reverts to Free, so editing localStorage can't keep Pro unlocked while online.
+- Dev-only `window.__AJENT_UNLOCK_ALL` remains for testing — non-persistent (window var, resets on reload) and only affects the client cap, never the crypto-gated backend.
+
 ## Payment → Pro-token flow — SCAFFOLDED (2026-08-28)
 The build that turns Pro into revenue. The Pro token is only ever minted **after** a processor confirms real payment — we never see card data.
 - **Worker** (`worker/src/billing.js`): Stripe Checkout (`/billing/checkout` → hosted checkout URL), signed webhook (`/billing/webhook`, `verifyStripeSignature` = constant-time HMAC over raw body + 5-min tolerance) → `handleStripeEvent` mints the token via `auth.issueProToken`. One-time redemption `/billing/token?session_id=`; launch refresh `/billing/refresh` (an expired-but-authentic token still proves ownership — `readProToken(...,{ignoreExp})`). `invoice.paid` renews, `customer.subscription.deleted` revokes. Prices come from env (`STRIPE_PRICE_MONTHLY/ANNUAL`), secrets via `wrangler secret` (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`). Routes are UNGATED (they're how you become Pro).

@@ -103,3 +103,13 @@ export async function refreshProToken() {
   if (r && r.token) { setProToken(r.token); return r; }
   return null;
 }
+
+// Server-confirmed entitlement: the client cap is a soft nudge, but a faked or
+// expired local token must not keep Pro unlocked while online. Ask the backend;
+// if it says the token is NOT entitled, drop it so the app reverts to Free. Only
+// acts on an explicit `false` — a network blip leaves the token untouched.
+export async function confirmEntitlement() {
+  if (!backendConfigured() || !hasProToken()) return;
+  const r = await getJson('/billing/status'); // sends the token in Authorization
+  if (r && r.entitled === false) clearProToken();
+}
