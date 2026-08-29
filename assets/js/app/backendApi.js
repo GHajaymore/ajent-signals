@@ -113,3 +113,15 @@ export async function confirmEntitlement() {
   const r = await getJson('/billing/status'); // sends the token in Authorization
   if (r && r.entitled === false) clearProToken();
 }
+
+// Whether a real purchase path exists yet (Stripe configured on the backend).
+// Synchronous read of a flag set by initBilling(); defaults false (waitlist) so
+// a configured-backend-but-no-Stripe state never dead-ends on a failing checkout.
+let _checkoutReady = false;
+export function checkoutAvailable() { return _checkoutReady; }
+export async function initBilling() {
+  if (!backendConfigured()) { _checkoutReady = false; return false; }
+  const r = await getJson('/billing/config');
+  _checkoutReady = !!(r && r.checkout);
+  return _checkoutReady;
+}

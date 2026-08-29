@@ -53,6 +53,13 @@ export default {
           const status = await handleStripeEvent(env, store, event);
           return json({ received: true, status });
         }
+        if (url.pathname === '/billing/config' && request.method === 'GET') {
+          // Tells the app whether a real purchase path exists yet, so the paywall
+          // shows "Join the waitlist" (not a failing checkout) until Stripe is set.
+          const realPrice = (p) => !!p && !/REPLACE/.test(p);
+          const checkout = !!(env.STRIPE_SECRET_KEY && (realPrice(env.STRIPE_PRICE_MONTHLY) || realPrice(env.STRIPE_PRICE_ANNUAL)));
+          return json({ checkout, gated: !!env.PRO_SECRET });
+        }
         if (url.pathname === '/billing/status' && request.method === 'GET') {
           // Definitive entitlement check for the client — lets the app clear a
           // faked/expired local token instead of trusting it. Ungated on purpose

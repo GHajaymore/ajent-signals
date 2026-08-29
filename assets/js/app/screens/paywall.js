@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { isNative, isPro, purchase, restore, priceString, hasTrial } from '../iap.js';
-import { backendConfigured, startCheckout, hasProToken } from '../backendApi.js';
+import { backendConfigured, startCheckout, hasProToken, checkoutAvailable } from '../backendApi.js';
 import { getPerformanceSummary } from '../paperTrading.js';
 import { fmtMoney } from '../format.js';
 
@@ -98,7 +98,7 @@ export function render(container) {
   // StoreKit build, or the web build with the backend (Stripe) connected. Until
   // then Pro isn't buyable, so the CTA collects waitlist interest instead of
   // dead-ending on the market cap.
-  const canBuy = isNative() || backendConfigured();
+  const canBuy = isNative() || checkoutAvailable();
 
   container.innerHTML = `
   <div class="fade-in" style="position:relative;padding-top:6px">
@@ -172,17 +172,16 @@ export function render(container) {
         }
         return;
       }
-      // Web: Stripe Checkout, once the backend is connected.
-      if (backendConfigured()) {
+      // Web: Stripe Checkout, once a real purchase path exists (Stripe configured).
+      if (checkoutAvailable()) {
         cta.disabled = true;
         const prev = cta.textContent;
         cta.textContent = 'Redirecting to checkout…';
         const appUrl = location.origin + location.pathname; // /app/ base (no hash)
         const r = await startCheckout(state.billing, { successUrl: appUrl, cancelUrl: appUrl + '#/paywall' });
         if (r && r.url) { location.href = r.url; return; }
-        cta.disabled = false;
-        cta.textContent = prev;
-        alert('Could not start checkout. Please try again.');
+        // Checkout not actually reachable — fall back to the waitlist, never dead-end.
+        location.href = '../#waitlist';
         return;
       }
       // Pre-launch (no purchase path yet): collect waitlist interest instead of

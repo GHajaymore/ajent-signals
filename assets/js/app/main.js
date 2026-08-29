@@ -15,7 +15,7 @@ import { applyGeoDefaults } from './geo.js';
 import { startUpdateWatcher } from './updateCheck.js';
 import { startSignalRefreshLoop } from './signalRefreshLoop.js';
 import { maybeOpenPositions, checkOpenPositions, applyServerRecord } from './paperTrading.js';
-import { backendConfigured, fetchServerTrades, redeemSession, refreshProToken, confirmEntitlement } from './backendApi.js';
+import { backendConfigured, fetchServerTrades, redeemSession, refreshProToken, confirmEntitlement, initBilling } from './backendApi.js';
 import { initIap } from './iap.js';
 import * as proSuccess from './screens/proSuccess.js';
 
@@ -188,6 +188,10 @@ async function syncServerRecord() {
   if (data) { applyServerRecord(data); const route = parseHash(); if (route[0] === 'track' || route[0] === 'home') refreshRoute(); }
 }
 if (backendConfigured()) { syncServerRecord(); setInterval(syncServerRecord, 30000); }
+
+// Probe whether a real purchase path exists (Stripe configured) so the paywall
+// shows checkout vs. the waitlist correctly. Re-render if we're on the paywall.
+initBilling().then((ready) => { if (ready && parseHash()[0] === 'paywall') renderRoute(); });
 
 // Stripe redirect handling: after checkout, Stripe sends the user back with
 // ?session_id=… — redeem it for the Pro token, clean the URL, show a confirmation.
