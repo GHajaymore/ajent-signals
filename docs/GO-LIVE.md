@@ -99,6 +99,41 @@ npx wrangler deploy                            # re-deploy so vars + secrets tak
 - **Legal** — have a lawyer review `terms/` and `privacy/` before charging real money.
 - **Waitlist endpoint** — landing `index.html` `WAITLIST_ENDPOINT` is still empty (sign-ups save to localStorage only).
 
+## Appendix — test the payment loop with the Stripe CLI (before going live)
+
+Do this in **Stripe test mode** (`sk_test_…`, test price IDs). Two ways:
+
+### Option 1 — against the deployed Worker (simplest)
+1. Install the Stripe CLI, then `stripe login`.
+2. Forward Stripe's webhooks to your Worker and copy the printed `whsec_…`:
+   ```bash
+   stripe listen --forward-to https://ajent-signals-worker.<you>.workers.dev/billing/webhook
+   ```
+3. Set that CLI signing secret + test key as the Worker's secrets, and re-deploy:
+   ```bash
+   npx wrangler secret put STRIPE_WEBHOOK_SECRET   # paste the whsec_ from `stripe listen`
+   npx wrangler secret put STRIPE_SECRET_KEY       # sk_test_…
+   npx wrangler secret put PRO_SECRET              # any long random string
+   npx wrangler deploy
+   ```
+4. In the app (with `window.__AJENT_API` pointed at the Worker), go **Settings → Upgrade → pick a plan** and pay with test card `4242 4242 4242 4242` (any future expiry, any CVC/ZIP).
+5. Watch the `stripe listen` terminal: you should see `checkout.session.completed` → `200`. The app returns to **"You're Ajent Pro"**, the market cap lifts, and Signal export goes active.
+
+### Option 2 — fully local with `wrangler dev`
+1. `cd worker && npx wrangler dev` (serves the Worker at `http://localhost:8787`; KV is local).
+2. `stripe listen --forward-to localhost:8787/billing/webhook` and put the printed `whsec_…` in a local `.dev.vars` file (`STRIPE_WEBHOOK_SECRET=…`, `STRIPE_SECRET_KEY=sk_test_…`, `PRO_SECRET=…`).
+3. Set `window.__AJENT_API = 'http://localhost:8787'` and run the app locally; test the same 4242 checkout.
+
+### Quick checks
+- Webhook handler responds (synthetic event; won't mint a redeemable token, just verifies 200 + signature):
+  ```bash
+  stripe trigger checkout.session.completed
+  ```
+- Gate works: `curl https://…/signals` → **402**; with `-H "Authorization: Bearer <token>"` → signals JSON.
+- Entitlement purge: put a junk value in localStorage `ajent_pro_token`, reload — with the backend live it should clear and revert to Free (that's `/billing/status` + `confirmEntitlement` doing its job).
+
+> The authoritative end-to-end test is a **real checkout from the app** (Option 1/2 step 4) — `stripe trigger` uses synthetic IDs not tied to a session the app started, so the token-by-session redemption won't line up. Use `trigger` only to confirm the handler + signature verification respond.
+
 ## Costs
 - **Cloudflare**: Worker + KV stay in the free tier (writes are batched — see `worker/README.md`). Effectively $0 at launch scale.
 - **Stripe**: ~2.9% + 30¢ per charge, no monthly fee. You never handle card data.
