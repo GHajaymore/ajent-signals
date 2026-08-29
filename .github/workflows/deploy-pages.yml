@@ -1,0 +1,34 @@
+name: Deploy to Cloudflare Pages
+
+# Auto-deploys the static app to the Cloudflare Pages project "ajent-signals"
+# on every push to main — mirrors the existing GitHub Pages auto-deploy.
+#
+# One-time setup: add a repo secret CLOUDFLARE_API_TOKEN
+#   (GitHub repo → Settings → Secrets and variables → Actions → New secret).
+#   Create the token in Cloudflare → My Profile → API Tokens → Create Token →
+#   template "Edit Cloudflare Pages" (scoped to this account). The account ID is
+#   public, so it's inlined below.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage static site (exclude worker/, mobile, node_modules, docs)
+        run: |
+          mkdir -p dist
+          cp index.html manifest.webmanifest sw.js _headers version.json dist/
+          cp -r app assets terms privacy dist/
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: 5ca55034550e551f75539e8694f78b68
+          command: pages deploy dist --project-name ajent-signals --branch main --commit-dirty=true
