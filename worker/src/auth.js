@@ -29,13 +29,16 @@ export async function verifyProToken(token, secret) {
 
 // Like verifyProToken but returns the decoded { sub, exp } on success (null on
 // failure). The `sub` identifies the user — used to scope their webhooks.
-export async function readProToken(token, secret) {
+// { ignoreExp:true } validates the signature but not expiry (used by billing
+// refresh, where an expired-but-authentic token still proves ownership).
+export async function readProToken(token, secret, { ignoreExp = false } = {}) {
   const [payload, sig] = String(token || '').split('.');
   if (!payload || !sig) return null;
   if (sig !== await hmac(payload, secret)) return null;
   try {
     const claims = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
-    return (typeof claims.exp === 'number' && claims.exp > Date.now()) ? claims : null;
+    if (typeof claims.exp !== 'number') return null;
+    return (ignoreExp || claims.exp > Date.now()) ? claims : null;
   } catch (e) { return null; }
 }
 

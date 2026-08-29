@@ -8,7 +8,8 @@
     "deploy": "wrangler deploy",
     "tail": "wrangler tail",
     "sim": "node test/sim.mjs",
-    "test:webhooks": "node test/webhooks.mjs"
+    "test:webhooks": "node test/webhooks.mjs",
+    "test:billing": "node test/billing.mjs"
   },
   "devDependencies": {
     "wrangler": "^3.80.0"

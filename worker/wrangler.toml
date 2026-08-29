@@ -16,7 +16,15 @@ id = "REPLACE_WITH_KV_ID"
 [vars]
 DATA_PROVIDER = "yahoo"   # or "twelvedata"
 RISK_DOLLARS = "250"
+# Stripe price IDs for the two plans (create them in the Stripe dashboard).
+# Public identifiers, safe to keep here; the SECRET key is a wrangler secret below.
+STRIPE_PRICE_MONTHLY = "price_REPLACE_MONTHLY"
+STRIPE_PRICE_ANNUAL  = "price_REPLACE_ANNUAL"
 
 # Secrets (not in this file) — set with wrangler:
-#   wrangler secret put DATA_API_KEY   # only if DATA_PROVIDER=twelvedata
-#   wrangler secret put PRO_SECRET     # enables the Pro gate; unset = gate open
+#   wrangler secret put DATA_API_KEY          # only if DATA_PROVIDER=twelvedata
+#   wrangler secret put PRO_SECRET            # signs Pro tokens; unset = gate open
+#   wrangler secret put STRIPE_SECRET_KEY     # sk_live_… (web payments)
+#   wrangler secret put STRIPE_WEBHOOK_SECRET # whsec_… (verifies Stripe webhooks)
+#   wrangler secret put APPLE_SHARED_SECRET   # App Store receipt validation (later)
+#   wrangler secret put GOOGLE_SA_JSON        # Play service-account JSON (later)

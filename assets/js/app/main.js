@@ -15,8 +15,9 @@ import { applyGeoDefaults } from './geo.js';
 import { startUpdateWatcher } from './updateCheck.js';
 import { startSignalRefreshLoop } from './signalRefreshLoop.js';
 import { maybeOpenPositions, checkOpenPositions, applyServerRecord } from './paperTrading.js';
-import { backendConfigured, fetchServerTrades } from './backendApi.js';
+import { backendConfigured, fetchServerTrades, redeemSession, refreshProToken } from './backendApi.js';
 import { initIap } from './iap.js';
+import * as proSuccess from './screens/proSuccess.js';
 
 const TABS = [
   { key: 'home', label: 'Home', icon: 'ph-house' },
@@ -27,7 +28,7 @@ const TABS = [
 ];
 
 const LIVE_SCREENS = new Set(['home', 'markets', 'signal', 'track']);
-const NO_TABBAR = new Set(['gate', 'paywall', 'methodology', 'welcome']);
+const NO_TABBAR = new Set(['gate', 'paywall', 'methodology', 'welcome', 'pro-success']);
 
 const contentEl = document.getElementById('app-content');
 const tabbarEl = document.getElementById('tabbar');
@@ -108,6 +109,9 @@ function renderRoute() {
     case 'paywall':
       paywall.render(contentEl);
       break;
+    case 'pro-success':
+      proSuccess.render(contentEl);
+      break;
     case 'methodology':
       methodology.render(contentEl);
       break;
@@ -184,6 +188,25 @@ async function syncServerRecord() {
   if (data) { applyServerRecord(data); const route = parseHash(); if (route[0] === 'track' || route[0] === 'home') refreshRoute(); }
 }
 if (backendConfigured()) { syncServerRecord(); setInterval(syncServerRecord, 30000); }
+
+// Stripe redirect handling: after checkout, Stripe sends the user back with
+// ?session_id=… — redeem it for the Pro token, clean the URL, show a confirmation.
+async function handleBillingReturn() {
+  if (!backendConfigured()) return;
+  try {
+    const sid = new URLSearchParams(location.search).get('session_id');
+    if (sid) {
+      const r = await redeemSession(sid);
+      // Drop the query string so a refresh doesn't re-run this.
+      history.replaceState(null, '', location.pathname + (location.hash || '#/home'));
+      location.hash = r && r.token ? '#/pro-success' : '#/paywall';
+    } else {
+      // On a normal launch, refresh the token so renewals extend entitlement.
+      refreshProToken();
+    }
+  } catch (e) { /* non-fatal */ }
+}
+handleBillingReturn();
 
 setInterval(() => {
   const beforeAlerts = state.engine.alerts.length;

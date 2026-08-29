@@ -4,6 +4,7 @@ import { db } from './db.js';
 import { runTick } from './scheduler.js';
 import { requirePro } from './auth.js';
 import { registerWebhook, listWebhooks, deleteWebhook, deliverEvents, sampleEvent, EDU_DISCLAIMER } from './webhooks.js';
+import { createCheckoutSession, verifyStripeSignature, handleStripeEvent, tokenForSession, refreshToken, validateApple, validateGoogle } from './billing.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -34,6 +35,47 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
     const url = new URL(request.url);
     if (url.pathname === '/health') return json({ ok: true });
+
+    // --- Billing (UNGATED — this is how a user BECOMES Pro) ---------------------
+    if (url.pathname.startsWith('/billing/')) {
+      const store = db(env);
+      try {
+        if (url.pathname === '/billing/checkout' && request.method === 'POST') {
+          const b = await readJson(request);
+          const r = await createCheckoutSession(env, { plan: b.plan, successUrl: b.successUrl, cancelUrl: b.cancelUrl, ref: b.ref });
+          return json(r.error ? { error: r.error } : r, r.error ? (r.status || 400) : 200);
+        }
+        if (url.pathname === '/billing/webhook' && request.method === 'POST') {
+          const raw = await request.text();
+          const sig = request.headers.get('Stripe-Signature');
+          if (!(await verifyStripeSignature(raw, sig, env.STRIPE_WEBHOOK_SECRET))) return json({ error: 'bad signature' }, 400);
+          const event = JSON.parse(raw);
+          const status = await handleStripeEvent(env, store, event);
+          return json({ received: true, status });
+        }
+        if (url.pathname === '/billing/token' && request.method === 'GET') {
+          const r = await tokenForSession(store, url.searchParams.get('session_id') || '');
+          return r ? json(r) : json({ error: 'not ready' }, 404);
+        }
+        if (url.pathname === '/billing/refresh' && request.method === 'POST') {
+          const b = await readJson(request);
+          const tok = b.token || (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
+          const r = await refreshToken(env, store, tok);
+          return r ? json(r) : json({ error: 'no active entitlement' }, 404);
+        }
+        if (url.pathname === '/billing/apple' && request.method === 'POST') {
+          const b = await readJson(request);
+          const r = await validateApple(env, { receipt: b.receipt, sub: b.sub });
+          return json(r, r.error ? (r.status || 400) : 200);
+        }
+        if (url.pathname === '/billing/google' && request.method === 'POST') {
+          const b = await readJson(request);
+          const r = await validateGoogle(env, { purchaseToken: b.purchaseToken, productId: b.productId, sub: b.sub });
+          return json(r, r.error ? (r.status || 400) : 200);
+        }
+      } catch (e) { return json({ error: String(e && e.message || e) }, 500); }
+      return json({ error: 'not found' }, 404);
+    }
 
     // Pro gate — the backend IS the Pro feature. Free users run client-side.
     const gate = await requirePro(request, env);

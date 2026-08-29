@@ -1,5 +1,6 @@
 import { state } from '../state.js';
 import { isNative, isPro, purchase, restore, priceString, hasTrial } from '../iap.js';
+import { backendConfigured, startCheckout, hasProToken } from '../backendApi.js';
 
 // The two tiers (single source of truth for the split). Enforcement is currently
 // OFF for the free early-access launch — everything below is unlocked for all
@@ -34,7 +35,7 @@ function ctaLabel(billing) {
 export function render(container) {
   const billing = state.billing;
 
-  if (isPro()) {
+  if (isPro() || hasProToken()) {
     container.innerHTML = `
     <div class="fade-in" style="position:relative;padding-top:6px">
       <button class="paywall-close" data-back><i class="ph-bold ph-x"></i></button>
@@ -107,16 +108,32 @@ export function render(container) {
   const cta = container.querySelector('#pw-cta');
   if (cta) {
     cta.addEventListener('click', async () => {
-      if (!isNative()) return; // web demo: no purchase
-      cta.disabled = true;
-      const prev = cta.textContent;
-      cta.textContent = 'Processing…';
-      const res = await purchase(state.billing);
-      if (isPro()) { render(container); return; }
-      cta.disabled = false;
-      cta.textContent = prev;
-      if (!res.ok && res.reason && res.reason !== 'cancelled') {
-        alert('Purchase could not be completed. Please try again.');
+      // Native: StoreKit purchase.
+      if (isNative()) {
+        cta.disabled = true;
+        const prev = cta.textContent;
+        cta.textContent = 'Processing…';
+        const res = await purchase(state.billing);
+        if (isPro()) { render(container); return; }
+        cta.disabled = false;
+        cta.textContent = prev;
+        if (!res.ok && res.reason && res.reason !== 'cancelled') {
+          alert('Purchase could not be completed. Please try again.');
+        }
+        return;
+      }
+      // Web: Stripe Checkout, once the backend is connected. Until then, the web
+      // build stays early-access (no purchase configured).
+      if (backendConfigured()) {
+        cta.disabled = true;
+        const prev = cta.textContent;
+        cta.textContent = 'Redirecting to checkout…';
+        const appUrl = location.origin + location.pathname; // /app/ base (no hash)
+        const r = await startCheckout(state.billing, { successUrl: appUrl, cancelUrl: appUrl + '#/paywall' });
+        if (r && r.url) { location.href = r.url; return; }
+        cta.disabled = false;
+        cta.textContent = prev;
+        alert('Could not start checkout. Please try again.');
       }
     });
   }

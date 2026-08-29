@@ -34,6 +34,14 @@ Chosen design: **Free = client-side** (in-browser, delayed data, app-open-only, 
 - [ ] **Payment → token flow** — Stripe (web) and/or App Store/Play receipt validation → call `issueProToken()` → return to app. THIS is the real remaining build for monetization.
 - Two AWS + Cloudflare backends now exist (`backend/` SAM, `worker/` CF) — pick ONE; Cloudflare is the recommendation.
 
+## Payment → Pro-token flow — SCAFFOLDED (2026-08-28)
+The build that turns Pro into revenue. The Pro token is only ever minted **after** a processor confirms real payment — we never see card data.
+- **Worker** (`worker/src/billing.js`): Stripe Checkout (`/billing/checkout` → hosted checkout URL), signed webhook (`/billing/webhook`, `verifyStripeSignature` = constant-time HMAC over raw body + 5-min tolerance) → `handleStripeEvent` mints the token via `auth.issueProToken`. One-time redemption `/billing/token?session_id=`; launch refresh `/billing/refresh` (an expired-but-authentic token still proves ownership — `readProToken(...,{ignoreExp})`). `invoice.paid` renews, `customer.subscription.deleted` revokes. Prices come from env (`STRIPE_PRICE_MONTHLY/ANNUAL`), secrets via `wrangler secret` (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`). Routes are UNGATED (they're how you become Pro).
+- **Apple/Play**: `validateApple`/`validateGoogle` are explicit 501 stubs (real receipt validation TODO — App Store Server API + Play Developer API; then reuse `grant()`). Nothing silently passes.
+- **App**: `backendApi.js` `startCheckout/redeemSession/refreshProToken/setProToken`; paywall CTA starts Stripe checkout on web when `backendConfigured()` (else stays early-access); `main.js` redeems `?session_id=` on return → `screens/proSuccess.js`; `paywall` treats `hasProToken()` as Pro.
+- **Tests**: `worker/test/billing.mjs` — 16/16 (sig valid/wrong-secret/tampered/stale/missing, grant→redeem, minted-token-verifies, expired-refresh, forged-token rejected, renew, revoke). `npm run test:billing` (add script) or `node test/billing.mjs`.
+- **Remaining to go live**: create Stripe products/prices + set secrets; register the webhook endpoint; deploy the Worker + set `window.__AJENT_API`; (later) real Apple/Play validation; legal review of terms/privacy.
+
 ## Signal export API — BUILT (2026-08-28) — the Pro moat, zero broker obligation
 Decision (per user): the compelling Pro feature is **exporting signals to the user's OWN tools**, NOT real-money auto-execution. We stay strictly **educational** — Ajent posts the signal over a signed webhook; it never places an order, connects to a broker, or holds funds. Execution + risk stay entirely on the user's side.
 - **Worker** (`worker/src/webhooks.js`): per-user (token `sub`) webhooks. Register/list/delete + `/webhooks/test`. Endpoints Pro-gated in `src/index.js`. `src/auth.js` gained `readProToken()` (returns `{sub,exp}`) so hooks scope per user.

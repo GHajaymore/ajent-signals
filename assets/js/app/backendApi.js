@@ -73,3 +73,33 @@ export function listWebhooks() { return getJson('/webhooks'); }
 export function createWebhook(url, events) { return sendJson('/webhooks', 'POST', { url, events }); }
 export function deleteWebhook(id) { return sendJson(`/webhooks/${encodeURIComponent(id)}`, 'DELETE'); }
 export function testWebhooks() { return sendJson('/webhooks/test', 'POST'); }
+
+// --- Billing (web / Stripe) --------------------------------------------------
+const LS_TOKEN = 'ajent_pro_token';
+export function setProToken(t) { try { if (t) localStorage.setItem(LS_TOKEN, t); } catch (e) { /* ignore */ } }
+export function clearProToken() { try { localStorage.removeItem(LS_TOKEN); } catch (e) { /* ignore */ } }
+
+// Start a Stripe Checkout for plan 'monthly'|'annual'. Returns { url } to redirect to.
+export function startCheckout(plan, { successUrl, cancelUrl }) {
+  return sendJson('/billing/checkout', 'POST', { plan, successUrl, cancelUrl });
+}
+// After the Stripe redirect (?session_id=…), exchange it for the Pro token.
+export async function redeemSession(sessionId) {
+  const b = base();
+  if (!b || !sessionId) return null;
+  try {
+    const r = await fetch(`${b}/billing/token?session_id=${encodeURIComponent(sessionId)}`, { cache: 'no-store' });
+    if (!r.ok) return null;
+    const d = await r.json();
+    if (d && d.token) setProToken(d.token);
+    return d;
+  } catch (e) { return null; }
+}
+// On launch: if we hold a token, ask the backend for a fresh one (renewals extend it).
+export async function refreshProToken() {
+  const t = proToken();
+  if (!t) return null;
+  const r = await sendJson('/billing/refresh', 'POST', { token: t });
+  if (r && r.token) { setProToken(r.token); return r; }
+  return null;
+}
