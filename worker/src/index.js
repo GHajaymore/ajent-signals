@@ -84,7 +84,8 @@ export default {
     const store = db(env);
     const sub = gate.sub || 'anon';
     if (url.pathname === '/signals') {
-      return json({ updatedAt: Date.now(), signals: await store.list('SIGNAL') });
+      const blob = await store.get('SIGNALS', 'ALL'); // single batched blob (1 KV read)
+      return json({ updatedAt: (blob && blob.updatedAt) || Date.now(), signals: (blob && blob.signals) || [] });
     }
     if (url.pathname === '/trades') {
       const open = await store.list('POS#OPEN');

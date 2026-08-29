@@ -40,6 +40,11 @@ export async function runTick(env, store) {
   const risk = Number(env.RISK_DOLLARS || 250);
   const events = []; // fresh signal/position events to push to Pro webhooks
   const strategyLabel = 'Proven daily (RSI2 mean-reversion)';
+  // Read the previous signals blob ONCE (1 KV read) — used for fresh-signal
+  // detection and to carry forward any market whose fetch fails this tick.
+  const prevBlob = await store.get('SIGNALS', 'ALL');
+  const bySym = {};
+  if (prevBlob && Array.isArray(prevBlob.signals)) for (const s of prevBlob.signals) bySym[s.symbol] = s;
   for (const symbol of Object.keys(MARKETS)) {
     try {
       const meta = MARKETS[symbol];
@@ -47,20 +52,23 @@ export async function runTick(env, store) {
       const sig = computeSignal(candles, live);
       const now = Date.now();
       // A verdict that flips INTO BUY/SELL (vs last tick) is a fresh signal.
-      const prev = await store.get('SIGNAL', symbol);
+      const prev = bySym[symbol];
       const actionable = sig.verdict === 'BUY' || sig.verdict === 'SELL';
       if (actionable && (!prev || prev.verdict !== sig.verdict)) {
         events.push({ type: 'signal', event: sig.verdict, symbol, name: meta.name, price: live ?? sig.price, strategy: strategyLabel, plan: sig.plan, signal: sig, at: now });
       }
-      await store.put({ pk: 'SIGNAL', sk: symbol, symbol, name: meta.name, updatedAt: now, ...sig, live });
+      bySym[symbol] = { symbol, name: meta.name, updatedAt: now, ...sig, live };
       const res = await processPosition({ symbol, meta, sig, live, open: isOpen(meta.country), store, now, risk });
       if (res === 'open') {
         events.push({ type: 'position.open', event: 'open', symbol, name: meta.name, price: live ?? sig.price, strategy: strategyLabel, plan: sig.plan, signal: sig, at: now });
       } else if (typeof res === 'string' && res.startsWith('exit:')) {
         events.push({ type: 'position.close', event: res.slice(5), symbol, name: meta.name, price: live ?? sig.price, strategy: strategyLabel, signal: sig, at: now });
       }
-    } catch (e) { /* skip this market this tick */ }
+    } catch (e) { /* skip this market this tick — its last-known signal is carried forward */ }
   }
+  // ONE write for all markets' signals (was one-per-market). Cuts KV writes ~8x
+  // so the Worker fits Cloudflare's free tier alongside the account's other apps.
+  await store.put({ pk: 'SIGNALS', sk: 'ALL', updatedAt: Date.now(), signals: Object.values(bySym) });
   // Fan out the fresh events to registered Pro webhooks (best-effort).
   try { await deliverEvents(store, events); } catch (e) { /* delivery never blocks trading */ }
   return { events: events.length };

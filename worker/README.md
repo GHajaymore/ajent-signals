@@ -86,10 +86,17 @@ window.__AJENT_API = 'https://ajent-signals-worker.<you>.workers.dev';
 // sends it as the Authorization header.
 ```
 
-## Cost
+## Cost & shared-account fit
 Cloudflare Workers free tier: 100k requests/day + cron included; KV free tier
-100k reads + 1k writes/day. This workload sits inside it — effectively **$0** at
-launch scale. Data feed: Yahoo $0, or Twelve Data free tier.
+100k reads + **1k writes/day** — and **KV writes are account-wide**, shared with
+any other apps on the same Cloudflare account. To stay well inside that (and not
+starve your other apps), each cron tick writes **one batched `SIGNALS` blob**
+instead of one key per market: **~96 signal writes/day** (96 ticks) rather than
+96×8≈768. Position/trade writes only happen on real open/close events (a handful
+/day). So the whole Worker sits comfortably in the free tier alongside other
+apps — effectively **$0** at launch scale. Data feed: Yahoo $0, or Twelve Data
+free tier. (If Ajent later has paying users, the $5/mo Workers Paid plan lifts
+KV writes to 1M/day and removes the shared-quota concern entirely.)
 
 ## Data provider
 `src/data.js` — `DATA_PROVIDER=yahoo` (default) or `twelvedata` (+ `DATA_API_KEY`).
