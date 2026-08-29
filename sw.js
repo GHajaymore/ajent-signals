@@ -1,7 +1,8 @@
 // Ajent Signals service worker — NETWORK-FIRST for same-origin requests.
 // Guarantees users always get the latest app code when online (fixing the
 // stale-cached-modules problem), while still working offline from cache.
-// Scope is the site root (/ajent-signals/) so it covers /app/ and /assets/.
+// Registered from the site root so its scope covers /app/ and /assets/ — works
+// the same on GitHub Pages (/ajent-signals/) or a custom domain root.
 const CACHE = 'ajent-shell-v1';
 
 self.addEventListener('install', () => {

@@ -1,0 +1,14 @@
+# Cloudflare Pages HTTP headers. (GitHub Pages ignores this file, so it's safe to
+# keep in the repo while the app is still hosted there.)
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+
+# Long-cache only immutable media. JS/HTML are deliberately NOT pinned: there's no
+# build-time content hashing and the service worker is network-first, so caching
+# modules hard would serve stale app code after a deploy.
+/assets/img/*
+  Cache-Control: public, max-age=604800
