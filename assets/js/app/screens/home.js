@@ -140,7 +140,7 @@ export function render(container) {
     <div class="dash-glow"></div>
     <div class="home-topbar">
       <div class="home-brand">
-        <span class="brand-mark"><i class="ph-fill ph-pulse"></i></span>
+        <span class="brand-mark"><img src="../assets/img/favicon.svg" alt="Ajent Signals" width="40" height="40"></span>
         <div>
           <div class="eyebrow">${greeting()}</div>
           <div class="brand-name">Ajent Signals</div>

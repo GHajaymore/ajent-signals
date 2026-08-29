@@ -1,4 +1,4 @@
-// Generates PWA / home-screen icons from the brand mark (the pulse logo).
+// Generates PWA / home-screen icons from the brand mark (the predictive-candles logo).
 // iOS ignores SVG icons, so we ship PNGs: a full-bleed apple-touch icon (iOS
 // rounds it itself), "any" icons for browsers/Android, and a maskable icon with
 // a safe center zone for adaptive shapes.
@@ -13,11 +13,16 @@ const OUT = path.join(__dirname, '..', 'assets', 'img');
 const DEFS = `
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1c1f2e"/><stop offset="100%" stop-color="#0d0e15"/></linearGradient>
-    <linearGradient id="p" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#2bbf8d"/><stop offset="100%" stop-color="#66f2c8"/></linearGradient>
+    <linearGradient id="p" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#66f2c8"/><stop offset="100%" stop-color="#2bbf8d"/></linearGradient>
   </defs>`;
 const MARK = `
-  <path d="M 12 34 L 23 34 L 29 20 L 38 47 L 44 30 L 51 30" fill="none" stroke="url(#p)" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="51" cy="30" r="3.4" fill="#0d0e15"/><circle cx="51" cy="30" r="2.7" fill="#66f2c8"/><circle cx="51" cy="30" r="1.1" fill="#0d0e15"/>`;
+  <line x1="18" y1="27" x2="18" y2="47" stroke="#ff5c7c" stroke-width="2.4" stroke-linecap="round"/>
+  <rect x="14.6" y="32" width="6.8" height="11.5" rx="2" fill="#ff5c7c"/>
+  <line x1="32" y1="20" x2="32" y2="45" stroke="url(#p)" stroke-width="2.4" stroke-linecap="round"/>
+  <rect x="28.6" y="24.5" width="6.8" height="16" rx="2" fill="url(#p)"/>
+  <line x1="46" y1="15" x2="46" y2="39" stroke="#66f2c8" stroke-width="2.2" stroke-linecap="round"/>
+  <rect x="42.4" y="19.5" width="7.2" height="14.5" rx="2" fill="none" stroke="#66f2c8" stroke-width="2.2"/>
+  <circle cx="46" cy="10.5" r="3.3" fill="#0d0e15"/><circle cx="46" cy="10.5" r="2.4" fill="#4d9bff"/>`;
 
 // Rounded tile (browser/Android "any").
 const rounded = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">${DEFS}<rect width="64" height="64" rx="16" fill="url(#bg)"/>${MARK}</svg>`;

@@ -56,9 +56,9 @@
 
   /* Header */
   .head { display:flex; align-items:center; gap:14px; margin-bottom:8px; }
-  .mark { width:46px; height:46px; border-radius:14px; display:grid; place-items:center; flex:none;
-    background:linear-gradient(140deg,#2fe0a6,#66f2c8); box-shadow:0 8px 24px -8px #2fe0a6; }
-  .mark svg { width:24px; height:24px; }
+  .mark { width:46px; height:46px; border-radius:13px; overflow:hidden; display:grid; place-items:center; flex:none;
+    box-shadow:0 8px 24px -10px rgba(0,0,0,.5); }
+  .mark img { width:100%; height:100%; display:block; }
   .brandname { font-weight:800; font-size:20px; letter-spacing:-.3px; }
   .eyebrow { text-transform:uppercase; letter-spacing:.12em; font-size:11px; font-weight:700; color:var(--accent); }
   h1 { font-size:clamp(30px,5vw,46px); line-height:1.04; letter-spacing:-1.4px; font-weight:850; margin:22px 0 12px; text-wrap:balance; max-width:16ch; }
@@ -113,8 +113,8 @@
   /* App components (faithful to the real app) */
   .topbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
   .tb-brand { display:flex; align-items:center; gap:9px; }
-  .tb-mark { width:34px; height:34px; border-radius:11px; display:grid; place-items:center; background:linear-gradient(140deg,#2fe0a6,#66f2c8); }
-  .tb-mark svg{ width:18px;height:18px; }
+  .tb-mark { width:34px; height:34px; border-radius:10px; overflow:hidden; display:grid; place-items:center; }
+  .tb-mark img{ width:100%;height:100%;display:block; }
   .tb-eyebrow { font-size:9px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
   .tb-name { font-weight:800; font-size:14px; margin-top:1px; }
   .tb-actions { display:flex; align-items:center; gap:9px; }
@@ -223,7 +223,7 @@
 
 <div class="wrap">
   <div class="head">
-    <span class="mark"><svg viewBox="0 0 64 64" fill="none"><path d="M6 34 L20 34 L27 16 L40 50 L47 30 L58 30" stroke="#08130d" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    <span class="mark"><img src="assets/img/favicon.svg" alt="Ajent Signals" width="46" height="46"></span>
     <div>
       <div class="eyebrow">Long &amp; short mean reversion</div>
       <div class="brandname">Ajent Signals</div>
@@ -244,7 +244,7 @@
       <div class="phone"><div class="screen"><div class="notch"></div><div class="app">
         <div class="topbar">
           <div class="tb-brand">
-            <span class="tb-mark"><svg viewBox="0 0 64 64" fill="none"><path d="M6 34 L20 34 L27 16 L40 50 L47 30 L58 30" stroke="#08130d" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span class="tb-mark"><img src="assets/img/favicon.svg" alt="" width="34" height="34"></span>
             <div><div class="tb-eyebrow">Good afternoon</div><div class="tb-name">Ajent Signals</div></div>
           </div>
           <div class="tb-actions">
