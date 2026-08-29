@@ -1,6 +1,47 @@
 import { state } from '../state.js';
 import { isNative, isPro, purchase, restore, priceString, hasTrial } from '../iap.js';
 import { backendConfigured, startCheckout, hasProToken } from '../backendApi.js';
+import { getPerformanceSummary } from '../paperTrading.js';
+import { fmtMoney } from '../format.js';
+
+// The REAL paper-trading record — never fabricated. Let the honest track record
+// make the case for Pro. Shows the user's own virtual results (or the backend's
+// 24/7 record when connected); an empty/small sample is stated plainly.
+function realRecordPanel() {
+  const p = getPerformanceSummary();
+  if (!p) {
+    return `
+    <div class="panel" style="margin-top:16px;padding:16px">
+      <div class="eyebrow" style="margin-bottom:6px">Your paper-trading record</div>
+      <div class="text-muted" style="font-size:13px;line-height:1.55">No closed paper trades yet. Ajent trades a <b>virtual</b> account for you — open the app, let it run, and judge Pro by a <b>real, unedited</b> record before you pay a cent.</div>
+      <div class="text-faint" style="font-size:10.5px;line-height:1.5;margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
+        All performance is hypothetical and simulated on <b>virtual money</b> — Ajent places no real orders and holds no funds. Past and simulated results <b>do not guarantee</b> future performance. Educational tool, not investment advice.
+      </div>
+    </div>`;
+  }
+  const net = Math.round(p.totalPnl);
+  const netCol = net >= 0 ? 'var(--buy)' : 'var(--sell)';
+  const pf = p.profitFactor === Infinity ? 'all wins' : p.profitFactor.toFixed(2);
+  const small = p.decisive < 20; // too few trades to imply a stable edge
+  return `
+    <div class="panel" style="margin-top:16px;padding:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span class="eyebrow">Your paper-trading record</span>
+        <span class="text-muted" style="font-size:11px">${p.decisive} decisive trade${p.decisive === 1 ? '' : 's'}</span>
+      </div>
+      <div style="font:800 30px var(--font-heading);color:${netCol};letter-spacing:-1px">${net >= 0 ? '+' : '−'}${fmtMoney(Math.abs(net))}</div>
+      <div class="text-muted" style="font-size:11.5px;margin-top:2px">net on virtual money${state.settings && state.settings.accountBalance ? ` · ${fmtMoney(state.settings.accountBalance)} account` : ''}</div>
+      <div style="display:flex;gap:18px;margin-top:14px">
+        <div><div style="font:800 18px var(--font-heading);color:var(--text)">${p.winRate}%</div><div class="text-muted" style="font-size:11px">win rate</div></div>
+        <div><div style="font:800 18px var(--font-heading);color:var(--text)">${pf}</div><div class="text-muted" style="font-size:11px">profit factor</div></div>
+        <div><div style="font:800 18px var(--font-heading);color:var(--text)">${p.wins}W / ${p.losses}L</div><div class="text-muted" style="font-size:11px">record</div></div>
+      </div>
+      ${small ? `<div style="font-size:11.5px;color:var(--accent-200);margin-top:12px;line-height:1.5"><i class="ph-fill ph-info" style="font-size:12px"></i> Small sample — too few trades to prove a stable edge yet. Let it keep running.</div>` : ''}
+      <div class="text-faint" style="font-size:10.5px;line-height:1.5;margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
+        Hypothetical, simulated performance on <b>virtual money</b> — Ajent places no real orders and holds no funds. Past and simulated results <b>do not guarantee</b> future performance. Educational tool, not investment advice.
+      </div>
+    </div>`;
+}
 
 // The two tiers (single source of truth for the split). Enforcement is currently
 // OFF for the free early-access launch — everything below is unlocked for all
@@ -60,8 +101,10 @@ export function render(container) {
     <div class="paywall-hero">
       <div class="paywall-crown"><i class="ph-fill ph-crown-simple"></i></div>
       <div class="paywall-title">Free &amp; Pro</div>
-      <div class="paywall-sub">The core is free. Pro unlocks the full board.</div>
+      <div class="paywall-sub">See the real record first. Then decide.</div>
     </div>
+
+    ${realRecordPanel()}
 
     <div style="background:var(--buy-dim);border:1px solid color-mix(in srgb,var(--buy) 30%,transparent);border-radius:12px;padding:11px 14px;margin-top:16px;font-size:12.5px;line-height:1.5;color:var(--buy)">
       <b>Early access:</b> <span style="color:var(--text)">everything below is unlocked, free.</span> Pro pricing is shown for when subscriptions launch.
