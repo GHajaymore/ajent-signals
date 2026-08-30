@@ -4,6 +4,7 @@ import { getPerformanceSummary, getOpenCount } from '../paperTrading.js';
 import { marketSession } from '../marketHours.js';
 import { backendConfigured } from '../backendApi.js';
 import { isRealMarket } from './markets.js';
+import { upcomingEvents, daysUntil } from '../econCalendar.js';
 
 function pfLabel(perf) { return perf.profitFactor === Infinity ? '∞' : perf.profitFactor.toFixed(2); }
 
@@ -129,7 +130,7 @@ function computeDerived() {
   let featured = engine.get(state.homeSymbol) || engine.get('ES');
   if (backendConfigured() && !isRealMarket(featured)) featured = engine.get('ES') || engine.markets.find(isRealMarket) || featured;
   const featuredVerdict = featured.verdict(threshold);
-  const nextEvent = engine.calendar.find((e) => e.impact === 'HIGH') || engine.calendar[0];
+  const nextEvent = upcomingEvents(engine.calendar)[0] || engine.calendar[0];
 
   return { engine, threshold, openSignals, avgConf, riskOn, featured, featuredVerdict, nextEvent };
 }
@@ -197,7 +198,7 @@ export function render(container) {
       <i class="ph-fill ph-calendar-check"></i>
       <div>
         <div class="t">${nextEvent.title}</div>
-        <div class="s">${nextEvent.day} · ${nextEvent.time} · ${nextEvent.impact === 'HIGH' ? 'High' : 'Medium'} impact</div>
+        <div class="s">${nextEvent.label || 'Recurring'} · ${nextEvent.time} ET${nextEvent.date ? ` · ${daysUntil(nextEvent.date)}` : ''} · ${nextEvent.impact === 'HIGH' ? 'High' : 'Medium'} impact</div>
       </div>
       <i class="ph-bold ph-caret-right arrow"></i>
     </div>

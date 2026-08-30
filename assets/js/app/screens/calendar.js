@@ -1,7 +1,8 @@
 import { state } from '../state.js';
+import { upcomingEvents, daysUntil } from '../econCalendar.js';
 
 export function render(container) {
-  const events = state.engine.calendar;
+  const events = upcomingEvents(state.engine.calendar);
 
   container.innerHTML = `
   <div class="fade-in">
@@ -22,12 +23,13 @@ export function render(container) {
       ${events.map((e) => {
         const isHigh = e.impact === 'HIGH';
         const barColor = isHigh ? 'var(--sell)' : 'var(--flat)';
+        const when = e.date ? daysUntil(e.date) : '8×/year';
         return `<div class="evt-row">
-          <div class="evt-time"><div class="t">${e.time}</div><div class="d">${e.day}</div></div>
+          <div class="evt-time"><div class="t">${e.time}</div><div class="d">${e.label}</div></div>
           <div class="evt-bar" style="background:${barColor}"></div>
           <div class="evt-body">
             <div class="evt-title">${e.title}</div>
-            <div class="evt-sub">Typical release · ${isHigh ? 'High' : 'Medium'} impact</div>
+            <div class="evt-sub">${when} · ${isHigh ? 'High' : 'Medium'} impact</div>
           </div>
           <div class="evt-impact" style="background:${isHigh ? 'var(--sell-dim)' : 'var(--flat-dim)'};color:${barColor}">${e.impact}</div>
         </div>`;

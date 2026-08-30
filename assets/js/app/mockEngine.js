@@ -459,14 +459,16 @@ function fmtNum(v, d) { return v.toLocaleString('en-US', { minimumFractionDigits
 // Illustrative reference of the recurring US releases that reliably move markets,
 // with their typical release day/time (ET). Not a live feed and not forecast
 // figures — the UI frames it as a reference to verify against a live calendar.
+// `rule` drives the computed next date (see econCalendar.js). FOMC has no simple
+// recurrence (8 scheduled meetings/year), so it carries no rule and reads "Scheduled".
 const CALENDAR_SEED = [
-  { day: 'Thu', time: '08:30', title: 'Initial Jobless Claims', impact: 'MED' },
-  { day: 'Mon', time: '10:00', title: 'ISM Manufacturing PMI', impact: 'MED' },
-  { day: 'Wed', time: '08:30', title: 'CPI (Consumer Prices)', impact: 'HIGH' },
-  { day: 'Wed', time: '14:00', title: 'FOMC Rate Decision', impact: 'HIGH' },
-  { day: 'Fri', time: '08:30', title: 'Nonfarm Payrolls', impact: 'HIGH' },
-  { day: 'Fri', time: '08:30', title: 'PCE Price Index', impact: 'HIGH' },
-  { day: 'Tue', time: '10:00', title: 'Consumer Confidence', impact: 'MED' },
+  { time: '08:30', title: 'Initial Jobless Claims', impact: 'MED', rule: { type: 'weekly', wd: 4 } },
+  { time: '10:00', title: 'ISM Manufacturing PMI', impact: 'MED', rule: { type: 'first-biz' } },
+  { time: '08:30', title: 'CPI (Consumer Prices)', impact: 'HIGH', rule: { type: 'nth-weekday', n: 2, wd: 3 } },
+  { time: '14:00', title: 'FOMC Rate Decision', impact: 'HIGH' },
+  { time: '08:30', title: 'Nonfarm Payrolls', impact: 'HIGH', rule: { type: 'nth-weekday', n: 1, wd: 5 } },
+  { time: '08:30', title: 'PCE Price Index', impact: 'HIGH', rule: { type: 'last-biz' } },
+  { time: '10:00', title: 'Consumer Confidence', impact: 'MED', rule: { type: 'last-weekday', wd: 2 } },
 ];
 
 // No seeded/demo alerts — the feed fills with REAL notifications as signals fire
