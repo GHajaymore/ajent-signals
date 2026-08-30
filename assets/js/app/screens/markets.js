@@ -1,5 +1,11 @@
 import { state, toggleWatchlist } from '../state.js';
+import { backendConfigured } from '../backendApi.js';
 import { CATEGORY_ORDER } from '../mockEngine.js';
+
+// A market shows only when we have REAL data for it (server signal or a real
+// client fetch). When the backend is connected we never display SIM markets —
+// no fabricated data, ever.
+export function isRealMarket(m) { return !!(m && (m.hasServerSignal || m.signalIsReal)); }
 import { marketRow, patchRow } from '../components.js';
 import { escapeHtml } from '../format.js';
 
@@ -80,7 +86,9 @@ function listHtml() {
   const threshold = state.settings.threshold;
   const q = query.trim().toUpperCase();
 
+  const realOnly = backendConfigured();
   const filtered = engine.markets.filter((m) => {
+    if (realOnly && !isRealMarket(m)) return false; // hide SIM/no-data markets
     if (q && !(m.symbol.includes(q) || m.name.toUpperCase().includes(q) || m.exchange.includes(q))) return false;
     const v = m.verdict(threshold);
     if (filter === 'buy' && v !== 'BUY') return false;
@@ -114,7 +122,9 @@ export function render(container) {
   <div class="fade-in glow-wrap">
     <div class="dash-glow"></div>
     <h1 class="h-title">Markets</h1>
-    <p class="text-muted" style="font-size:13px;margin:4px 0 14px">${engine.markets.length} global markets — futures, indexes, FX &amp; crypto</p>
+    <p class="text-muted" style="font-size:13px;margin:4px 0 14px">${backendConfigured()
+      ? `${engine.markets.filter(isRealMarket).length} markets with live data — real signals only`
+      : `${engine.markets.length} global markets — futures, indexes, FX &amp; crypto`}</p>
 
     <div id="breadth-wrap">${breadthHtml()}</div>
 

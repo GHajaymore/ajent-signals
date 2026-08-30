@@ -2,6 +2,8 @@ import { state } from '../state.js';
 import { heroCard, watchlistRow, patchRow, patchHero, symTile, dataTag, sparklineSvg } from '../components.js';
 import { getPerformanceSummary, getOpenCount } from '../paperTrading.js';
 import { marketSession } from '../marketHours.js';
+import { backendConfigured } from '../backendApi.js';
+import { isRealMarket } from './markets.js';
 
 function pfLabel(perf) { return perf.profitFactor === Infinity ? '∞' : perf.profitFactor.toFixed(2); }
 
@@ -124,7 +126,8 @@ function computeDerived() {
     : 0;
   const bullish = markets.filter((m) => m.signal.direction > 0).length;
   const riskOn = bullish >= markets.length / 2;
-  const featured = engine.get(state.homeSymbol) || engine.get('ES');
+  let featured = engine.get(state.homeSymbol) || engine.get('ES');
+  if (backendConfigured() && !isRealMarket(featured)) featured = engine.get('ES') || engine.markets.find(isRealMarket) || featured;
   const featuredVerdict = featured.verdict(threshold);
   const nextEvent = engine.calendar.find((e) => e.impact === 'HIGH') || engine.calendar[0];
 
@@ -183,10 +186,11 @@ export function render(container) {
 
     <div class="section-label">Watchlist<a data-nav="#/markets">All markets &rsaquo;</a></div>
     <div class="card" style="padding:4px 12px">
-      <div id="watchlist-wrap">${state.homeWatchlist.map((sym) => {
-        const m = engine.get(sym);
-        return watchlistRow(m, m.verdict(threshold));
-      }).join('')}</div>
+      <div id="watchlist-wrap">${state.homeWatchlist
+        .map((sym) => engine.get(sym))
+        .filter((m) => m && (!backendConfigured() || isRealMarket(m)))
+        .map((m) => watchlistRow(m, m.verdict(threshold)))
+        .join('') || '<div class="text-muted" style="font-size:12.5px;padding:14px 4px">Live data is loading — your watchlist markets will appear as their feeds come in.</div>'}</div>
     </div>
 
     <div class="calendar-banner" data-nav="#/calendar">
