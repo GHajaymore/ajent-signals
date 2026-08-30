@@ -53,6 +53,7 @@ function orderedMarkets(engine) {
 function refreshAll(engine, stagger) {
   let i = 0;
   for (const market of orderedMarkets(engine)) {
+    if (market.hasServerSignal) continue; // backend-driven — server signal wins
     const ySym = YAHOO_SYMBOL[market.symbol];
     if (!ySym) continue;
     const delay = i++ * stagger;

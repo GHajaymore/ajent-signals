@@ -71,6 +71,7 @@ function orderedMarkets(engine) {
 function refreshAll(engine, stagger) {
   let i = 0;
   for (const market of orderedMarkets(engine)) {
+    if (market.hasServerSignal) continue; // backend-driven — don't overwrite with client quotes
     const ySym = YAHOO_SYMBOL[market.symbol];
     if (!ySym) continue;
     const delay = i++ * stagger;
@@ -99,6 +100,8 @@ export function startFocusDataLoop(engine, getFocusSymbols, { intervalMs = 15000
   const pump = () => {
     const syms = getFocusSymbols() || [];
     for (const sym of syms) {
+      const fm = engine.get(sym);
+      if (fm && fm.hasServerSignal) continue; // backend-driven
       const ySym = YAHOO_SYMBOL[sym];
       if (!ySym) continue;
       fetchYahooQuote(ySym)

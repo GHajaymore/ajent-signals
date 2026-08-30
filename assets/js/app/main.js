@@ -15,7 +15,7 @@ import { applyGeoDefaults } from './geo.js';
 import { startUpdateWatcher } from './updateCheck.js';
 import { startSignalRefreshLoop } from './signalRefreshLoop.js';
 import { maybeOpenPositions, checkOpenPositions, applyServerRecord } from './paperTrading.js';
-import { backendConfigured, fetchServerTrades, redeemSession, refreshProToken, confirmEntitlement, initBilling } from './backendApi.js';
+import { backendConfigured, fetchServerTrades, fetchServerSignals, redeemSession, refreshProToken, confirmEntitlement, initBilling } from './backendApi.js';
 import { initIap } from './iap.js';
 import * as proSuccess from './screens/proSuccess.js';
 
@@ -188,6 +188,19 @@ async function syncServerRecord() {
   if (data) { applyServerRecord(data); const route = parseHash(); if (route[0] === 'track' || route[0] === 'home') refreshRoute(); }
 }
 if (backendConfigured()) { syncServerRecord(); setInterval(syncServerRecord, 30000); }
+
+// When the backend is connected, the app is a pure display of the Worker's real
+// signals — no client-side SIM/proxy. Pull /signals and drive each market from
+// the authoritative server signal; the client live/SIM loops skip these markets.
+async function syncServerSignals() {
+  if (!backendConfigured()) return;
+  const data = await fetchServerSignals();
+  if (data && Array.isArray(data.signals)) {
+    for (const sig of data.signals) { const m = state.engine.get(sig.symbol); if (m) m.applyServerSignal(sig); }
+    if (LIVE_SCREENS.has(parseHash()[0])) refreshRoute();
+  }
+}
+if (backendConfigured()) { syncServerSignals(); setInterval(syncServerSignals, 20000); }
 
 // Probe whether a real purchase path exists (Stripe configured) so the paywall
 // shows checkout vs. the waitlist correctly. Re-render if we're on the paywall.

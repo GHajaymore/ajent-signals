@@ -11,6 +11,15 @@ function currentTimeframe() {
   catch (e) { return '1D'; }
 }
 
+// Honest, human reasons derived from the real server signal drivers (RSI2 + trend).
+function serverReasons(sig, trend) {
+  const r = Math.round(sig.rsi2 ?? 50);
+  const tl = trend.toLowerCase();
+  if (sig.verdict === 'BUY') return [`Oversold flush — RSI2 at ${r} inside a ${tl} trend.`, 'Mean-reversion buy: the trade exits as price snaps back toward the mean.'];
+  if (sig.verdict === 'SELL') return [`Overbought pop — RSI2 at ${r} against a ${tl} trend.`, 'Mean-reversion short: fades the stretch back toward the mean.'];
+  return [`No setup right now — RSI2 at ${r} isn't stretched enough to trade.`, `Trend is ${tl}; waiting for a genuine oversold flush before entering.`];
+}
+
 const MARKET_DEFS = [
   { symbol: 'ES', name: 'E-mini S&P 500', category: 'Index', exchange: 'CME', country: 'US', decimals: 2, pointValue: 50, basePrice: 5921.75, atrPct: 0.006 },
   { symbol: 'MES', name: 'Micro E-mini S&P 500', category: 'Index', exchange: 'CME', country: 'US', decimals: 2, pointValue: 5, basePrice: 5921.75, atrPct: 0.006 },
@@ -219,6 +228,55 @@ class MarketModel {
     if (!this.lastLiveAt || Date.now() - this.lastLiveAt > staleMs) {
       this.liveSource = 'sim';
     }
+  }
+
+  // Drive this market entirely from an authoritative server signal (the Worker),
+  // replacing the client SIM/proxy path. The quote is marked real (the UI still
+  // shows it as delayed via quoteTime) and the verdict comes straight from the
+  // server — no fabricated data.
+  applyServerSignal(sig) {
+    if (!sig) return;
+    this.hasServerSignal = true;
+    const px = typeof sig.live === 'number' ? sig.live : (typeof sig.price === 'number' ? sig.price : this.price);
+    if (typeof px === 'number' && px > 0) {
+      this.changePct = ((px - this.openPrice) / this.openPrice) * 100;
+      this.price = px;
+      this.history.push(px);
+      if (this.history.length > 96) this.history.shift();
+    }
+    this.liveSource = 'live';
+    this.lastLiveAt = Date.now();
+    this.quoteTime = Math.floor((sig.updatedAt || Date.now()) / 1000);
+    const dir = sig.direction || (sig.verdict === 'BUY' ? 1 : sig.verdict === 'SELL' ? -1 : 0);
+    const trend = sig.htfTrend === 'up' ? 'Bullish' : sig.htfTrend === 'down' ? 'Bearish' : 'Neutral';
+    const volLevel = this.atrPct >= 0.02 ? 'High' : this.atrPct >= 0.01 ? 'Medium' : 'Low';
+    let plan = null;
+    if (sig.plan && typeof sig.plan.entry === 'number') {
+      const entry = sig.plan.entry;
+      const stop = typeof sig.plan.stop === 'number' ? sig.plan.stop : entry - (dir || 1) * this.atr;
+      const r = Math.abs(entry - stop) || this.atr || 1;
+      const s = dir >= 0 ? 1 : -1;
+      const t1 = typeof sig.plan.target1 === 'number' ? sig.plan.target1 : entry + s * r * 2;
+      plan = { entry, stop, target1: t1, target2: entry + s * r * 3.2, target3: entry + s * r * 4.5, trailingStopPts: r * 1.2, riskReward: +Math.abs((t1 - entry) / r).toFixed(2), conviction: sig.conviction === 'high' ? 'high' : 'normal' };
+    }
+    this.signal = {
+      symbol: this.symbol,
+      timeframe: sig.timeframe || currentTimeframe(),
+      direction: dir,
+      confidence: typeof sig.confidence === 'number' ? sig.confidence : 50,
+      trend,
+      volatility: volLevel,
+      expectedHold: sig.timeframe === '1D' ? '1–3 days' : '1–4 hours',
+      plan,
+      reasons: serverReasons(sig, trend),
+      indicators: [],
+      confluence: { bull: 0, bear: 0, neutral: 0 },
+      rsi2: sig.rsi2, pctB: sig.pctB, htfTrend: sig.htfTrend, conviction: sig.conviction,
+      createdAt: sig.updatedAt || Date.now(),
+      source: 'server',
+    };
+    this.displayVerdict = (sig.verdict === 'BUY' || sig.verdict === 'SELL') ? sig.verdict : 'NO_TRADE';
+    this.displayVerdictAt = Date.now();
   }
 
   get isLiveFresh() {

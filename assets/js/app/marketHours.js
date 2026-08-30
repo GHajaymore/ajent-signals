@@ -42,7 +42,7 @@ function localNow(tz) {
 // Categories sourced from real =F futures (CL=F, SI=F, ZN=F…) — these trade
 // nearly 24h on CME Globex/NYMEX/COMEX, unlike the index markets which we source
 // from cash indices (only live during the cash session).
-const FUTURES_24H = new Set(['Energy', 'Metals', 'Rates', 'Ags']);
+const FUTURES_24H = new Set(['Index', 'Energy', 'Metals', 'Rates', 'Ags']);
 
 // Returns 'open' | 'closed' | 'unknown'. Crypto is always open; FX is 24/5.
 export function marketSession(market) {
