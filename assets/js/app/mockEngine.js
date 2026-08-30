@@ -249,7 +249,9 @@ class MarketModel {
     this.liveSource = 'live';
     this.signalIsReal = true; // real backend analysis — never tag it SIM
     this.lastLiveAt = Date.now();
-    this.quoteTime = Math.floor((sig.updatedAt || Date.now()) / 1000);
+    // Free-tier futures/index data is delayed ~15-25m. Stamp the quote at least
+    // 15m old so the UI reads "delayed", never falsely "live" — honest labeling.
+    this.quoteTime = Math.floor(((sig.updatedAt || Date.now()) - 15 * 60 * 1000) / 1000);
     const dir = sig.direction || (sig.verdict === 'BUY' ? 1 : sig.verdict === 'SELL' ? -1 : 0);
     const trend = sig.htfTrend === 'up' ? 'Bullish' : sig.htfTrend === 'down' ? 'Bearish' : 'Neutral';
     const volLevel = this.atrPct >= 0.02 ? 'High' : this.atrPct >= 0.01 ? 'Medium' : 'Low';
