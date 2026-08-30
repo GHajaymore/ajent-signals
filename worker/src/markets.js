@@ -1,9 +1,12 @@
 // Auto-traded markets (Proven daily set) + clock-based sessions, ESM.
+// US index markets source the real =F futures (24h Globex, real but ~15-25m
+// delayed on free Yahoo) so the record is live off-hours, not frozen at the cash
+// close. Global indices stay on their cash symbol / local session.
 export const MARKETS = {
-  ES: { yahoo: '^GSPC', td: 'SPX', country: 'US', name: 'E-mini S&P 500' },
-  NQ: { yahoo: '^NDX', td: 'NDX', country: 'US', name: 'E-mini Nasdaq-100' },
-  YM: { yahoo: '^DJI', td: 'DJI', country: 'US', name: 'E-mini Dow' },
-  RTY: { yahoo: '^RUT', td: 'RUT', country: 'US', name: 'E-mini Russell 2000' },
+  ES: { yahoo: 'ES=F', td: 'SPX', country: 'US', futures: true, name: 'E-mini S&P 500' },
+  NQ: { yahoo: 'NQ=F', td: 'NDX', country: 'US', futures: true, name: 'E-mini Nasdaq-100' },
+  YM: { yahoo: 'YM=F', td: 'DJI', country: 'US', futures: true, name: 'E-mini Dow' },
+  RTY: { yahoo: 'RTY=F', td: 'RUT', country: 'US', futures: true, name: 'E-mini Russell 2000' },
   XJO: { yahoo: '^AXJO', country: 'AU', name: 'ASX 200' },
   SX5E: { yahoo: '^STOXX50E', country: 'EU', name: 'Euro Stoxx 50' },
   N225: { yahoo: '^N225', country: 'JP', name: 'Nikkei 225' },
@@ -19,7 +22,19 @@ function localNow(tz) {
   const g = (t) => parts.find((p) => p.type === t)?.value;
   return { day: WD[g('weekday')] ?? 1, min: (parseInt(g('hour'), 10) % 24) * 60 + parseInt(g('minute'), 10) };
 }
-export function isOpen(country) {
+// Pass the whole market meta. Futures markets use the CME Globex 24h session
+// (Sun 18:00 ET → Fri 17:00 ET, daily 17:00–18:00 ET maintenance halt); cash
+// index markets use their local exchange session.
+export function isOpen(meta) {
+  if (meta && meta.futures) {
+    const n = localNow('America/New_York');
+    if (n.day === 6) return false;                      // Saturday
+    if (n.day === 5 && n.min >= 17 * 60) return false;  // after Fri 5pm ET
+    if (n.day === 0 && n.min < 18 * 60) return false;   // before Sun 6pm ET
+    if (n.min >= 17 * 60 && n.min < 18 * 60) return false; // daily maintenance
+    return true;
+  }
+  const country = meta && meta.country;
   const tz = TZ[country], sess = SESSION[country];
   if (!tz || !sess) return false;
   const n = localNow(tz);
