@@ -58,6 +58,7 @@ function refreshAll(engine, stagger) {
     if (!ySym) continue;
     const delay = i++ * stagger;
     setTimeout(async () => {
+      if (market.hasServerSignal) return; // became backend-driven since scheduling
       try {
         // Daily swing strategy needs daily candles (2y for the 200-day trend);
         // intraday uses 15-minute bars over a month.
@@ -76,9 +77,9 @@ function refreshAll(engine, stagger) {
           const p = signal.plan;
           for (const k of ['entry', 'stop', 'target1', 'target2', 'target3']) p[k] += market.basis;
         }
-        market.applyRealSignal(signal);
+        if (!market.hasServerSignal) market.applyRealSignal(signal);
       } catch (e) {
-        market.markSignalUnavailable(SIGNAL_STALE_MS);
+        if (!market.hasServerSignal) market.markSignalUnavailable(SIGNAL_STALE_MS);
       }
     }, delay);
   }

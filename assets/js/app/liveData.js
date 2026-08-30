@@ -76,11 +76,12 @@ function refreshAll(engine, stagger) {
     if (!ySym) continue;
     const delay = i++ * stagger;
     setTimeout(async () => {
+      if (market.hasServerSignal) return; // became backend-driven since scheduling
       try {
         const { price, prevClose, marketState, quoteTime } = await fetchYahooQuote(ySym);
-        market.applyLiveQuote(price, prevClose, marketState, quoteTime);
+        if (!market.hasServerSignal) market.applyLiveQuote(price, prevClose, marketState, quoteTime);
       } catch (e) {
-        market.markLiveUnavailable(LIVE_STALE_MS);
+        if (!market.hasServerSignal) market.markLiveUnavailable(LIVE_STALE_MS);
       }
     }, delay);
   }
@@ -105,7 +106,7 @@ export function startFocusDataLoop(engine, getFocusSymbols, { intervalMs = 15000
       const ySym = YAHOO_SYMBOL[sym];
       if (!ySym) continue;
       fetchYahooQuote(ySym)
-        .then(({ price, prevClose, marketState, quoteTime }) => { const m = engine.get(sym); if (m) m.applyLiveQuote(price, prevClose, marketState, quoteTime); })
+        .then(({ price, prevClose, marketState, quoteTime }) => { const m = engine.get(sym); if (m && !m.hasServerSignal) m.applyLiveQuote(price, prevClose, marketState, quoteTime); })
         .catch(() => { /* slow sweep will retry / mark unavailable */ });
     }
   };
