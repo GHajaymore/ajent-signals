@@ -260,18 +260,20 @@ export function refresh(container) {
   }
 
   // Watchlist: patch each existing row; rebuild only if the row set changed.
+  // Same real-only filter as the initial render — never show SIM/no-data markets.
+  const visibleWatch = state.homeWatchlist
+    .map((sym) => engine.get(sym))
+    .filter((m) => m && (!backendConfigured() || isRealMarket(m)));
   const rows = watchlistWrap.querySelectorAll('.wl-row[data-sym]');
-  const sameSet = rows.length === state.homeWatchlist.length &&
-    [...rows].every((el, i) => el.dataset.sym === state.homeWatchlist[i]);
+  const sameSet = rows.length === visibleWatch.length &&
+    [...rows].every((el, i) => el.dataset.sym === (visibleWatch[i] && visibleWatch[i].symbol));
   if (sameSet) {
     rows.forEach((el) => {
       const m = engine.get(el.dataset.sym);
       if (m) patchRow(el, m, m.verdict(threshold));
     });
   } else {
-    watchlistWrap.innerHTML = state.homeWatchlist.map((sym) => {
-      const m = engine.get(sym);
-      return watchlistRow(m, m.verdict(threshold));
-    }).join('');
+    watchlistWrap.innerHTML = visibleWatch.map((m) => watchlistRow(m, m.verdict(threshold))).join('')
+      || '<div class="text-muted" style="font-size:12.5px;padding:14px 4px">Live data is loading — your watchlist markets will appear as their feeds come in.</div>';
   }
 }
