@@ -39,6 +39,11 @@ function localNow(tz) {
   }
 }
 
+// Categories sourced from real =F futures (CL=F, SI=F, ZN=F…) — these trade
+// nearly 24h on CME Globex/NYMEX/COMEX, unlike the index markets which we source
+// from cash indices (only live during the cash session).
+const FUTURES_24H = new Set(['Energy', 'Metals', 'Rates', 'Ags']);
+
 // Returns 'open' | 'closed' | 'unknown'. Crypto is always open; FX is 24/5.
 export function marketSession(market) {
   const cat = market.category;
@@ -48,6 +53,16 @@ export function marketSession(market) {
     if (n.day === 6) return 'closed';                       // Saturday
     if (n.day === 5 && n.min >= 17 * 60) return 'closed';   // after Fri 5pm ET
     if (n.day === 0 && n.min < 17 * 60) return 'closed';    // before Sun 5pm ET
+    return 'open';
+  }
+  // CME Globex futures: Sun 18:00 ET → Fri 17:00 ET, with a daily 17:00–18:00 ET
+  // maintenance halt. (These carry a live =F feed, so "open" here means real data.)
+  if (FUTURES_24H.has(cat)) {
+    const n = localNow('America/New_York'); if (!n) return 'unknown';
+    if (n.day === 6) return 'closed';                       // Saturday
+    if (n.day === 5 && n.min >= 17 * 60) return 'closed';   // after Fri 5pm ET
+    if (n.day === 0 && n.min < 18 * 60) return 'closed';    // before Sun 6pm ET
+    if (n.min >= 17 * 60 && n.min < 18 * 60) return 'closed'; // daily maintenance break
     return 'open';
   }
   const tz = TZ[market.country], sess = SESSION[market.country];
