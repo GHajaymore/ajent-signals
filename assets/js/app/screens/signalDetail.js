@@ -293,7 +293,8 @@ function chartSvg(market, color, chartH) {
 
 function renderSignalTab(market, verdict, color) {
   const s = market.signal;
-  const subline = verdict === 'NO_TRADE' ? 'Waiting for a high-probability setup' : (verdict === 'BUY' ? 'Long setup confirmed' : 'Short setup confirmed');
+  const subline = (verdict === 'NO_TRADE' ? 'Waiting for a high-probability setup' : (verdict === 'BUY' ? 'Long setup confirmed' : 'Short setup confirmed'))
+    + (s.provisional ? ' · <span style="color:var(--accent-200)">provisional (short side unproven)</span>' : '');
   const status = autoTradeStatus(market, verdict);
   const statusHtml = status ? `
   <div class="trade-status ${status.ok ? 'ok' : 'wait'}">
@@ -481,7 +482,7 @@ function renderChartTab(market, color, verdict) {
   </div>` : `
   <div class="panel">
     <div class="panel-title">Key levels</div>
-    <div class="text-muted" style="font-size:12.5px;line-height:1.6;padding:6px 2px">No active setup — entry, stop and target levels appear once a BUY or SELL signal fires. Active mode trades both directions; the daily strategy is long-only.</div>
+    <div class="text-muted" style="font-size:12.5px;line-height:1.6;padding:6px 2px">No active setup — entry, stop and target levels appear once a BUY or SELL signal fires. The daily strategy is long (validated) plus a provisional short side; Active mode trades both directions intraday.</div>
   </div>`}`;
 }
 

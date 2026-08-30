@@ -7,7 +7,9 @@ import { deliverEvents } from './webhooks.js';
 const dayKey = (ms) => new Date(ms).toISOString().slice(0, 10);
 
 // Open/close the paper position for one market given its computed signal.
-export async function processPosition({ symbol, meta, sig, live, open, store, now, risk }) {
+// `cost` is the round-turn transaction cost (commission + slippage) deducted from
+// every closed trade so the record is NET — never gross.
+export async function processPosition({ symbol, meta, sig, live, open, store, now, risk, cost = 0 }) {
   const pos = await store.get('POS#OPEN', symbol);
   if (pos) {
     const price = live ?? sig.price;
@@ -19,9 +21,10 @@ export async function processPosition({ symbol, meta, sig, live, open, store, no
     if (!exit) return 'hold';
     const r = pos.risk || Math.abs(pos.entry - pos.stop) || 1e-9;
     const resultR = (short ? (pos.entry - price) : (price - pos.entry)) / r;
-    const pnl = Math.round(resultR * (pos.riskDollars || risk));
-    const outcome = exit === 'stop' ? 'Loss' : resultR >= 0.05 ? 'Win' : resultR <= -0.05 ? 'Loss' : 'Break-even';
-    await store.put({ pk: 'TRADE', sk: `${String(now).padStart(16, '0')}#${symbol}`, symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', entry: pos.entry, exit: price, resultR: +resultR.toFixed(3), pnl, riskDollars: pos.riskDollars || risk, outcome, exitReason: exit, openedAt: pos.openedAt, closedAt: now });
+    const gross = resultR * (pos.riskDollars || risk);
+    const pnl = Math.round(gross - cost); // NET of round-turn cost
+    const outcome = pnl > 0 ? 'Win' : pnl < 0 ? 'Loss' : 'Break-even';
+    await store.put({ pk: 'TRADE', sk: `${String(now).padStart(16, '0')}#${symbol}`, symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', entry: pos.entry, exit: price, resultR: +resultR.toFixed(3), pnl, cost, riskDollars: pos.riskDollars || risk, outcome, exitReason: exit, openedAt: pos.openedAt, closedAt: now });
     await store.del('POS#OPEN', symbol);
     await store.put({ pk: 'LASTCLOSE', sk: symbol, signalDay: dayKey(now), at: now });
     return `exit:${exit}`;
@@ -40,6 +43,7 @@ export async function processPosition({ symbol, meta, sig, live, open, store, no
 
 export async function runTick(env, store) {
   const risk = Number(env.RISK_DOLLARS || 250);
+  const cost = Number(env.COST_PER_TRADE || 6); // round-turn commission + slippage
   const events = []; // fresh signal/position events to push to Pro webhooks
   const strategyLabel = 'Proven daily (RSI2 mean-reversion)';
   // Read the previous signals blob ONCE (1 KV read) — used for fresh-signal
@@ -64,7 +68,7 @@ export async function runTick(env, store) {
       // can position trade markers by time — not a flat SIM line.
       const history = candles.slice(-64).map((c) => ({ t: c.t, c: Math.round(c.c * 100) / 100 }));
       bySym[symbol] = { symbol, name: meta.name, updatedAt: now, ...sig, live, prevClose, history };
-      const res = await processPosition({ symbol, meta, sig, live, open: isOpen(meta), store, now, risk });
+      const res = await processPosition({ symbol, meta, sig, live, open: isOpen(meta), store, now, risk, cost });
       if (res === 'open') {
         events.push({ type: 'position.open', event: 'open', symbol, name: meta.name, price: live ?? sig.price, strategy: strategyLabel, plan: sig.plan, signal: sig, at: now });
       } else if (typeof res === 'string' && res.startsWith('exit:')) {

@@ -219,7 +219,7 @@ export function computeRealSignal(candles, def, rng, news = [], opts = {}) {
   const pctB = bWidth != null ? (price - lowerBB) / bWidth : 0.5; // 0.5 = neutral fallback
 
   const mode = opts.mode === 'daily' ? 'daily' : 'intraday';
-  let direction, setup, conviction = 'normal';
+  let direction, setup, conviction = 'normal', provisional = false;
 
   if (mode === 'daily') {
     // ── Daily swing (Connors RSI-2) + "first up close" exit.
@@ -241,13 +241,25 @@ export function computeRealSignal(candles, def, rng, news = [], opts = {}) {
     // bounce fights that drift. Long-only lifted PF 1.46 → 1.61. So a downtrend /
     // overbought pop is simply "no trade", not a short.
     const prevLow = n >= 2 ? candles[n - 2].l : -Infinity;
+    const prevHigh = n >= 2 ? candles[n - 2].h : Infinity;
     const flushedDown = price < prevLow;
+    const poppedUp = price > prevHigh;
     if (htfTrend === 'up' && rsi2 < 10 && flushedDown) {
       direction = 1;
       const deep = rsi2 < 5;                                 // deepest oversold
       const stretched = lowerBB != null && price < lowerBB;  // below the lower band
       setup = deep && stretched ? 1 : deep ? 0.9 : 0.8;      // elite → strong → ok
       conviction = deep ? 'high' : 'normal';
+    } else if (htfTrend === 'down' && rsi2 > 90 && poppedUp) {
+      // PROVISIONAL short mirror (2026-08-30). Overbought pop above the prior
+      // high in a downtrend. Weak on equity indices (they drift up) — the live
+      // record is the judge. Rarely fires; flagged provisional in the UI.
+      direction = -1;
+      const deep = rsi2 > 95;
+      const stretched = upperBB != null && price > upperBB;
+      setup = deep && stretched ? 1 : deep ? 0.9 : 0.8;
+      conviction = deep ? 'high' : 'normal';
+      provisional = true;
     } else { direction = bullWeight >= bearWeight ? 1 : -1; setup = 0; }
   } else if (rsi2 < 10) {
     // ── Intraday Connors (15m), BOTH DIRECTIONS, no trend gate — the "Active" mode.
@@ -383,6 +395,7 @@ export function computeRealSignal(candles, def, rng, news = [], opts = {}) {
     timeframe: daily ? '1D' : '15m',
     direction,
     confidence,
+    provisional,
     trend,
     htfTrend,
     volatility,

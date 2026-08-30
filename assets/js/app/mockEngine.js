@@ -275,6 +275,7 @@ class MarketModel {
       timeframe: sig.timeframe || currentTimeframe(),
       direction: dir,
       confidence: typeof sig.confidence === 'number' ? sig.confidence : 50,
+      provisional: !!sig.provisional,
       trend,
       volatility: volLevel,
       expectedHold: sig.timeframe === '1D' ? '1–3 days' : '1–4 hours',

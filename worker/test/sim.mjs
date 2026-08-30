@@ -33,7 +33,7 @@ for (const sym of ['ES', 'NQ', 'RTY', 'XJO', 'SX5E', 'N225', 'TSX']) {
   const store = memStore();
   for (let i = 210; i < candles.length; i++) {
     const sig = computeSignal(candles.slice(0, i + 1), candles[i].c);
-    await processPosition({ symbol: sym, meta, sig, live: candles[i].c, open: true, store, now: candles[i].t, risk: 250 });
+    await processPosition({ symbol: sym, meta, sig, live: candles[i].c, open: true, store, now: candles[i].t, risk: 250, cost: 6 });
   }
   const trades = store.all('TRADE');
   const L = trades.filter((t) => t.side !== 'SHORT'), S = trades.filter((t) => t.side === 'SHORT');
