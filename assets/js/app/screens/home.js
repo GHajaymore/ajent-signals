@@ -141,10 +141,7 @@ export function render(container) {
     <div class="home-topbar">
       <div class="home-brand">
         <span class="brand-mark"><img src="../assets/img/favicon.svg" alt="Ajent Signals" width="40" height="40"></span>
-        <div>
-          <div class="eyebrow">${greeting()}</div>
-          <div class="brand-name">Ajent Signals</div>
-        </div>
+        <div class="brand-name">Ajent Signals</div>
       </div>
       <div class="header-actions">
         <span class="pill" id="market-status">${statusPillInner(marketStatus(featured))}</span>
@@ -154,6 +151,8 @@ export function render(container) {
         </button>
       </div>
     </div>
+
+    <div class="home-greeting">${greeting()}</div>
 
     <div id="portfolio-wrap">${portfolioCard(perf)}</div>
 
