@@ -245,6 +245,7 @@ class MarketModel {
       if (this.history.length > 96) this.history.shift();
     }
     this.liveSource = 'live';
+    this.signalIsReal = true; // real backend analysis — never tag it SIM
     this.lastLiveAt = Date.now();
     this.quoteTime = Math.floor((sig.updatedAt || Date.now()) / 1000);
     const dir = sig.direction || (sig.verdict === 'BUY' ? 1 : sig.verdict === 'SELL' ? -1 : 0);
@@ -437,7 +438,8 @@ class MarketModel {
 
     // Stabilise the shown/traded verdict every tick (min-hold + hysteresis).
     // Only a genuine, held change fires a BUY/SELL alert — no more churn.
-    const changedTo = this._stabilizeVerdict(threshold);
+    // Server-driven markets keep the backend's authoritative verdict verbatim.
+    const changedTo = this.hasServerSignal ? null : this._stabilizeVerdict(threshold);
     if (onAlert && (changedTo === 'BUY' || changedTo === 'SELL')) {
       onAlert({
         type: changedTo,
