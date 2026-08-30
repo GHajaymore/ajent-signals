@@ -237,6 +237,8 @@ class MarketModel {
   applyServerSignal(sig) {
     if (!sig) return;
     this.hasServerSignal = true;
+    // Anchor the day's change to the real prior close, not the stale SIM base.
+    if (typeof sig.prevClose === 'number' && sig.prevClose > 0) this.openPrice = sig.prevClose;
     const px = typeof sig.live === 'number' ? sig.live : (typeof sig.price === 'number' ? sig.price : this.price);
     if (typeof px === 'number' && px > 0) {
       this.changePct = ((px - this.openPrice) / this.openPrice) * 100;

@@ -57,7 +57,8 @@ export async function runTick(env, store) {
       if (actionable && (!prev || prev.verdict !== sig.verdict)) {
         events.push({ type: 'signal', event: sig.verdict, symbol, name: meta.name, price: live ?? sig.price, strategy: strategyLabel, plan: sig.plan, signal: sig, at: now });
       }
-      bySym[symbol] = { symbol, name: meta.name, updatedAt: now, ...sig, live };
+      const prevClose = candles.length >= 2 ? candles[candles.length - 2].c : (candles.length ? candles[candles.length - 1].c : null);
+      bySym[symbol] = { symbol, name: meta.name, updatedAt: now, ...sig, live, prevClose };
       const res = await processPosition({ symbol, meta, sig, live, open: isOpen(meta), store, now, risk });
       if (res === 'open') {
         events.push({ type: 'position.open', event: 'open', symbol, name: meta.name, price: live ?? sig.price, strategy: strategyLabel, plan: sig.plan, signal: sig, at: now });
