@@ -24,6 +24,13 @@ After that, every `git push` to `main` redeploys `ajent-signals.pages.dev`
 automatically. (The account ID is inlined in the workflow; it isn't secret.)
 
 ## 2. Add the custom domain
+> **BLOCKED until DNS cutover finishes.** As of 2026-08-29 the `ajailabs.app` zone
+> is still **pending** on Cloudflare (GoDaddy→Cloudflare nameserver switch not
+> complete). Adding `ajent.ajailabs.app` now just sits "pending / CNAME not set"
+> and can't serve. Finish pointing the domain's nameservers to Cloudflare (zone
+> status → **active**) first, then do this step. `wikifoodia.ajailabs.app` already
+> resolves through Cloudflare, so parts of the zone are migrated but not all.
+
 Pages project → **Custom domains → Set up a custom domain** → `ajent.<yourdomain>`.
 Because the domain's DNS is on Cloudflare, it adds the CNAME for you and issues the
 cert. Wait for **Active**. Existing subdomains are untouched.
