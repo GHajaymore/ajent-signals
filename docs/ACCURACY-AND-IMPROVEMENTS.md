@@ -41,6 +41,14 @@ Live at **https://ajent-signals-worker.golferajay.workers.dev** (account golfera
 - **App NOT yet pointed at it** (`window.__AJENT_API` still `''`) — deliberate. Before wiring the app to DISPLAY the 24/7 record, fix the paywall so `canBuy` reflects real checkout availability (add `GET /billing/config` → `{checkout}` probe) so a configured-backend-but-no-Stripe state falls back to the waitlist instead of a failed checkout. Until then the live app is unchanged.
 - Next: let the record accumulate ~30–60 days; judge the real numbers before turning on paid Pro.
 
+## Polish + fixes (2026-08-29/30)
+- **Home header** — logo + "Ajent Signals" now aligned on one row (name 17→19px); the time-based greeting moved from above the name to a small muted line below the header. New logo (predictive candles) is consistent across favicon/icons/app/gate/landing; all old "pulse" accents swapped to candlestick/chart glyphs.
+- **Timeframe consistency** — `mockEngine` SIM placeholder hardcoded `timeframe:'15m'`, so a market with no live feed showed "15m" on the card even in Proven (daily) mode. Now reads the persisted `strategyMode` → "1D" (daily) / "15m" (intraday), matching `signalEngine`.
+- **Auth hardening** — Pro-token signature check is now constant-time (`worker/src/auth.js`).
+
+### OPEN (needs your eyes — behavioral, not shipped autonomously)
+- **Wire the backend's real signals into the display.** `backendApi.fetchServerSignals()` exists but is **never called** — the app syncs server *trades* (the paper record) but not server *signals*, so the home card + Markets screen show client-side SIM/delayed data even though the Worker computes real reliable signals for all 8 markets 24/7 (that's why ES reads "SIM"). Fix = add `applyServerSignals()` that maps `/signals` items onto the client `market.signal` and call it from `syncServerRecord` when `backendConfigured()`. Needs careful field mapping (server shape: verdict/htfTrend/rsi2/conviction/price/plan; client expects trend/volatility/plan/reasons) + real testing — it changes what signals users see, so do it with the user watching.
+
 ## Pre-revenue polish + anti-freeloading (2026-08-28)
 - **No dead-end on the Free cap**: paywall CTA is `canBuy = isNative() || backendConfigured()`. When payments aren't live it reads **"Join the waitlist"** and routes to the landing `../#waitlist`; the banner no longer falsely says "everything unlocked" (it now says "Pro isn't open yet · Free is usable now"). Pricing stays visible as a preview.
 - **Two-layer gate — a free user can't run away with Pro:**
