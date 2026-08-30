@@ -1,4 +1,5 @@
 import { state, saveSettings, toggleWatchlist, isInWatchlist, getEnabledPaperMarkets, dailyEdge } from '../state.js';
+import { getClosedTrades, getOpenPositions } from '../paperTrading.js';
 
 // Honest per-market note about the DAILY strategy's backtested edge on this
 // specific market (daily mode only). Never implies an edge the backtest didn't
@@ -64,6 +65,11 @@ function loadCandles(symbol, ySym, rangeKey) {
         const el = document.getElementById('chart-canvas');
         if (el) el.innerHTML = chartCanvasHtml(symbol, rangeKey);
       }
+      // Full-screen chart page has its own canvas.
+      if (activeRange === rangeKey && location.hash.startsWith('#/chart/')) {
+        const fc = document.getElementById('full-chart-canvas');
+        if (fc) fc.innerHTML = chartCanvasHtml(symbol, rangeKey, 340);
+      }
     });
 }
 
@@ -84,10 +90,10 @@ function smoothPath(pts) {
 // Shared polished price chart. Uniform scaling (no distortion), smooth line with
 // a soft glow, faint gridlines, a last-price marker, and optional entry/stop/
 // target levels with small value chips. `levels` = [{v, stroke, label}].
-function priceChartSvg(series, color, { levels = [], decimals = 2 } = {}) {
-  const w = 500, h = 188;
+function priceChartSvg(series, color, { levels = [], decimals = 2, markers = [], h = 188 } = {}) {
+  const w = 500;
   if (!series || series.length < 2) return `<svg viewBox="0 0 ${w} ${h}" width="100%" style="height:auto;display:block"></svg>`;
-  const vals = series.concat(levels.map((l) => l.v));
+  const vals = series.concat(levels.map((l) => l.v)).concat(markers.map((m) => m.value));
   const min = Math.min(...vals), max = Math.max(...vals);
   const span = (max - min) || Math.abs(min) * 0.01 || 1;
   const pad = span * 0.14;
@@ -125,26 +131,60 @@ function priceChartSvg(series, color, { levels = [], decimals = 2 } = {}) {
     <path d="${lineD}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
     <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="6" fill="${color}" opacity="0.2"/>
     <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="3" fill="${color}"/>
+    ${markers.map((m) => {
+      const x = Math.max(6, Math.min(w - 6, m.xFrac * w)), y = yFor(m.value);
+      if (m.kind === 'exit') {
+        const c = m.win ? 'var(--buy)' : 'var(--sell)';
+        return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4.2" fill="var(--bg)" stroke="${c}" stroke-width="2"/>`;
+      }
+      const up = m.kind === 'buy', c = up ? 'var(--buy)' : 'var(--sell)';
+      const t = up ? `M${x.toFixed(1)},${(y - 7).toFixed(1)} l-5,8 l10,0 Z` : `M${x.toFixed(1)},${(y + 7).toFixed(1)} l-5,-8 l10,0 Z`;
+      return `<path d="${t}" fill="${c}" stroke="var(--bg)" stroke-width="0.8"/>`;
+    }).join('')}
   </svg>`;
 }
 
-function areaChart(market, candles, color, showLevels) {
+// Entry (▲ buy / ▼ sell) and exit (○ win/loss) markers for this market's real
+// paper trades, positioned along the series by time. `times` are the ms
+// timestamps aligned with `series`. Never any simulated trades — the record only
+// holds real fills.
+function tradeMarkers(symbol, times) {
+  if (!Array.isArray(times) || times.length < 2) return [];
+  const t0 = times[0], t1 = times[times.length - 1];
+  const span = (t1 - t0) || 1;
+  const frac = (t) => Math.max(0, Math.min(1, (t - t0) / span));
+  const out = [];
+  const closed = getClosedTrades().filter((c) => c.symbol === symbol);
+  for (const c of closed) {
+    const buy = (c.side || 'LONG') === 'LONG';
+    if (c.openedAt && c.entry != null) out.push({ xFrac: frac(c.openedAt), value: c.entry, kind: buy ? 'buy' : 'sell' });
+    if (c.closedAt && c.exit != null) out.push({ xFrac: frac(c.closedAt), value: c.exit, kind: 'exit', win: (c.pnl || 0) >= 0 });
+  }
+  for (const p of getOpenPositions().filter((p) => p.symbol === symbol)) {
+    if (p.openedAt && p.entry != null) out.push({ xFrac: frac(p.openedAt), value: p.entry, kind: (p.side || 'LONG') === 'LONG' ? 'buy' : 'sell' });
+  }
+  return out;
+}
+
+function areaChart(market, candles, color, showLevels, chartH) {
   const s = market.signal;
-  const levels = showLevels ? [
+  const levels = showLevels && s.plan ? [
     { v: s.plan.target1, stroke: 'var(--buy)', label: 'T' },
     { v: s.plan.entry, stroke: 'var(--accent)', label: 'E' },
     { v: s.plan.stop, stroke: 'var(--sell)', label: 'S' },
   ] : [];
-  return priceChartSvg(candles.map((c) => c.c), color, { levels, decimals: market.decimals });
+  const times = candles.map((c) => (c.t < 1e12 ? c.t * 1000 : c.t));
+  const markers = tradeMarkers(market.symbol, times);
+  return priceChartSvg(candles.map((c) => c.c), color, { levels, decimals: market.decimals, markers, h: chartH });
 }
 
-function chartCanvasHtml(symbol, rangeKey) {
+function chartCanvasHtml(symbol, rangeKey, chartH) {
   const market = state.engine.get(symbol);
   if (!market) return '';
   const color = verdictColorVar(market.verdict(state.settings.threshold));
   const ySym = YAHOO_SYMBOL[symbol];
   if (!ySym) {
-    return `${chartSvg(market, color)}<div class="text-muted" style="font-size:11px;margin-top:6px;text-align:center">Historical chart isn't available for this market.</div>`;
+    return `${chartSvg(market, color, chartH)}<div class="text-muted" style="font-size:11px;margin-top:6px;text-align:center">Historical chart isn't available for this market.</div>`;
   }
   const cached = candleCache.get(`${symbol}|${rangeKey}`);
   // Only draw entry/stop/target on the chart when there's an actual setup.
@@ -155,16 +195,70 @@ function chartCanvasHtml(symbol, rangeKey) {
     const chgPct = ((last - first) / first) * 100;
     const chgColor = chgPct >= 0 ? 'var(--buy)' : 'var(--sell)';
     return `
-      ${areaChart(market, cached.candles, color, showLevels)}
+      ${areaChart(market, cached.candles, color, showLevels, chartH)}
       <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:6px">
         <span class="text-muted">${cached.candles.length} candles · ${RANGES[rangeKey].label}</span>
         <span style="color:${chgColor}">${chgPct >= 0 ? '+' : ''}${chgPct.toFixed(2)}% over ${RANGES[rangeKey].label}</span>
       </div>`;
   }
   if (cached && cached.failed) {
-    return `${chartSvg(market, color)}<div class="text-muted" style="font-size:11px;margin-top:6px;text-align:center">Live ${RANGES[rangeKey].label} history is unavailable right now — showing recent price action.</div>`;
+    return `${chartSvg(market, color, chartH)}<div class="text-muted" style="font-size:11px;margin-top:6px;text-align:center">Live ${RANGES[rangeKey].label} history is unavailable right now — showing recent price action.</div>`;
   }
-  return `<div style="height:172px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:12.5px"><i class="ph ph-hourglass-medium" style="font-size:18px;margin-right:8px"></i>Loading ${RANGES[rangeKey].label} chart…</div>`;
+  return `<div style="height:${chartH || 172}px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:12.5px"><i class="ph ph-hourglass-medium" style="font-size:18px;margin-right:8px"></i>Loading ${RANGES[rangeKey].label} chart…</div>`;
+}
+
+// Full-screen chart page (#/chart/<symbol>) — one large annotated chart plus the
+// market's real trade log. Reached via the expand button on the Chart tab.
+export function renderChartPage(container) {
+  const symbol = state.selectedSymbol;
+  const market = state.engine.get(symbol);
+  if (!market) { location.hash = '#/home'; return; }
+  const color = verdictColorVar(market.verdict(state.settings.threshold));
+  const ySym = YAHOO_SYMBOL[symbol];
+  if (ySym && !activeRange) activeRange = RANGES[state.settings.chartRange] ? state.settings.chartRange : '1D';
+  if (ySym) queueMicrotask(() => loadCandles(symbol, ySym, activeRange));
+  const trades = getClosedTrades().filter((c) => c.symbol === symbol);
+  const open = getOpenPositions().filter((p) => p.symbol === symbol);
+  container.innerHTML = `
+  <div class="fade-in">
+    <div class="detail-header">
+      <button class="back-btn" data-back><i class="ph-bold ph-arrow-left"></i></button>
+      <div class="detail-title-block">
+        <div class="detail-title">${symbol} · ${market.name}</div>
+        <div class="detail-sub">${market.exchange} · ${market.signal.timeframe} · entries & exits</div>
+      </div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-box-head">
+        <div style="font:600 13px var(--font-heading)">${symbol} price</div>
+        <div style="display:flex;gap:3px;background:var(--neutral-900);border-radius:8px;padding:3px">
+          ${Object.keys(RANGES).map((k) => `<button class="chart-range-btn" data-range="${k}" style="border:none;cursor:pointer;font:600 12px var(--font-heading);padding:5px 13px;border-radius:6px;background:${k === activeRange ? 'var(--accent-800)' : 'transparent'};color:${k === activeRange ? 'var(--accent-100)' : 'var(--text-muted)'}">${RANGES[k].label}</button>`).join('')}
+        </div>
+      </div>
+      <div id="full-chart-canvas">${chartCanvasHtml(symbol, activeRange, 340)}</div>
+      <div class="overlay-tags" style="margin-top:8px">
+        <span class="overlay-tag"><span class="dot" style="background:var(--buy)"></span>Buy</span>
+        <span class="overlay-tag"><span class="dot" style="background:var(--sell)"></span>Sell</span>
+        <span class="overlay-tag"><span class="dot" style="background:transparent;border:2px solid var(--buy);border-radius:50%"></span>Exit win</span>
+        <span class="overlay-tag"><span class="dot" style="background:transparent;border:2px solid var(--sell);border-radius:50%"></span>Exit loss</span>
+      </div>
+    </div>
+    <div class="section-label">Trades on ${symbol}</div>
+    <div class="card" style="padding:2px 12px">
+      ${open.map((p) => `<div class="level-row"><span>${(p.side || 'LONG') === 'LONG' ? '▲ Long' : '▼ Short'} · open</span><span class="tabular text-muted">entry ${fmtPrice(p.entry, market.decimals)}</span></div>`).join('')}
+      ${trades.slice(0, 40).map((c) => {
+        const win = (c.pnl || 0) >= 0;
+        return `<div class="level-row"><span>${(c.side || 'LONG') === 'LONG' ? '▲' : '▼'} ${fmtPrice(c.entry, market.decimals)} → ${fmtPrice(c.exit, market.decimals)}</span><span class="tabular" style="color:${win ? 'var(--buy)' : 'var(--sell)'}">${win ? '+' : ''}${Math.round(c.pnl || 0)}</span></div>`;
+      }).join('')}
+      ${!open.length && !trades.length ? '<div class="text-muted" style="font-size:12.5px;padding:14px 4px">No trades on this market yet — entry and exit markers appear here and on the chart once the strategy fires a setup.</div>' : ''}
+    </div>
+    <p class="text-faint" style="text-align:center;font-size:11px;margin-top:14px;padding:0 8px">Simulated paper trades on delayed data — real fills, not live-executed. Educational only.</p>
+  </div>`;
+  container.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', () => history.back()));
+  container.querySelectorAll('.chart-range-btn').forEach((btn) => btn.addEventListener('click', () => {
+    activeRange = btn.dataset.range; state.settings.chartRange = activeRange; saveSettings();
+    renderChartPage(container);
+  }));
 }
 
 function wireChartRange(container, market, verdict, color) {
@@ -182,15 +276,19 @@ function wireChartRange(container, market, verdict, color) {
   });
 }
 
-function chartSvg(market, color) {
+function chartSvg(market, color, chartH) {
   const s = market.signal;
-  const showLevels = market.verdict(state.settings.threshold) !== 'NO_TRADE';
+  const showLevels = market.verdict(state.settings.threshold) !== 'NO_TRADE' && s.plan;
   const levels = showLevels ? [
     { v: s.plan.target1, stroke: 'var(--buy)', label: 'T' },
     { v: s.plan.entry, stroke: 'var(--accent)', label: 'E' },
     { v: s.plan.stop, stroke: 'var(--sell)', label: 'S' },
   ] : [];
-  return priceChartSvg(market.history.slice(-48), color, { levels, decimals: market.decimals });
+  const n = 48;
+  const series = market.history.slice(-n);
+  const times = (market.historyTimes || []).slice(-n);
+  const markers = tradeMarkers(market.symbol, times);
+  return priceChartSvg(series, color, { levels, decimals: market.decimals, markers, h: chartH });
 }
 
 function renderSignalTab(market, verdict, color) {
@@ -348,11 +446,21 @@ function renderChartTab(market, color, verdict) {
   <div class="chart-box">
     <div class="chart-box-head">
       <div style="font:600 13px var(--font-heading)">${market.symbol} price</div>
-      <div style="display:flex;gap:3px;background:var(--neutral-900);border-radius:8px;padding:3px">
-        ${Object.keys(RANGES).map((k) => `<button class="chart-range-btn" data-range="${k}" style="border:none;cursor:pointer;font:600 12px var(--font-heading);padding:5px 13px;border-radius:6px;background:${k === activeRange ? 'var(--accent-800)' : 'transparent'};color:${k === activeRange ? 'var(--accent-100)' : 'var(--text-muted)'}">${RANGES[k].label}</button>`).join('')}
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="display:flex;gap:3px;background:var(--neutral-900);border-radius:8px;padding:3px">
+          ${Object.keys(RANGES).map((k) => `<button class="chart-range-btn" data-range="${k}" style="border:none;cursor:pointer;font:600 12px var(--font-heading);padding:5px 13px;border-radius:6px;background:${k === activeRange ? 'var(--accent-800)' : 'transparent'};color:${k === activeRange ? 'var(--accent-100)' : 'var(--text-muted)'}">${RANGES[k].label}</button>`).join('')}
+        </div>
+        <button data-nav="#/chart/${market.symbol}" title="Full-screen chart" style="border:none;cursor:pointer;background:var(--neutral-900);border-radius:8px;width:32px;height:32px;color:var(--text-muted);display:flex;align-items:center;justify-content:center;flex:none"><i class="ph-bold ph-arrows-out"></i></button>
       </div>
     </div>
     <div id="chart-canvas">${chartCanvasHtml(market.symbol, activeRange)}</div>
+    ${getClosedTrades().some((c) => c.symbol === market.symbol) || getOpenPositions().some((p) => p.symbol === market.symbol) ? `
+    <div class="overlay-tags" style="margin-top:8px">
+      <span class="overlay-tag"><span class="dot" style="background:var(--buy)"></span>Buy</span>
+      <span class="overlay-tag"><span class="dot" style="background:var(--sell)"></span>Sell</span>
+      <span class="overlay-tag"><span class="dot" style="background:transparent;border:2px solid var(--buy);border-radius:50%"></span>Exit (win)</span>
+      <span class="overlay-tag"><span class="dot" style="background:transparent;border:2px solid var(--sell);border-radius:50%"></span>Exit (loss)</span>
+    </div>` : ''}
     ${hasSetup ? `
     <div class="overlay-tags" style="margin-top:8px">
       <span class="overlay-tag"><span class="dot" style="background:var(--accent)"></span>Entry</span>

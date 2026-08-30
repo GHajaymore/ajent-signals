@@ -28,7 +28,7 @@ const TABS = [
 ];
 
 const LIVE_SCREENS = new Set(['home', 'markets', 'signal', 'track']);
-const NO_TABBAR = new Set(['gate', 'paywall', 'methodology', 'welcome', 'pro-success']);
+const NO_TABBAR = new Set(['gate', 'paywall', 'methodology', 'welcome', 'pro-success', 'chart']);
 
 const contentEl = document.getElementById('app-content');
 const tabbarEl = document.getElementById('tabbar');
@@ -102,6 +102,10 @@ function renderRoute() {
       state.selectedSymbol = route[1] || state.selectedSymbol;
       state.detailTab = route[2] || 'signal';
       signalDetail.render(contentEl);
+      break;
+    case 'chart':
+      state.selectedSymbol = route[1] || state.selectedSymbol;
+      signalDetail.renderChartPage(contentEl);
       break;
     case 'calendar':
       calendarScreen.render(contentEl);
