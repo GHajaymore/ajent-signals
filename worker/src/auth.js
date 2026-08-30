@@ -16,6 +16,15 @@ async function hmac(data, secret) {
   return b64url(new Uint8Array(sig));
 }
 
+// Constant-time string compare — avoids a timing side-channel when checking the
+// token signature (this gate guards paid access).
+function timingSafeEqual(a, b) {
+  if (a.length !== b.length) return false;
+  let out = 0;
+  for (let i = 0; i < a.length; i++) out |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return out === 0;
+}
+
 // Call this from your payment webhook (after verifying the purchase) to mint a Pro
 // token for a user. ttlDays ~ your subscription period; re-issue on renewal.
 export async function issueProToken(sub, ttlDays, secret) {
@@ -34,7 +43,7 @@ export async function verifyProToken(token, secret) {
 export async function readProToken(token, secret, { ignoreExp = false } = {}) {
   const [payload, sig] = String(token || '').split('.');
   if (!payload || !sig) return null;
-  if (sig !== await hmac(payload, secret)) return null;
+  if (!timingSafeEqual(sig, await hmac(payload, secret))) return null;
   try {
     const claims = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
     if (typeof claims.exp !== 'number') return null;
