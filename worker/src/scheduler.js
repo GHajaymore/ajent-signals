@@ -58,7 +58,9 @@ export async function runTick(env, store) {
         events.push({ type: 'signal', event: sig.verdict, symbol, name: meta.name, price: live ?? sig.price, strategy: strategyLabel, plan: sig.plan, signal: sig, at: now });
       }
       const prevClose = candles.length >= 2 ? candles[candles.length - 2].c : (candles.length ? candles[candles.length - 1].c : null);
-      bySym[symbol] = { symbol, name: meta.name, updatedAt: now, ...sig, live, prevClose };
+      // Recent daily closes so the app charts real price action, not a flat SIM line.
+      const history = candles.slice(-64).map((c) => Math.round(c.c * 100) / 100);
+      bySym[symbol] = { symbol, name: meta.name, updatedAt: now, ...sig, live, prevClose, history };
       const res = await processPosition({ symbol, meta, sig, live, open: isOpen(meta), store, now, risk });
       if (res === 'open') {
         events.push({ type: 'position.open', event: 'open', symbol, name: meta.name, price: live ?? sig.price, strategy: strategyLabel, plan: sig.plan, signal: sig, at: now });

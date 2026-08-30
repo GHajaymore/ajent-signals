@@ -239,11 +239,13 @@ class MarketModel {
     this.hasServerSignal = true;
     // Anchor the day's change to the real prior close, not the stale SIM base.
     if (typeof sig.prevClose === 'number' && sig.prevClose > 0) this.openPrice = sig.prevClose;
+    // Seed the chart from the server's real daily closes (replaces stale SIM history).
+    if (Array.isArray(sig.history) && sig.history.length) this.history = sig.history.slice(-96);
     const px = typeof sig.live === 'number' ? sig.live : (typeof sig.price === 'number' ? sig.price : this.price);
     if (typeof px === 'number' && px > 0) {
       this.changePct = ((px - this.openPrice) / this.openPrice) * 100;
       this.price = px;
-      this.history.push(px);
+      if (this.history[this.history.length - 1] !== px) this.history.push(px);
       if (this.history.length > 96) this.history.shift();
     }
     this.liveSource = 'live';
