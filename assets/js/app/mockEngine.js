@@ -3,6 +3,14 @@
 
 export const CATEGORY_ORDER = ['Index', 'Global Index', 'Currencies', 'Energy', 'Metals', 'Rates', 'Crypto', 'Volatility', 'Ags'];
 
+// The label to show for a SIM placeholder's timeframe, matching the active
+// strategy (Proven daily = 1D, Active intraday = 15m). Read straight from the
+// persisted settings so mockEngine needs no import of state (which imports it).
+function currentTimeframe() {
+  try { return JSON.parse(localStorage.getItem('ajent_settings_v1') || '{}').strategyMode === 'intraday' ? '15m' : '1D'; }
+  catch (e) { return '1D'; }
+}
+
 const MARKET_DEFS = [
   { symbol: 'ES', name: 'E-mini S&P 500', category: 'Index', exchange: 'CME', country: 'US', decimals: 2, pointValue: 50, basePrice: 5921.75, atrPct: 0.006 },
   { symbol: 'MES', name: 'Micro E-mini S&P 500', category: 'Index', exchange: 'CME', country: 'US', decimals: 2, pointValue: 5, basePrice: 5921.75, atrPct: 0.006 },
@@ -287,7 +295,7 @@ class MarketModel {
 
     this.signal = {
       symbol: this.symbol,
-      timeframe: '15m',
+      timeframe: currentTimeframe(),
       direction,
       confidence,
       trend,
