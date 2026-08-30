@@ -1,5 +1,6 @@
-// Proven daily long-only Connors mean reversion (ESM). Mirrors the client daily
-// branch and the AWS backend. Keep in sync.
+// Daily Connors mean reversion (ESM). LONG side is the decade-validated "Proven"
+// edge. SHORT side (added 2026-08-30) is PROVISIONAL — the mirror logic, NOT yet
+// backtest-validated; the live record is the judge. Keep in sync with the client.
 import { sma, rsi, atr, stdev } from './indicators.js';
 
 export function computeSignal(candles, live) {
@@ -20,23 +21,41 @@ export function computeSignal(candles, live) {
   }
   const lowerBB = s20 - 2 * sd, upperBB = s20 + 2 * sd;
   const pctB = (price - lowerBB) / ((upperBB - lowerBB) || 1);
-  const up = price > s200;
+  const up = price > s200, down = price < s200;
 
-  let setup = 0, conviction = 'normal';
+  let setup = 0, conviction = 'normal', side = 0;
+  // LONG (validated): oversold flush below the prior day's low in an uptrend.
   if (up && rsi2 < 10 && price < c[n - 2].l) {
     const deep = rsi2 < 5, stretched = price < lowerBB;
     setup = deep && stretched ? 1 : deep ? 0.9 : 0.8;
     conviction = deep && stretched ? 'high' : 'normal';
+    side = 1;
+  } else if (down && rsi2 > 90 && price > c[n - 2].h) {
+    // SHORT (PROVISIONAL): overbought pop above the prior day's high in a
+    // downtrend — the mirror of the long. Not backtest-validated.
+    const deep = rsi2 > 95, stretched = price > upperBB;
+    setup = deep && stretched ? 1 : deep ? 0.9 : 0.8;
+    conviction = deep && stretched ? 'high' : 'normal';
+    side = -1;
   }
   const confidence = setup > 0 ? Math.round(52 + setup * 47) : 42;
-  const verdict = setup > 0 && confidence >= 75 ? 'BUY' : 'NO_TRADE';
+  const fires = setup > 0 && confidence >= 75;
+  const verdict = fires ? (side > 0 ? 'BUY' : 'SELL') : 'NO_TRADE';
   const risk = Math.max(atrN * 2.0, price * 0.004);
+  const plan = fires ? {
+    entry: price,
+    stop: side > 0 ? price - risk : price + risk,
+    target1: side > 0 ? price + risk : price - risk,
+    risk, riskReward: 1,
+    exitRule: side > 0 ? 'firstUpClose' : 'firstDownClose',
+    maxHoldMin: 5 * 24 * 60, conviction,
+  } : null;
 
   return {
-    verdict, direction: verdict === 'BUY' ? 1 : 0, confidence,
-    rsi2: Math.round(rsi2), pctB: +pctB.toFixed(2), htfTrend: up ? 'up' : 'down',
-    conviction, timeframe: '1D', price,
-    plan: verdict === 'BUY' ? { entry: price, stop: price - risk, target1: price + risk, risk, riskReward: 1, exitRule: 'firstUpClose', maxHoldMin: 5 * 24 * 60, conviction } : null,
+    verdict, direction: fires ? side : 0, confidence,
+    rsi2: Math.round(rsi2), pctB: +pctB.toFixed(2), htfTrend: up ? 'up' : (down ? 'down' : 'flat'),
+    conviction, timeframe: '1D', price, provisional: verdict === 'SELL',
+    plan,
     lastDaily: n >= 2 ? { t: c[n - 1].t, up: closes[n - 1] > closes[n - 2] } : null,
   };
 }

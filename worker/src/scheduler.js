@@ -11,26 +11,28 @@ export async function processPosition({ symbol, meta, sig, live, open, store, no
   const pos = await store.get('POS#OPEN', symbol);
   if (pos) {
     const price = live ?? sig.price;
+    const short = pos.side === 'SHORT';
     let exit = null;
-    if (price <= pos.stop) exit = 'stop';
-    else if (sig.lastDaily && sig.lastDaily.up && dayKey(sig.lastDaily.t) !== dayKey(pos.openedAt) && sig.lastDaily.t > pos.openedAt) exit = 'firstUpClose';
+    if (short ? price >= pos.stop : price <= pos.stop) exit = 'stop';
+    else if (sig.lastDaily && dayKey(sig.lastDaily.t) !== dayKey(pos.openedAt) && sig.lastDaily.t > pos.openedAt && (short ? sig.lastDaily.up === false : sig.lastDaily.up === true)) exit = short ? 'firstDownClose' : 'firstUpClose';
     else if (now - pos.openedAt > pos.maxHoldMin * 60000) exit = 'timeStop';
     if (!exit) return 'hold';
     const r = pos.risk || Math.abs(pos.entry - pos.stop) || 1e-9;
-    const resultR = (price - pos.entry) / r;
+    const resultR = (short ? (pos.entry - price) : (price - pos.entry)) / r;
     const pnl = Math.round(resultR * (pos.riskDollars || risk));
     const outcome = exit === 'stop' ? 'Loss' : resultR >= 0.05 ? 'Win' : resultR <= -0.05 ? 'Loss' : 'Break-even';
-    await store.put({ pk: 'TRADE', sk: `${String(now).padStart(16, '0')}#${symbol}`, symbol, name: meta.name, side: 'LONG', entry: pos.entry, exit: price, resultR: +resultR.toFixed(3), pnl, riskDollars: pos.riskDollars || risk, outcome, exitReason: exit, openedAt: pos.openedAt, closedAt: now });
+    await store.put({ pk: 'TRADE', sk: `${String(now).padStart(16, '0')}#${symbol}`, symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', entry: pos.entry, exit: price, resultR: +resultR.toFixed(3), pnl, riskDollars: pos.riskDollars || risk, outcome, exitReason: exit, openedAt: pos.openedAt, closedAt: now });
     await store.del('POS#OPEN', symbol);
     await store.put({ pk: 'LASTCLOSE', sk: symbol, signalDay: dayKey(now), at: now });
     return `exit:${exit}`;
   }
-  if (sig.verdict === 'BUY' && sig.plan && open) {
+  if ((sig.verdict === 'BUY' || sig.verdict === 'SELL') && sig.plan && open) {
     const lastClose = await store.get('LASTCLOSE', symbol);
     if (lastClose && lastClose.signalDay === dayKey(now)) return 'skip:tradedToday';
+    const short = sig.verdict === 'SELL';
     const entry = live ?? sig.plan.entry;
     const r = sig.plan.risk || Math.abs(sig.plan.entry - sig.plan.stop);
-    await store.put({ pk: 'POS#OPEN', sk: symbol, symbol, name: meta.name, side: 'LONG', entry, stop: entry - r, target1: entry + r, risk: r, riskDollars: risk, conviction: sig.conviction, maxHoldMin: sig.plan.maxHoldMin, exitRule: 'firstUpClose', openedAt: now });
+    await store.put({ pk: 'POS#OPEN', sk: symbol, symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', entry, stop: short ? entry + r : entry - r, target1: short ? entry - r : entry + r, risk: r, riskDollars: risk, conviction: sig.conviction, maxHoldMin: sig.plan.maxHoldMin, exitRule: short ? 'firstDownClose' : 'firstUpClose', openedAt: now });
     return 'open';
   }
   return 'none';
