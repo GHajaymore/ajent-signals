@@ -176,7 +176,7 @@ class MarketModel {
     this.basis = 0; // cash-index -> future price offset (set for index markets)
     this.signalIsReal = false;
     this.lastRealSignalAt = 0;
-    this._genSignal();
+    this._noDataSignal();
   }
 
   applyRealSignal(signal) {
@@ -239,14 +239,18 @@ class MarketModel {
     this.hasServerSignal = true;
     // Anchor the day's change to the real prior close, not the stale SIM base.
     if (typeof sig.prevClose === 'number' && sig.prevClose > 0) this.openPrice = sig.prevClose;
-    // Seed the chart from the server's real daily closes (replaces stale SIM history).
-    if (Array.isArray(sig.history) && sig.history.length) this.history = sig.history.slice(-96);
+    // Seed the chart from the server's real daily closes (replaces stale SIM
+    // history) and keep aligned timestamps so trade markers land by time.
+    if (Array.isArray(sig.history) && sig.history.length && typeof sig.history[0] === 'object') {
+      this.history = sig.history.map((h) => h.c).slice(-96);
+      this.historyTimes = sig.history.map((h) => (h.t < 1e12 ? h.t * 1000 : h.t)).slice(-96);
+    }
     const px = typeof sig.live === 'number' ? sig.live : (typeof sig.price === 'number' ? sig.price : this.price);
     if (typeof px === 'number' && px > 0) {
       this.changePct = ((px - this.openPrice) / this.openPrice) * 100;
       this.price = px;
-      if (this.history[this.history.length - 1] !== px) this.history.push(px);
-      if (this.history.length > 96) this.history.shift();
+      if (this.history[this.history.length - 1] !== px) { this.history.push(px); if (this.historyTimes) this.historyTimes.push(Date.now()); }
+      if (this.history.length > 96) { this.history.shift(); if (this.historyTimes) this.historyTimes.shift(); }
     }
     this.liveSource = 'live';
     this.signalIsReal = true; // real backend analysis — never tag it SIM
@@ -291,89 +295,35 @@ class MarketModel {
   }
 
   _seedHistory(n) {
-    const pts = [];
-    let p = this.basePrice * (1 - this.atrPct * 1.4);
-    const drift = (this.rng() - 0.42) * this.atrPct * 0.06;
-    for (let i = 0; i < n; i++) {
-      p = p * (1 + drift + (this.rng() - 0.5) * this.atrPct * 0.09);
-      pts.push(p);
-    }
-    pts[pts.length - 1] = this.basePrice;
-    return pts;
+    // No fabricated price walk. A flat placeholder at the reference price until
+    // real data arrives — and these markets stay hidden until it does.
+    return new Array(n).fill(this.basePrice || 100);
   }
 
   get atr() { return this.price * this.atrPct; }
 
-  _genSignal() {
-    const rng = this.rng;
-    // Evolve smoothly from the previous signal instead of drawing fresh random
-    // values: keep the same direction ~85% of the time and drift confidence a
-    // little. This makes the simulated fallback behave like a slowly-changing
-    // real signal rather than flickering between long and short.
-    // Simulated placeholder markets must never fabricate a tradeable setup: the
-    // strategy is long-only, and without a live feed there is no genuine signal.
-    // So a SIM market leans long but its confidence stays well below the fire
-    // threshold — it always reads "No trade", and it is never paper-traded.
-    const direction = 1;
-    const prevConf = this.signal ? this.signal.confidence : Math.round(38 + rng() * 12);
-    const confidence = Math.max(28, Math.min(56, Math.round(prevConf + (rng() - 0.5) * 10)));
-    const agreeState = direction > 0 ? 'bull' : 'bear';
-    const disagreeState = direction > 0 ? 'bear' : 'bull';
-
-    const majority = Math.max(3, Math.min(10, Math.round(3 + (confidence / 100) * 7)));
-    const remaining = INDICATORS.length - majority;
-    const minority = Math.max(0, Math.min(remaining, Math.round(remaining * 0.45)));
-    const neutralCount = INDICATORS.length - majority - minority;
-
-    const order = shuffle(INDICATORS, rng);
-    const indicators = order.map((ind, i) => {
-      const state = i < majority ? agreeState : i < majority + minority ? disagreeState : 'neutral';
-      return { name: ind.name, weight: ind.weight, state, detail: indicatorDetail(ind.name, state, rng) };
-    });
-    indicators.sort((a, b) => INDICATORS.findIndex((x) => x.name === a.name) - INDICATORS.findIndex((x) => x.name === b.name));
-
-    const bull = indicators.filter((i) => i.state === 'bull').length;
-    const bear = indicators.filter((i) => i.state === 'bear').length;
-    const neutral = indicators.filter((i) => i.state === 'neutral').length;
-
-    const entry = this.price;
-    const atr = this.atr;
-    const stop = entry - direction * atr * 1.0;
-    const trailingStopPts = atr * 1.2;
-    const target1 = entry + direction * atr * 2.0;
-    const target2 = entry + direction * atr * 3.2;
-    const target3 = entry + direction * atr * 4.5;
-    const riskReward = Math.abs(target1 - entry) / Math.abs(entry - stop);
-
-    const agreeing = indicators.filter((i) => i.state === agreeState).sort((a, b) => b.weight - a.weight);
-    let reasons;
-    const trend = confidence >= 70 ? (direction > 0 ? 'Bullish' : 'Bearish') : rng() > 0.5 ? (direction > 0 ? 'Bullish' : 'Bearish') : 'Neutral';
-    const volLevel = this.atrPct >= 0.02 ? 'High' : this.atrPct >= 0.01 ? 'Medium' : 'Low';
-
-    // SIM markets are placeholders shown when the live feed is unavailable — so
-    // the reasons say exactly that, rather than inventing a technical rationale.
-    reasons = [
-      'Simulated placeholder — no live data for this market right now, so there is no real signal.',
-      'The price shown is illustrative movement only, and this market is not paper-traded.',
-      'A genuine BUY appears once a live feed returns and a real oversold setup fires.',
-    ];
-
+  // No live data yet — an honest empty state, NEVER fabricated. A real signal
+  // arrives only from the backend or a successful live fetch (applyServerSignal /
+  // applyRealSignal). Markets in this state are hidden from the UI.
+  _noDataSignal() {
     this.signal = {
       symbol: this.symbol,
       timeframe: currentTimeframe(),
-      direction,
-      confidence,
-      trend,
-      volatility: volLevel,
-      expectedHold: HOLD_OPTIONS[Math.floor(rng() * HOLD_OPTIONS.length)],
-      plan: { entry, stop, trailingStopPts, target1, target2, target3, riskReward },
-      reasons,
-      indicators,
-      confluence: { bull, bear, neutral },
+      direction: 0,
+      confidence: 0,
+      trend: 'Neutral',
+      volatility: this.atrPct >= 0.02 ? 'High' : this.atrPct >= 0.01 ? 'Medium' : 'Low',
+      expectedHold: '—',
+      plan: null,
+      reasons: ['No live data for this market yet — Ajent shows only real signals, never simulated ones.'],
+      indicators: [],
+      confluence: { bull: 0, bear: 0, neutral: 0 },
       createdAt: Date.now(),
+      source: 'none',
     };
-    this.age = 0;
-    this.nextUpdateSec = Math.round(300 + rng() * 240); // 5–9 min between sim refreshes
+    this.displayVerdict = 'NO_TRADE';
+    this.displayVerdictAt = Date.now();
+    this.nextUpdateSec = 60;
   }
 
   _rawVerdict(threshold) {
@@ -416,31 +366,9 @@ class MarketModel {
   }
 
   tick(threshold, onAlert) {
-    const rng = this.rng;
-    if (!this.isLiveFresh) {
-      const jitter = (rng() - 0.5) * this.atrPct * 0.045;
-      this.price = Math.max(this.price * (1 + jitter), this.price * 0.5);
-      this.changePct = ((this.price - this.openPrice) / this.openPrice) * 100;
-
-      if (rng() > 0.55) {
-        this.history.push(this.price);
-        if (this.history.length > 96) this.history.shift();
-      }
-    }
-
+    // No fabricated price movement. A market without real data stays static and
+    // hidden until a real signal (backend or live fetch) arrives.
     this.age += 1;
-    this.nextUpdateSec -= 1;
-    if (this.nextUpdateSec <= 0) {
-      if (this.signalIsReal) {
-        // A real signal is in place; the external signalRefreshLoop owns
-        // recomputing it on its own slower cadence. Just hold the countdown
-        // steady until the next real refresh actually lands.
-        this.nextUpdateSec = 30;
-      } else {
-        // Refresh the simulated fallback (now smoothly evolving, not random).
-        this._genSignal();
-      }
-    }
 
     // Stabilise the shown/traded verdict every tick (min-hold + hysteresis).
     // Only a genuine, held change fires a BUY/SELL alert — no more churn.
