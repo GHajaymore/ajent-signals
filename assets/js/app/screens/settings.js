@@ -103,7 +103,7 @@ export function render(container) {
     </div>
 
     <div class="pro-card" data-nav="#/methodology" style="cursor:pointer">
-      <div class="pro-icon" style="background:var(--buy-dim);color:var(--buy)"><i class="ph-fill ph-pulse"></i></div>
+      <div class="pro-icon" style="background:var(--buy-dim);color:var(--buy)"><i class="ph-fill ph-chart-bar"></i></div>
       <div class="pro-body">
         <div class="pro-title">How Ajent Pulse works</div>
         <div class="pro-sub">The strategy, the math, and the honest caveats</div>

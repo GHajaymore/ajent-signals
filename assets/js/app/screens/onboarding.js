@@ -2,7 +2,7 @@ import { completeOnboarding } from '../state.js';
 
 const SLIDES = [
   {
-    icon: 'ph-pulse', color: 'var(--buy)',
+    icon: 'ph-chart-bar', color: 'var(--buy)',
     title: 'Welcome to Ajent Signals',
     body: 'Educational trading signals across 40+ global markets — index & FX futures, commodities and crypto. Virtual money only, no broker, no real funds ever.',
   },

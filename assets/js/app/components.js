@@ -126,7 +126,7 @@ export function heroCard(market, verdict) {
   return `
   <div class="hero-card" data-nav="#/signal/${market.symbol}" data-sym="${market.symbol}" data-verdict="${verdict}" data-createdat="${s.createdAt || 0}" style="--vc:${color}">
     <div class="hero-inner">
-      <div class="hero-eyebrow"><i class="ph-fill ph-pulse"></i>Top signal</div>
+      <div class="hero-eyebrow"><i class="ph-fill ph-chart-bar"></i>Top signal</div>
       <div class="hero-top">
         <div class="hero-symbol">
           ${symTile(market.symbol)}
