@@ -174,6 +174,77 @@ function priceChartSvg(series, color, { levels = [], decimals = 2, markers = [],
   </svg>`;
 }
 
+// Candlestick chart from real OHLC bars — the classic trading view: a high-low
+// wick and an open-close body per bar, green up / red down. Same scaling, grid,
+// time axis, level lines and trade markers as the line chart.
+function candleChartSvg(candles, { levels = [], decimals = 2, markers = [], h = 188, times = [] } = {}) {
+  const w = 500;
+  const hasAxis = Array.isArray(times) && times.length === (candles ? candles.length : -1) && times.length >= 2;
+  const axisH = hasAxis ? 18 : 0;
+  const vbH = h + axisH;
+  if (!candles || candles.length < 2) return `<svg viewBox="0 0 ${w} ${vbH}" width="100%" style="height:auto;display:block"></svg>`;
+  const highs = candles.map((c) => (c.h != null ? c.h : c.c));
+  const lows = candles.map((c) => (c.l != null ? c.l : c.c));
+  const vals = highs.concat(lows).concat(levels.map((l) => l.v)).concat(markers.map((m) => m.value));
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const span = (max - min) || Math.abs(min) * 0.01 || 1;
+  const pad = span * 0.08;
+  const lo = min - pad, hi = max + pad;
+  const yFor = (v) => h - ((v - lo) / (hi - lo)) * h;
+  const n = candles.length;
+  const slot = w / n;
+  const bodyW = Math.max(1.2, Math.min(slot * 0.68, 10));
+  const grid = [0.25, 0.5, 0.75].map((f) =>
+    `<line x1="0" y1="${(h * f).toFixed(1)}" x2="${w}" y2="${(h * f).toFixed(1)}" stroke="var(--hairline)" stroke-width="1" opacity="0.45"/>`).join('');
+  let axisSvg = '';
+  if (hasAxis) {
+    const spanMs = (times[times.length - 1] - times[0]) || 1;
+    const ticks = 4;
+    for (let k = 0; k <= ticks; k++) {
+      const idx = Math.round((k / ticks) * (n - 1));
+      const anchor = k === 0 ? 'start' : k === ticks ? 'end' : 'middle';
+      const x = k === 0 ? 2 : k === ticks ? w - 2 : idx * slot + slot / 2;
+      axisSvg += `<text x="${x.toFixed(1)}" y="${(h + 13).toFixed(1)}" text-anchor="${anchor}" font-size="9" fill="var(--text-muted)" opacity="0.85">${fmtAxisTick(times[idx], spanMs)}</text>`;
+    }
+  }
+  const levelSvg = levels.map((l) => {
+    const y = yFor(l.v);
+    if (y < 6 || y > h - 6) return '';
+    const label = l.v.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    const chipW = 8 + label.length * 5.4;
+    return `<line x1="0" y1="${y.toFixed(1)}" x2="${(w - chipW - 3).toFixed(1)}" y2="${y.toFixed(1)}" stroke="${l.stroke}" stroke-width="1" stroke-dasharray="3 4" opacity="0.8"/>
+      <rect x="${(w - chipW).toFixed(1)}" y="${(y - 7).toFixed(1)}" width="${chipW.toFixed(1)}" height="14" rx="4" fill="${l.stroke}"/>
+      <text x="${(w - chipW / 2).toFixed(1)}" y="${(y + 3.2).toFixed(1)}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#08120d">${label}</text>`;
+  }).join('');
+  const bars = candles.map((c, i) => {
+    const cx = i * slot + slot / 2;
+    const o = c.o != null ? c.o : c.c, hh = c.h != null ? c.h : c.c, ll = c.l != null ? c.l : c.c;
+    const up = c.c >= o;
+    const col = up ? 'var(--buy)' : 'var(--sell)';
+    const yH = yFor(hh), yL = yFor(ll), yO = yFor(o), yC = yFor(c.c);
+    const top = Math.min(yO, yC), bodyH = Math.max(1, Math.abs(yC - yO));
+    return `<line x1="${cx.toFixed(1)}" y1="${yH.toFixed(1)}" x2="${cx.toFixed(1)}" y2="${yL.toFixed(1)}" stroke="${col}" stroke-width="1" opacity="0.85"/><rect x="${(cx - bodyW / 2).toFixed(1)}" y="${top.toFixed(1)}" width="${bodyW.toFixed(1)}" height="${bodyH.toFixed(1)}" fill="${col}" rx="0.6"/>`;
+  }).join('');
+  const markerSvg = markers.map((m) => {
+    const x = Math.max(6, Math.min(w - 6, m.xFrac * w)), y = yFor(m.value);
+    if (m.kind === 'exit') {
+      const c = m.win ? 'var(--buy)' : 'var(--sell)';
+      return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4.2" fill="var(--bg)" stroke="${c}" stroke-width="2"/>`;
+    }
+    const up = m.kind === 'buy', c = up ? 'var(--buy)' : 'var(--sell)';
+    const t = up ? `M${x.toFixed(1)},${(y - 8).toFixed(1)} l-5,8 l10,0 Z` : `M${x.toFixed(1)},${(y + 8).toFixed(1)} l-5,-8 l10,0 Z`;
+    return `<path d="${t}" fill="${c}" stroke="var(--bg)" stroke-width="0.8"/>`;
+  }).join('');
+  return `
+  <svg viewBox="0 0 ${w} ${vbH}" width="100%" style="height:auto;display:block">
+    ${grid}
+    ${axisSvg}
+    ${levelSvg}
+    ${bars}
+    ${markerSvg}
+  </svg>`;
+}
+
 // Entry (▲ buy / ▼ sell) and exit (○ win/loss) markers for this market's real
 // paper trades, positioned along the series by time. `times` are the ms
 // timestamps aligned with `series`. Never any simulated trades — the record only
@@ -205,6 +276,12 @@ function areaChart(market, candles, color, showLevels, chartH) {
   ] : [];
   const times = candles.map((c) => (c.t < 1e12 ? c.t * 1000 : c.t));
   const markers = tradeMarkers(market.symbol, times);
+  // Candlesticks when the user prefers them AND we have real OHLC bars (the Worker
+  // /candles feed); the seeded daily-close fallback has no OHLC, so it stays a line.
+  const hasOHLC = candles.length >= 2 && candles.every((c) => c.o != null && c.h != null && c.l != null);
+  if (state.settings.chartType !== 'line' && hasOHLC) {
+    return candleChartSvg(candles, { levels, decimals: market.decimals, markers, h: chartH, times });
+  }
   return priceChartSvg(candles.map((c) => c.c), color, { levels, decimals: market.decimals, markers, h: chartH, times });
 }
 
@@ -250,6 +327,19 @@ function chartCanvasHtml(symbol, rangeKey, chartH) {
   return `<div style="height:${chartH || 172}px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:12.5px"><i class="ph ph-hourglass-medium" style="font-size:18px;margin-right:8px"></i>Loading ${RANGES[rangeKey].label} chart…</div>`;
 }
 
+// Line/Candles toggle button — shows the current mode; tap flips it.
+function chartTypeToggleHtml() {
+  const candles = state.settings.chartType !== 'line';
+  return `<button class="chart-type-btn" title="${candles ? 'Candlesticks — tap for line' : 'Line — tap for candles'}" style="border:none;cursor:pointer;background:var(--neutral-900);border-radius:8px;width:32px;height:32px;color:var(--accent-200);display:flex;align-items:center;justify-content:center;flex:none"><i class="ph-bold ${candles ? 'ph-chart-bar' : 'ph-chart-line'}"></i></button>`;
+}
+function wireChartType(container, rerender) {
+  container.querySelectorAll('.chart-type-btn').forEach((btn) => btn.addEventListener('click', () => {
+    state.settings.chartType = state.settings.chartType === 'line' ? 'candles' : 'line';
+    saveSettings();
+    rerender();
+  }));
+}
+
 // Full-screen chart page (#/chart/<symbol>) — one large annotated chart plus the
 // market's real trade log. Reached via the expand button on the Chart tab.
 export function renderChartPage(container) {
@@ -274,8 +364,11 @@ export function renderChartPage(container) {
     <div class="chart-box">
       <div class="chart-box-head">
         <div style="font:600 13px var(--font-heading)">${symbol} price</div>
-        <div style="display:flex;gap:3px;background:var(--neutral-900);border-radius:8px;padding:3px">
-          ${Object.keys(RANGES).map((k) => `<button class="chart-range-btn" data-range="${k}" style="border:none;cursor:pointer;font:600 12px var(--font-heading);padding:5px 13px;border-radius:6px;background:${k === activeRange ? 'var(--accent-800)' : 'transparent'};color:${k === activeRange ? 'var(--accent-100)' : 'var(--text-muted)'}">${RANGES[k].label}</button>`).join('')}
+        <div style="display:flex;align-items:center;gap:6px">
+          ${chartTypeToggleHtml()}
+          <div style="display:flex;gap:3px;background:var(--neutral-900);border-radius:8px;padding:3px">
+            ${Object.keys(RANGES).map((k) => `<button class="chart-range-btn" data-range="${k}" style="border:none;cursor:pointer;font:600 12px var(--font-heading);padding:5px 13px;border-radius:6px;background:${k === activeRange ? 'var(--accent-800)' : 'transparent'};color:${k === activeRange ? 'var(--accent-100)' : 'var(--text-muted)'}">${RANGES[k].label}</button>`).join('')}
+          </div>
         </div>
       </div>
       <div id="full-chart-canvas">${chartCanvasHtml(symbol, activeRange, 340)}</div>
@@ -302,21 +395,26 @@ export function renderChartPage(container) {
     activeRange = btn.dataset.range; state.settings.chartRange = activeRange; saveSettings();
     renderChartPage(container);
   }));
+  wireChartType(container, () => renderChartPage(container));
 }
 
 function wireChartRange(container, market, verdict, color) {
+  const rebuild = () => {
+    const wrap = container.querySelector('#signal-tab-content');
+    if (wrap) {
+      wrap.innerHTML = renderChartTab(market, color, verdict);
+      wireChartRange(container, market, verdict, color);
+    }
+  };
   container.querySelectorAll('.chart-range-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       activeRange = btn.dataset.range;
       state.settings.chartRange = activeRange;
       saveSettings();
-      const wrap = container.querySelector('#signal-tab-content');
-      if (wrap) {
-        wrap.innerHTML = renderChartTab(market, color);
-        wireChartRange(container, market, verdict, color);
-      }
+      rebuild();
     });
   });
+  wireChartType(container, rebuild);
 }
 
 function chartSvg(market, color, chartH) {
@@ -491,6 +589,7 @@ function renderChartTab(market, color, verdict) {
     <div class="chart-box-head">
       <div style="font:600 13px var(--font-heading)">${market.symbol} price</div>
       <div style="display:flex;align-items:center;gap:6px">
+        ${chartTypeToggleHtml()}
         <div style="display:flex;gap:3px;background:var(--neutral-900);border-radius:8px;padding:3px">
           ${Object.keys(RANGES).map((k) => `<button class="chart-range-btn" data-range="${k}" style="border:none;cursor:pointer;font:600 12px var(--font-heading);padding:5px 13px;border-radius:6px;background:${k === activeRange ? 'var(--accent-800)' : 'transparent'};color:${k === activeRange ? 'var(--accent-100)' : 'var(--text-muted)'}">${RANGES[k].label}</button>`).join('')}
         </div>

@@ -85,6 +85,7 @@ const defaultSettings = {
   // genuine, double-edged tradeoff — so it's off by default.
   scaleByConviction: false,
   chartRange: '1D',
+  chartType: 'candles',
   notifications: { buy: true, sell: true, stop: true, target: true, reversal: true, volatility: true, news: true },
   subscription: { tier: 'trial' },
 };
