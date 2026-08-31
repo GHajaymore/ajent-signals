@@ -2,9 +2,11 @@ name = "ajent-signals-worker"
 main = "src/index.js"
 compatibility_date = "2024-09-23"
 
-# The 24/7 loop — runs every 15 minutes whether or not anyone's app is open.
+# The 24/7 loop — every 5 minutes whether or not anyone's app is open, so trade
+# entries/exits (esp. 24/7 crypto) are caught within ~5m instead of 15m. One
+# batched KV write per tick = ~288/day, well under the 1,000/day free limit.
 [triggers]
-crons = ["*/15 * * * *"]
+crons = ["*/5 * * * *"]
 
 # KV store for signals + the paper record.
 # Create it once:  wrangler kv namespace create AJENT_KV

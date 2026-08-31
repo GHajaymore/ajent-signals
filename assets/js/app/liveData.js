@@ -68,18 +68,40 @@ function orderedMarkets(engine) {
   return [...priority, ...rest];
 }
 
+// Should the client fetch a live quote for this market?
+//  - Non-server markets: yes, the client is the only price source.
+//  - Server-driven crypto: yes — its feed has NO exchange delay, so a fresh
+//    client quote makes the price truly real-time between server ticks.
+//  - Server-driven futures/indices: no — those are exchange-delayed; leave them
+//    to the Worker so we never imply a live quote we don't have.
+function wantsClientQuote(market) {
+  if (!market) return false;
+  if (market.hasServerSignal) return market.category === 'Crypto';
+  return true;
+}
+
+// Apply a fetched quote: a price-only overlay for server-driven crypto (keeps the
+// Worker's signal), or a full client quote for non-server markets.
+function applyQuote(market, price, prevClose, marketState, quoteTime) {
+  if (market.hasServerSignal) {
+    if (market.category === 'Crypto') market.applyServerPriceOverlay(price, prevClose, quoteTime);
+  } else {
+    market.applyLiveQuote(price, prevClose, marketState, quoteTime);
+  }
+}
+
 function refreshAll(engine, stagger) {
   let i = 0;
   for (const market of orderedMarkets(engine)) {
-    if (market.hasServerSignal) continue; // backend-driven — don't overwrite with client quotes
+    if (!wantsClientQuote(market)) continue; // leave delayed server markets to the Worker
     const ySym = YAHOO_SYMBOL[market.symbol];
     if (!ySym) continue;
     const delay = i++ * stagger;
     setTimeout(async () => {
-      if (market.hasServerSignal) return; // became backend-driven since scheduling
+      if (!wantsClientQuote(market)) return; // state changed since scheduling
       try {
         const { price, prevClose, marketState, quoteTime } = await fetchYahooQuote(ySym);
-        if (!market.hasServerSignal) market.applyLiveQuote(price, prevClose, marketState, quoteTime);
+        if (wantsClientQuote(market)) applyQuote(market, price, prevClose, marketState, quoteTime);
       } catch (e) {
         if (!market.hasServerSignal) market.markLiveUnavailable(LIVE_STALE_MS);
       }
@@ -102,11 +124,11 @@ export function startFocusDataLoop(engine, getFocusSymbols, { intervalMs = 15000
     const syms = getFocusSymbols() || [];
     for (const sym of syms) {
       const fm = engine.get(sym);
-      if (fm && fm.hasServerSignal) continue; // backend-driven
+      if (!wantsClientQuote(fm)) continue; // delayed server market — leave to the Worker
       const ySym = YAHOO_SYMBOL[sym];
       if (!ySym) continue;
       fetchYahooQuote(ySym)
-        .then(({ price, prevClose, marketState, quoteTime }) => { const m = engine.get(sym); if (m && !m.hasServerSignal) m.applyLiveQuote(price, prevClose, marketState, quoteTime); })
+        .then(({ price, prevClose, marketState, quoteTime }) => { const m = engine.get(sym); if (wantsClientQuote(m)) applyQuote(m, price, prevClose, marketState, quoteTime); })
         .catch(() => { /* slow sweep will retry / mark unavailable */ });
     }
   };

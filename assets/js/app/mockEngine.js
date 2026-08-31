@@ -210,6 +210,27 @@ class MarketModel {
     if (quoteTime) this.quoteTime = quoteTime;
   }
 
+  // Real-time price overlay for a server-driven market whose feed has NO exchange
+  // delay (crypto). The Worker still owns the trading signal/verdict/plan — this
+  // only refreshes the DISPLAYED price + timestamp so the quote ticks live and
+  // reads "live" instead of "delayed", and keeps the aligned chart history in
+  // step (replaces today's bar, never grows the daily series with intraday noise).
+  applyServerPriceOverlay(price, prevClose, quoteTime) {
+    if (typeof price !== 'number' || !(price > 0)) return;
+    if (typeof prevClose === 'number' && prevClose > 0) this.openPrice = prevClose;
+    this.changePct = ((price - this.openPrice) / this.openPrice) * 100;
+    this.price = price;
+    if (this.history && this.history.length) {
+      this.history[this.history.length - 1] = price;
+      if (this.historyTimes && this.historyTimes.length === this.history.length) {
+        this.historyTimes[this.historyTimes.length - 1] = Date.now();
+      }
+    }
+    this.liveSource = 'live';
+    this.lastLiveAt = Date.now();
+    this.quoteTime = quoteTime || Math.floor(Date.now() / 1000);
+  }
+
   // Age of the latest real quote, in seconds, or null if we have no real quote.
   get quoteAgeSec() {
     return this.quoteTime ? Math.max(0, Math.floor(Date.now() / 1000 - this.quoteTime)) : null;
@@ -253,9 +274,13 @@ class MarketModel {
     this.liveSource = 'live';
     this.signalIsReal = true; // real backend analysis — never tag it SIM
     this.lastLiveAt = Date.now();
-    // Free-tier futures/index data is delayed ~15-25m. Stamp the quote at least
-    // 15m old so the UI reads "delayed", never falsely "live" — honest labeling.
-    this.quoteTime = Math.floor(((sig.updatedAt || Date.now()) - 15 * 60 * 1000) / 1000);
+    // Honest quote age. Free CME futures/index data is delayed ~15-25m, so stamp
+    // those at least 15m old (UI reads "delayed", never falsely "live"). Crypto
+    // has NO exchange delay — its price is only as old as the last server fetch
+    // (updatedAt), so stamp it truthfully; the client then refreshes it live.
+    this.quoteTime = this.category === 'Crypto'
+      ? Math.floor((sig.updatedAt || Date.now()) / 1000)
+      : Math.floor(((sig.updatedAt || Date.now()) - 15 * 60 * 1000) / 1000);
     const dir = sig.direction || (sig.verdict === 'BUY' ? 1 : sig.verdict === 'SELL' ? -1 : 0);
     const trend = sig.htfTrend === 'up' ? 'Bullish' : sig.htfTrend === 'down' ? 'Bearish' : 'Neutral';
     const volLevel = this.atrPct >= 0.02 ? 'High' : this.atrPct >= 0.01 ? 'Medium' : 'Low';
