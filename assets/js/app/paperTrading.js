@@ -286,7 +286,7 @@ export function applyServerRecord(data) {
   const open = Array.isArray(data.open) ? data.open : [];
   store.closed = closed.map((c) => ({
     symbol: c.symbol, name: c.name, side: c.side || 'LONG', entry: c.entry, exit: c.exit,
-    resultR: c.resultR, pnl: c.pnl, riskDollars: c.riskDollars, outcome: c.outcome,
+    resultR: c.resultR, pnl: c.pnl, riskDollars: c.riskDollars, outcome: c.outcome, exitReason: c.exitReason,
     holdMin: (c.openedAt && c.closedAt) ? Math.max(1, Math.round((c.closedAt - c.openedAt) / 60000)) : 1,
     decimals: c.decimals ?? 2, closedAt: c.closedAt || Date.now(),
   })).sort((a, b) => b.closedAt - a.closedAt);

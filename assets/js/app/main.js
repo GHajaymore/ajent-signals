@@ -15,7 +15,8 @@ import { startLiveDataLoop, startFocusDataLoop } from './liveData.js';
 import { applyGeoDefaults } from './geo.js';
 import { startUpdateWatcher } from './updateCheck.js';
 import { startSignalRefreshLoop } from './signalRefreshLoop.js';
-import { maybeOpenPositions, checkOpenPositions, applyServerRecord } from './paperTrading.js';
+import { maybeOpenPositions, checkOpenPositions, applyServerRecord, getClosedTrades } from './paperTrading.js';
+import { fmtPrice } from './format.js';
 import { backendConfigured, fetchServerTrades, fetchServerSignals, fetchLiveQuotes, redeemSession, refreshProToken, confirmEntitlement, initBilling } from './backendApi.js';
 import { initIap } from './iap.js';
 import * as proSuccess from './screens/proSuccess.js';
@@ -156,6 +157,7 @@ function refreshRoute() {
     case 'markets': marketsScreen.refresh?.(contentEl); break;
     case 'signal': signalDetail.refresh?.(contentEl); break;
     case 'track': track.refresh?.(contentEl); break;
+    case 'alerts': alertsScreen.render(contentEl); break;
     default: return;
   }
   wireGlobalNav();
@@ -187,13 +189,49 @@ initIap(() => {
   if (parseHash()[0] === 'paywall') renderRoute();
 });
 
+// In-app alerts from server-driven events. The Worker runs the account 24/7, so
+// fresh signals and trade closes arrive via polling, not client-side trading —
+// turn them into the notifications a signals app is expected to surface.
+function pushAlert(alert) {
+  state.engine.alerts.unshift(alert);
+  if (state.engine.alerts.length > 40) state.engine.alerts.pop();
+  if (state.lastTab !== 'alerts' && parseHash()[0] !== 'alerts') state.hasUnreadAlerts = true;
+}
+function signalAlert(m, verdict) {
+  const s = m.signal;
+  const lvls = s.plan ? `, entry ${fmtPrice(s.plan.entry, m.decimals)}, stop ${fmtPrice(s.plan.stop, m.decimals)}` : '';
+  pushAlert({ type: verdict, symbol: m.symbol, title: `${verdict} · ${m.symbol}`,
+    body: `${m.name} triggered a ${verdict === 'BUY' ? 'long' : 'short'} — ${s.confidence}% confidence${lvls}.`, ts: Date.now() });
+}
+function tradeCloseAlert(c) {
+  const win = (c.pnl || 0) >= 0;
+  const why = c.exitReason === 'stop' ? 'hit its stop'
+    : /Close$/.test(c.exitReason || '') ? 'closed on the bounce'
+    : c.exitReason === 'timeStop' ? 'closed at its time limit' : 'closed';
+  const long = (c.side || 'LONG') === 'LONG';
+  pushAlert({ type: win ? 'TARGET' : 'STOP', symbol: c.symbol, title: `${win ? 'Win' : 'Loss'} · ${c.symbol}`,
+    body: `${c.name || c.symbol} ${why} — ${win ? '+' : ''}${Math.round(c.pnl || 0)} (${long ? 'long' : 'short'}, ${fmtPrice(c.entry, c.decimals)}→${fmtPrice(c.exit, c.decimals)}).`,
+    ts: c.closedAt || Date.now() });
+}
+
 // When the backend is connected it runs the paper account 24/7, so the client
 // stops trading locally and instead syncs the server's record (which keeps
 // growing whether or not the app is open). Poll it every 30s + once on load.
+let recordSeeded = false; // don't fire a burst of alerts for history already closed before load
 async function syncServerRecord() {
   if (!backendConfigured()) return;
+  const before = new Set(getClosedTrades().map((c) => `${c.closedAt}#${c.symbol}`));
   const data = await fetchServerTrades();
-  if (data) { applyServerRecord(data); const route = parseHash(); if (route[0] === 'track' || route[0] === 'home') refreshRoute(); }
+  if (data) {
+    applyServerRecord(data);
+    if (recordSeeded) {
+      for (const c of getClosedTrades()) {
+        if (!before.has(`${c.closedAt}#${c.symbol}`)) tradeCloseAlert(c);
+      }
+    }
+    recordSeeded = true;
+    const route = parseHash(); if (route[0] === 'track' || route[0] === 'home' || route[0] === 'alerts') refreshRoute();
+  }
 }
 if (backendConfigured()) { syncServerRecord(); setInterval(syncServerRecord, 30000); }
 
@@ -204,8 +242,20 @@ async function syncServerSignals() {
   if (!backendConfigured()) return;
   const data = await fetchServerSignals();
   if (data && Array.isArray(data.signals)) {
-    for (const sig of data.signals) { const m = state.engine.get(sig.symbol); if (m) m.applyServerSignal(sig); }
-    if (LIVE_SCREENS.has(parseHash()[0])) refreshRoute();
+    for (const sig of data.signals) {
+      const m = state.engine.get(sig.symbol);
+      if (!m) continue;
+      // Compare against the verdict we were already showing for THIS market: only
+      // a genuine flip into BUY/SELL fires an alert. `hasServerSignal` is false on
+      // the very first application, so the initial load never dumps stale signals.
+      const seen = m.hasServerSignal;
+      const prev = m.displayVerdict;
+      m.applyServerSignal(sig);
+      const now = m.displayVerdict;
+      if (seen && prev !== now && (now === 'BUY' || now === 'SELL')) signalAlert(m, now);
+    }
+    const route = parseHash()[0];
+    if (LIVE_SCREENS.has(route) || route === 'alerts') refreshRoute();
   }
 }
 if (backendConfigured()) { syncServerSignals(); setInterval(syncServerSignals, 20000); }
