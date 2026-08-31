@@ -44,6 +44,16 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === '/health') return json({ ok: true });
 
+    // Force one run of the 24/7 loop on demand (e.g. right after a deploy) instead
+    // of waiting for the next 15-min cron. Guarded by its own ADMIN_KEY secret —
+    // separate from the Pro gate, so it never affects free access. No-op (404) when
+    // the secret isn't configured, so it can't be abused to spin KV writes.
+    if (url.pathname === '/admin/tick') {
+      if (!env.ADMIN_KEY || url.searchParams.get('key') !== env.ADMIN_KEY) return json({ error: 'not found' }, 404);
+      const r = await runTick(env, db(env));
+      return json({ ok: true, ...r });
+    }
+
     // --- Billing (UNGATED — this is how a user BECOMES Pro) ---------------------
     if (url.pathname.startsWith('/billing/')) {
       const store = db(env);

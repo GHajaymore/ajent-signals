@@ -11,6 +11,10 @@ export const MARKETS = {
   SX5E: { yahoo: '^STOXX50E', country: 'EU', name: 'Euro Stoxx 50' },
   N225: { yahoo: '^N225', country: 'JP', name: 'Nikkei 225' },
   TSX: { yahoo: '^GSPTSE', country: 'CA', name: 'S&P/TSX Composite' },
+  // Crypto trades 24/7 — a natural fit for the always-on server loop. Same
+  // RSI-2 mean-reversion strategy applied to real BTC-USD / ETH-USD daily candles.
+  BTC: { yahoo: 'BTC-USD', country: 'US', crypto: true, name: 'Bitcoin' },
+  ETH: { yahoo: 'ETH-USD', country: 'US', crypto: true, name: 'Ether' },
 };
 
 const TZ = { US: 'America/New_York', CA: 'America/Toronto', AU: 'Australia/Sydney', EU: 'Europe/Berlin', JP: 'Asia/Tokyo' };
@@ -26,6 +30,7 @@ function localNow(tz) {
 // (Sun 18:00 ET → Fri 17:00 ET, daily 17:00–18:00 ET maintenance halt); cash
 // index markets use their local exchange session.
 export function isOpen(meta) {
+  if (meta && meta.crypto) return true;                 // 24/7, never closes
   if (meta && meta.futures) {
     const n = localNow('America/New_York');
     if (n.day === 6) return false;                      // Saturday
