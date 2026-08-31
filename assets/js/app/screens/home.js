@@ -13,11 +13,17 @@ function pfLabel(perf) { return perf.profitFactor === Infinity ? '∞' : perf.pr
 // headline stats. This is the app's centrepiece and its credibility.
 function portfolioCard(perf) {
   if (!perf) {
+    // No closed trades yet. If a position is already open, say so honestly
+    // rather than "no trades yet" — realized P&L only starts once it closes.
+    const openN = getOpenCount();
+    const meta = openN
+      ? `${openN} open position${openN > 1 ? 's' : ''} · realized P&L appears when ${openN > 1 ? 'they close' : 'it closes'}`
+      : 'No trades yet — signals paper-trade automatically';
     return `<div class="pf-card empty" data-nav="#/track">
       <div class="pf-main">
-        <div class="pf-label">Paper portfolio</div>
+        <div class="pf-label">Paper portfolio · realized</div>
         <div class="pf-value">$0<span class="pf-cur">.00</span></div>
-        <div class="pf-meta">No trades yet — signals paper-trade automatically</div>
+        <div class="pf-meta">${meta}</div>
       </div>
       <i class="ph-bold ph-arrow-up-right pf-go"></i>
     </div>`;
