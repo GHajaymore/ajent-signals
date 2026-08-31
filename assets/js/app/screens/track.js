@@ -290,23 +290,54 @@ function openList() {
     </div>`;
 }
 
+// What's nearest to triggering a trade, by the server's proximity score — so an
+// empty record still tells you what to watch. Not signals, just "closest".
+function watchingList() {
+  const threshold = state.settings.threshold;
+  const markets = state.engine.markets
+    .filter((m) => m.signalIsReal && m.signal && (m.signal.proximity || 0) > 0 && m.verdict(threshold) === 'NO_TRADE')
+    .sort((a, b) => (b.signal.proximity || 0) - (a.signal.proximity || 0))
+    .slice(0, 5);
+  if (!markets.length) return '';
+  return `
+    <div class="section-label">Closest to a setup</div>
+    <div class="card" style="padding:2px 12px">
+      ${markets.map((m) => {
+        const prox = Math.max(0, Math.min(100, m.signal.proximity || 0));
+        const up = m.signal.htfTrend === 'up';
+        const trig = up ? `RSI2 ${m.signal.rsi2} · long fires under 10`
+          : m.signal.htfTrend === 'down' ? `RSI2 ${m.signal.rsi2} · short fires over 90`
+          : `RSI2 ${m.signal.rsi2} · no clear trend`;
+        return `<div class="closed-row" data-nav="#/signal/${m.symbol}" style="cursor:pointer">
+          <div class="closed-sym">${m.symbol}</div>
+          <div class="closed-body">
+            <div class="closed-title">${m.name}</div>
+            <div class="closed-sub">${trig}</div>
+          </div>
+          <div class="closed-result"><div class="r" style="color:var(--text-muted)">${prox}%</div><div class="o">to setup</div></div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
 function emptyState() {
   const open = getOpenPositions();
   return `
   <div class="fade-in glow-wrap">
     ${intro()}
     ${honestBanner()}
-    ${pnlHelp()}
-    ${marketSelector()}
-    ${openList()}
-    <div class="panel" style="text-align:center;padding:38px 20px;margin-top:12px">
+    <div class="panel" style="text-align:center;padding:32px 20px">
       <i class="ph ph-chart-line-up" style="font-size:32px;color:var(--text-muted)"></i>
       <div style="font:600 15px var(--font-heading);margin-top:14px">No completed trades yet</div>
       <p class="text-muted" style="font-size:13px;line-height:1.6;margin-top:8px;max-width:40ch;margin-left:auto;margin-right:auto">
         A virtual trade opens automatically whenever a real signal clears your confidence threshold, then runs until it hits its target or stop.
-        ${open.length ? `${open.length} ${open.length === 1 ? 'trade is' : 'trades are'} open right now — results will appear here once they close.` : 'None are open yet — check back once a real signal fires.'}
+        ${open.length ? `${open.length} ${open.length === 1 ? 'trade is' : 'trades are'} open right now — results will appear here once they close.` : 'The strategy is in cash right now — that’s normal ~90% of the time.'}
       </p>
     </div>
+    ${watchingList()}
+    ${openList()}
+    ${marketSelector()}
+    ${pnlHelp()}
     <p class="text-faint" style="text-align:center;font-size:11px;margin-top:14px">Educational only · past results don't guarantee future performance.</p>
   </div>`;
 }
