@@ -1,5 +1,5 @@
 import { state, saveSettings, toggleWatchlist, isInWatchlist, getEnabledPaperMarkets, dailyEdge } from '../state.js';
-import { getClosedTrades, getOpenPositions } from '../paperTrading.js';
+import { getClosedTrades } from '../paperTrading.js';
 
 // Honest per-market note about the DAILY strategy's backtested edge on this
 // specific market (daily mode only). Never implies an edge the backtest didn't
