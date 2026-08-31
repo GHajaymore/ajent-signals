@@ -12,7 +12,11 @@ async function yahoo(symbol, { range = '2y' } = {}) {
     out.push({ t: ts[i] * 1000, o: q.open[i] ?? q.close[i], h: q.high[i], l: q.low[i], c: q.close[i] });
   }
   const live = r.meta?.regularMarketPrice;
-  return { candles: out, live: typeof live === 'number' ? live : (out.length ? out[out.length - 1].c : null) };
+  // The exchange timestamp of the live quote (ms). For free CME futures this is
+  // the delayed quote's real time, so `now - liveTime` is the TRUE feed delay —
+  // far better than assuming a fixed 15-min lag.
+  const lt = r.meta?.regularMarketTime;
+  return { candles: out, live: typeof live === 'number' ? live : (out.length ? out[out.length - 1].c : null), liveTime: typeof lt === 'number' ? lt * 1000 : null };
 }
 
 async function twelvedata(symbol, key) {
@@ -24,7 +28,7 @@ async function twelvedata(symbol, key) {
   if (j.status === 'error') throw new Error(`twelvedata: ${j.message} (${symbol})`);
   const out = (j.values || []).map((v) => ({ t: new Date(v.datetime).getTime(), o: +v.open, h: +v.high, l: +v.low, c: +v.close }))
     .filter((k) => Number.isFinite(k.c));
-  return { candles: out, live: out.length ? out[out.length - 1].c : null };
+  return { candles: out, live: out.length ? out[out.length - 1].c : null, liveTime: null };
 }
 
 export async function fetchDailyCandles(market, env) {

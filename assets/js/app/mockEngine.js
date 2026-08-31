@@ -274,13 +274,16 @@ class MarketModel {
     this.liveSource = 'live';
     this.signalIsReal = true; // real backend analysis — never tag it SIM
     this.lastLiveAt = Date.now();
-    // Honest quote age. Free CME futures/index data is delayed ~15-25m, so stamp
-    // those at least 15m old (UI reads "delayed", never falsely "live"). Crypto
-    // has NO exchange delay — its price is only as old as the last server fetch
-    // (updatedAt), so stamp it truthfully; the client then refreshes it live.
-    this.quoteTime = this.category === 'Crypto'
-      ? Math.floor((sig.updatedAt || Date.now()) / 1000)
-      : Math.floor(((sig.updatedAt || Date.now()) - 15 * 60 * 1000) / 1000);
+    // Honest quote age. Prefer the REAL exchange timestamp of the underlying quote
+    // (sig.liveTime) so `now - quoteTime` is the true feed delay — for free CME
+    // futures that's ~10-15m, for crypto it's ~0 (reads "live"). Only if the server
+    // didn't provide it do we fall back to a conservative estimate (15m floor for
+    // delayed feeds; updatedAt for crypto).
+    this.quoteTime = (typeof sig.liveTime === 'number' && sig.liveTime > 0)
+      ? Math.floor(sig.liveTime / 1000)
+      : (this.category === 'Crypto'
+        ? Math.floor((sig.updatedAt || Date.now()) / 1000)
+        : Math.floor(((sig.updatedAt || Date.now()) - 15 * 60 * 1000) / 1000));
     const dir = sig.direction || (sig.verdict === 'BUY' ? 1 : sig.verdict === 'SELL' ? -1 : 0);
     const trend = sig.htfTrend === 'up' ? 'Bullish' : sig.htfTrend === 'down' ? 'Bearish' : 'Neutral';
     const volLevel = this.atrPct >= 0.02 ? 'High' : this.atrPct >= 0.01 ? 'Medium' : 'Low';

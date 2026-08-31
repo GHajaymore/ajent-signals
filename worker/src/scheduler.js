@@ -54,7 +54,7 @@ export async function runTick(env, store) {
   for (const symbol of Object.keys(MARKETS)) {
     try {
       const meta = MARKETS[symbol];
-      const { candles, live } = await fetchDailyCandles(meta, env);
+      const { candles, live, liveTime } = await fetchDailyCandles(meta, env);
       const sig = computeSignal(candles, live);
       const now = Date.now();
       // A verdict that flips INTO BUY/SELL (vs last tick) is a fresh signal.
@@ -67,7 +67,7 @@ export async function runTick(env, store) {
       // Recent daily closes (timestamped) so the app charts real price action and
       // can position trade markers by time — not a flat SIM line.
       const history = candles.slice(-64).map((c) => ({ t: c.t, c: Math.round(c.c * 100) / 100 }));
-      bySym[symbol] = { symbol, name: meta.name, updatedAt: now, ...sig, live, prevClose, history };
+      bySym[symbol] = { symbol, name: meta.name, updatedAt: now, ...sig, live, liveTime, prevClose, history };
       const res = await processPosition({ symbol, meta, sig, live, open: isOpen(meta), store, now, risk, cost });
       if (res === 'open') {
         events.push({ type: 'position.open', event: 'open', symbol, name: meta.name, price: live ?? sig.price, strategy: strategyLabel, plan: sig.plan, signal: sig, at: now });
