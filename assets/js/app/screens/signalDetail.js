@@ -87,12 +87,27 @@ function smoothPath(pts) {
   return d;
 }
 
+// Human date/time label for an x-axis tick. Intraday spans show the clock;
+// multi-day spans show the calendar date. `times` are ms timestamps.
+function fmtAxisTick(ms, spanMs) {
+  const d = new Date(ms);
+  if (spanMs < 3 * 86400000) {
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 // Shared polished price chart. Uniform scaling (no distortion), smooth line with
-// a soft glow, faint gridlines, a last-price marker, and optional entry/stop/
-// target levels with small value chips. `levels` = [{v, stroke, label}].
-function priceChartSvg(series, color, { levels = [], decimals = 2, markers = [], h = 188 } = {}) {
+// a soft glow, faint gridlines, a last-price marker, optional entry/stop/
+// target levels with small value chips, and a real time axis when `times` is
+// supplied. `levels` = [{v, stroke, label}]; `times` = ms timestamps aligned
+// with `series` (drives the x-axis labels).
+function priceChartSvg(series, color, { levels = [], decimals = 2, markers = [], h = 188, times = [] } = {}) {
   const w = 500;
-  if (!series || series.length < 2) return `<svg viewBox="0 0 ${w} ${h}" width="100%" style="height:auto;display:block"></svg>`;
+  const hasAxis = Array.isArray(times) && times.length === (series ? series.length : -1) && times.length >= 2;
+  const axisH = hasAxis ? 18 : 0;               // room below the plot for date labels
+  const vbH = h + axisH;
+  if (!series || series.length < 2) return `<svg viewBox="0 0 ${w} ${vbH}" width="100%" style="height:auto;display:block"></svg>`;
   const vals = series.concat(levels.map((l) => l.v)).concat(markers.map((m) => m.value));
   const min = Math.min(...vals), max = Math.max(...vals);
   const span = (max - min) || Math.abs(min) * 0.01 || 1;
@@ -107,6 +122,18 @@ function priceChartSvg(series, color, { levels = [], decimals = 2, markers = [],
   const last = pts[pts.length - 1];
   const grid = [0.25, 0.5, 0.75].map((f) =>
     `<line x1="0" y1="${(h * f).toFixed(1)}" x2="${w}" y2="${(h * f).toFixed(1)}" stroke="var(--hairline)" stroke-width="1" opacity="0.45"/>`).join('');
+  let axisSvg = '';
+  if (hasAxis) {
+    const spanMs = (times[times.length - 1] - times[0]) || 1;
+    const ticks = 4;
+    for (let k = 0; k <= ticks; k++) {
+      const idx = Math.round((k / ticks) * (series.length - 1));
+      const x = idx * step;
+      const anchor = k === 0 ? 'start' : k === ticks ? 'end' : 'middle';
+      const xClamped = k === 0 ? 2 : k === ticks ? w - 2 : x;
+      axisSvg += `<text x="${xClamped.toFixed(1)}" y="${(h + 13).toFixed(1)}" text-anchor="${anchor}" font-size="9" fill="var(--text-muted)" opacity="0.85">${fmtAxisTick(times[idx], spanMs)}</text>`;
+    }
+  }
   const levelSvg = levels.map((l) => {
     const y = yFor(l.v);
     if (y < 6 || y > h - 6) return '';
@@ -117,7 +144,7 @@ function priceChartSvg(series, color, { levels = [], decimals = 2, markers = [],
       <text x="${(w - chipW / 2).toFixed(1)}" y="${(y + 3.2).toFixed(1)}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#08120d">${label}</text>`;
   }).join('');
   return `
-  <svg viewBox="0 0 ${w} ${h}" width="100%" style="height:auto;display:block">
+  <svg viewBox="0 0 ${w} ${vbH}" width="100%" style="height:auto;display:block">
     <defs>
       <linearGradient id="fill${uid}" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="${color}" stop-opacity="0.26"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/>
@@ -125,6 +152,7 @@ function priceChartSvg(series, color, { levels = [], decimals = 2, markers = [],
       <filter id="glow${uid}" x="-5%" y="-20%" width="110%" height="140%"><feGaussianBlur stdDeviation="2.4"/></filter>
     </defs>
     ${grid}
+    ${axisSvg}
     ${levelSvg}
     <path d="${areaD}" fill="url(#fill${uid})"/>
     <path d="${lineD}" fill="none" stroke="${color}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" opacity="0.3" filter="url(#glow${uid})"/>
@@ -175,7 +203,7 @@ function areaChart(market, candles, color, showLevels, chartH) {
   ] : [];
   const times = candles.map((c) => (c.t < 1e12 ? c.t * 1000 : c.t));
   const markers = tradeMarkers(market.symbol, times);
-  return priceChartSvg(candles.map((c) => c.c), color, { levels, decimals: market.decimals, markers, h: chartH });
+  return priceChartSvg(candles.map((c) => c.c), color, { levels, decimals: market.decimals, markers, h: chartH, times });
 }
 
 function chartCanvasHtml(symbol, rangeKey, chartH) {
@@ -202,7 +230,14 @@ function chartCanvasHtml(symbol, rangeKey, chartH) {
       </div>`;
   }
   if (cached && cached.failed) {
-    return `${chartSvg(market, color, chartH)}<div class="text-muted" style="font-size:11px;margin-top:6px;text-align:center">Live ${RANGES[rangeKey].label} history is unavailable right now — showing recent price action.</div>`;
+    return `${chartSvg(market, color, chartH)}<div class="text-muted" style="font-size:11px;margin-top:6px;text-align:center">Live ${RANGES[rangeKey].label} history is unavailable right now — showing daily closes.</div>`;
+  }
+  // Not loaded yet: instead of a blank spinner, draw instantly from the daily
+  // closes the server already sent us (real data, no extra fetch), then swap to
+  // the finer intraday history when it arrives. Keeps the chart from ever
+  // looking empty or slow.
+  if (market.history && market.history.length > 1) {
+    return `${chartSvg(market, color, chartH)}<div class="text-muted" style="font-size:11px;margin-top:6px;text-align:center"><i class="ph ph-hourglass-medium" style="margin-right:5px"></i>Loading ${RANGES[rangeKey].label} detail…</div>`;
   }
   return `<div style="height:${chartH || 172}px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:12.5px"><i class="ph ph-hourglass-medium" style="font-size:18px;margin-right:8px"></i>Loading ${RANGES[rangeKey].label} chart…</div>`;
 }
@@ -288,7 +323,7 @@ function chartSvg(market, color, chartH) {
   const series = market.history.slice(-n);
   const times = (market.historyTimes || []).slice(-n);
   const markers = tradeMarkers(market.symbol, times);
-  return priceChartSvg(series, color, { levels, decimals: market.decimals, markers, h: chartH });
+  return priceChartSvg(series, color, { levels, decimals: market.decimals, markers, h: chartH, times });
 }
 
 function renderSignalTab(market, verdict, color) {
