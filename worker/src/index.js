@@ -54,6 +54,26 @@ export default {
       return json({ ok: true, ...r });
     }
 
+    // Real-time crypto quotes, fetched server-side (the browser can't reach Yahoo
+    // directly — CORS — and the free proxies are unreliable). Restricted to the
+    // known crypto symbols so it can't be abused as an open proxy. Ungated: this
+    // is just a price, and crypto's feed has no exchange delay, so it lets the app
+    // tick BTC/ETH live between the 5-min signal ticks.
+    if (url.pathname === '/live') {
+      const MAP = { BTC: 'BTC-USD', ETH: 'ETH-USD' };
+      const quotes = {};
+      await Promise.all(Object.entries(MAP).map(async ([sym, y]) => {
+        try {
+          const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${y}`, { headers: { 'User-Agent': 'ajent-signals-worker/1.0' }, cf: { cacheTtl: 10, cacheEverything: true } });
+          const meta = (await r.json())?.chart?.result?.[0]?.meta;
+          if (meta && typeof meta.regularMarketPrice === 'number') {
+            quotes[sym] = { price: meta.regularMarketPrice, prevClose: meta.chartPreviousClose ?? meta.previousClose ?? null, at: meta.regularMarketTime ? meta.regularMarketTime * 1000 : Date.now() };
+          }
+        } catch (e) { /* skip this symbol */ }
+      }));
+      return json({ quotes, at: Date.now() });
+    }
+
     // --- Billing (UNGATED — this is how a user BECOMES Pro) ---------------------
     if (url.pathname.startsWith('/billing/')) {
       const store = db(env);

@@ -68,26 +68,17 @@ function orderedMarkets(engine) {
   return [...priority, ...rest];
 }
 
-// Should the client fetch a live quote for this market?
-//  - Non-server markets: yes, the client is the only price source.
-//  - Server-driven crypto: yes — its feed has NO exchange delay, so a fresh
-//    client quote makes the price truly real-time between server ticks.
-//  - Server-driven futures/indices: no — those are exchange-delayed; leave them
-//    to the Worker so we never imply a live quote we don't have.
+// Should the client fetch a live quote for this market via the (browser-side)
+// proxy path? Only non-server markets — server-driven markets get their price
+// from the Worker (crypto ticks live via the Worker's /live endpoint; futures/
+// indices stay server-delayed). The public CORS proxies are unreliable anyway,
+// so we never depend on them for the real record.
 function wantsClientQuote(market) {
-  if (!market) return false;
-  if (market.hasServerSignal) return market.category === 'Crypto';
-  return true;
+  return !!market && !market.hasServerSignal;
 }
 
-// Apply a fetched quote: a price-only overlay for server-driven crypto (keeps the
-// Worker's signal), or a full client quote for non-server markets.
 function applyQuote(market, price, prevClose, marketState, quoteTime) {
-  if (market.hasServerSignal) {
-    if (market.category === 'Crypto') market.applyServerPriceOverlay(price, prevClose, quoteTime);
-  } else {
-    market.applyLiveQuote(price, prevClose, marketState, quoteTime);
-  }
+  if (!market.hasServerSignal) market.applyLiveQuote(price, prevClose, marketState, quoteTime);
 }
 
 function refreshAll(engine, stagger) {

@@ -49,6 +49,8 @@ async function getJson(pathname) {
 export function fetchServerTrades() { return getJson('/trades'); }
 // { updatedAt, signals:[] } or null.
 export function fetchServerSignals() { return getJson('/signals'); }
+// Real-time crypto quotes fetched server-side (no browser CORS). { quotes:{BTC:{price,prevClose,at}}, at } or null.
+export function fetchLiveQuotes() { return getJson('/live'); }
 
 // --- Signal-export webhooks (Pro) -------------------------------------------
 // Manage the user's "signal → my own bot/TradingView" webhooks on the backend.

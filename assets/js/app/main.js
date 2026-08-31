@@ -16,7 +16,7 @@ import { applyGeoDefaults } from './geo.js';
 import { startUpdateWatcher } from './updateCheck.js';
 import { startSignalRefreshLoop } from './signalRefreshLoop.js';
 import { maybeOpenPositions, checkOpenPositions, applyServerRecord } from './paperTrading.js';
-import { backendConfigured, fetchServerTrades, fetchServerSignals, redeemSession, refreshProToken, confirmEntitlement, initBilling } from './backendApi.js';
+import { backendConfigured, fetchServerTrades, fetchServerSignals, fetchLiveQuotes, redeemSession, refreshProToken, confirmEntitlement, initBilling } from './backendApi.js';
 import { initIap } from './iap.js';
 import * as proSuccess from './screens/proSuccess.js';
 
@@ -209,6 +209,27 @@ async function syncServerSignals() {
   }
 }
 if (backendConfigured()) { syncServerSignals(); setInterval(syncServerSignals, 20000); }
+
+// Real-time crypto: crypto has no exchange delay, so poll the Worker's /live
+// endpoint (server-side Yahoo fetch, edge-cached ~10s) and overlay the fresh
+// price onto BTC/ETH between the 5-min signal ticks. The Worker keeps owning the
+// trade signal — this only refreshes the displayed price + unrealized P&L, so
+// crypto reads "live" and ticks, while futures/indices stay honestly delayed.
+async function syncCryptoLive() {
+  if (!backendConfigured()) return;
+  const data = await fetchLiveQuotes();
+  if (!data || !data.quotes) return;
+  let touched = false;
+  for (const [sym, q] of Object.entries(data.quotes)) {
+    const m = state.engine.get(sym);
+    if (m && m.hasServerSignal && q && typeof q.price === 'number') {
+      m.applyServerPriceOverlay(q.price, q.prevClose, Math.floor((q.at || Date.now()) / 1000));
+      touched = true;
+    }
+  }
+  if (touched && LIVE_SCREENS.has(parseHash()[0])) refreshRoute();
+}
+if (backendConfigured()) { syncCryptoLive(); setInterval(syncCryptoLive, 12000); }
 
 // Probe whether a real purchase path exists (Stripe configured) so the paywall
 // shows checkout vs. the waitlist correctly. Re-render if we're on the paywall.
