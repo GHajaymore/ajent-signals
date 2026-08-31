@@ -1,10 +1,11 @@
 import { state } from '../state.js';
 import { heroCard, watchlistRow, patchRow, patchHero, symTile, dataTag, sparklineSvg } from '../components.js';
-import { getPerformanceSummary, getOpenCount } from '../paperTrading.js';
+import { getPerformanceSummary, getOpenCount, getOpenPositions } from '../paperTrading.js';
 import { marketSession } from '../marketHours.js';
 import { backendConfigured } from '../backendApi.js';
 import { isRealMarket } from './markets.js';
 import { upcomingEvents, daysUntil } from '../econCalendar.js';
+import { fmtPrice } from '../format.js';
 
 function pfLabel(perf) { return perf.profitFactor === Infinity ? '∞' : perf.profitFactor.toFixed(2); }
 
@@ -87,6 +88,55 @@ function topSetupsHtml(engine, threshold) {
     </div>`;
   }
   return `<div class="card" style="padding:2px 12px">${setups.map((x) => setupRow(x.m, x.v)).join('')}</div>`;
+}
+
+// Relative "opened" time for an open position.
+function relTime(ms) {
+  if (!ms) return '';
+  const s = Math.max(0, (Date.now() - ms) / 1000);
+  if (s < 3600) return `${Math.round(s / 60)}m ago`;
+  if (s < 86400) return `${Math.round(s / 3600)}h ago`;
+  return `${Math.round(s / 86400)}d ago`;
+}
+
+// Live (unrealized) mark-to-market for an open paper position, using the market's
+// current price and the same R-multiple maths the closed record uses. Honest:
+// it's the real running P&L of a real open position, not a projection.
+function livePnl(p) {
+  const market = state.engine.get(p.symbol);
+  const px = market && market.price;
+  const riskPerUnit = Math.abs(p.risk || (p.entry != null && p.stop != null ? p.entry - p.stop : 0));
+  if (!px || p.entry == null || !riskPerUnit) return null;
+  const long = (p.side || 'LONG') === 'LONG';
+  const r = (long ? (px - p.entry) : (p.entry - px)) / riskPerUnit;
+  return { r, dollars: r * (p.riskDollars || 250), px, decimals: market.decimals };
+}
+
+function positionRow(p) {
+  const market = state.engine.get(p.symbol);
+  const long = (p.side || 'LONG') === 'LONG';
+  const pnl = livePnl(p);
+  const col = pnl ? (pnl.dollars >= 0 ? 'var(--buy)' : 'var(--sell)') : 'var(--text-muted)';
+  const pnlStr = pnl ? `${money(pnl.dollars)} · ${pnl.r >= 0 ? '+' : ''}${pnl.r.toFixed(2)}R` : '· · ·';
+  const dec = market ? market.decimals : 2;
+  return `<div class="setup-row" data-nav="#/chart/${p.symbol}" data-pos="${p.symbol}">
+    ${symTile(p.symbol, 34)}
+    <div class="setup-body">
+      <div class="setup-name">${p.name || p.symbol}${p.conviction === 'high' ? ' <span class="conv-badge"><i class="ph-fill ph-star"></i>High conviction</span>' : ''}</div>
+      <div class="setup-type" style="color:${long ? 'var(--buy)' : 'var(--sell)'}"><i class="ph-fill ${long ? 'ph-caret-up' : 'ph-caret-down'}"></i>${long ? 'Long' : 'Short'} · entry ${fmtPrice(p.entry, dec)} · ${relTime(p.openedAt)}</div>
+    </div>
+    <div style="text-align:right;flex:none">
+      <div style="color:${col};font-weight:700;font-size:13.5px" class="tabular" data-pos-pnl="${p.symbol}">${pnlStr}</div>
+      <div class="text-muted" style="font-size:10.5px;margin-top:2px">unrealized</div>
+    </div>
+  </div>`;
+}
+
+function openPositionsHtml() {
+  const open = getOpenPositions();
+  if (!open.length) return '';
+  return `<div class="section-label">Live paper positions</div>
+    <div class="card" style="padding:2px 12px">${open.map(positionRow).join('')}</div>`;
 }
 
 function greeting() {
@@ -184,6 +234,8 @@ export function render(container) {
 
     <div id="hero-wrap" style="margin-top:6px">${heroCard(featured, featuredVerdict)}</div>
 
+    <div id="positions-wrap">${openPositionsHtml()}</div>
+
     <div class="section-label">Top setups now</div>
     <div id="setups-wrap">${topSetupsHtml(engine, threshold)}</div>
 
@@ -249,6 +301,27 @@ export function refresh(container) {
   const heroEl = heroWrap.querySelector('.hero-card');
   if (!heroEl || !patchHero(heroEl, featured, featuredVerdict)) {
     heroWrap.innerHTML = heroCard(featured, featuredVerdict);
+  }
+
+  // Live paper positions: rebuild the section only when the set of open trades
+  // changes; otherwise just patch each position's running P&L so it ticks live.
+  const posWrap = container.querySelector('#positions-wrap');
+  if (posWrap) {
+    const open = getOpenPositions();
+    const cur = [...posWrap.querySelectorAll('[data-pos]')].map((el) => el.dataset.pos).join(',');
+    const next = open.map((p) => p.symbol).join(',');
+    if (cur !== next) {
+      posWrap.innerHTML = openPositionsHtml();
+    } else {
+      open.forEach((p) => {
+        const el = posWrap.querySelector(`[data-pos-pnl="${p.symbol}"]`);
+        if (!el) return;
+        const pnl = livePnl(p);
+        if (!pnl) return;
+        el.textContent = `${money(pnl.dollars)} · ${pnl.r >= 0 ? '+' : ''}${pnl.r.toFixed(2)}R`;
+        el.style.color = pnl.dollars >= 0 ? 'var(--buy)' : 'var(--sell)';
+      });
+    }
   }
 
   // Top setups: rebuild only when the ranked set changes (avoids per-tick flicker).
