@@ -14,8 +14,13 @@ const NOTIF_ROWS = [
 ];
 
 function computeRisk(market, balance, riskPct) {
-  const { entry, stop } = market.signal.plan;
-  const riskPerContract = Math.abs(entry - stop) * market.pointValue;
+  // NO_TRADE / no-data markets have no plan — estimate risk from a ~2xATR stop
+  // (the strategy's own stop distance) so the position-size calculator still works.
+  const plan = market.signal && market.signal.plan;
+  const atr = market.atr || market.price * 0.01;
+  const entry = plan ? plan.entry : market.price;
+  const stop = plan ? plan.stop : market.price - 2 * atr;
+  const riskPerContract = (Math.abs(entry - stop) || atr) * market.pointValue;
   const dollarsAtRisk = balance * (riskPct / 100);
   const contracts = Math.floor(dollarsAtRisk / riskPerContract);
   return { contracts, riskPerContract, dollarsAtRisk };
