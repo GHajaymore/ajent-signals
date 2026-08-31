@@ -165,9 +165,14 @@ export default {
       return json({ updatedAt: (blob && blob.updatedAt) || Date.now(), signals: (blob && blob.signals) || [], notice: NOTICE });
     }
     if (url.pathname === '/trades') {
-      const open = await store.list('POS#OPEN');
-      const closed = (await store.list('TRADE')).sort((a, b) => b.closedAt - a.closedAt).slice(0, 200);
-      return json({ open, closed, summary: summarize(closed), notice: NOTICE });
+      try {
+        // Single batched blob (1 KV get) — no KV list(), which is capped at
+        // 1,000/day on the free tier and was throwing here under normal polling.
+        const rec = await store.get('RECORD', 'ALL');
+        const open = rec && rec.open ? Object.values(rec.open) : [];
+        const closed = (rec && rec.closed ? rec.closed : []).slice(0, 200);
+        return json({ open, closed, summary: summarize(closed), notice: NOTICE });
+      } catch (e) { return json({ error: 'trades: ' + String((e && e.message) || e).slice(0, 200) }, 500); }
     }
 
     // --- Signal-export webhooks (Pro "API into your own tooling") ---------------

@@ -6,11 +6,13 @@ import { deliverEvents } from './webhooks.js';
 
 const dayKey = (ms) => new Date(ms).toISOString().slice(0, 10);
 
-// Open/close the paper position for one market given its computed signal.
-// `cost` is the round-turn transaction cost (commission + slippage) deducted from
-// every closed trade so the record is NET — never gross.
-export async function processPosition({ symbol, meta, sig, live, open, store, now, risk, cost = 0 }) {
-  const pos = await store.get('POS#OPEN', symbol);
+// Open/close the paper position for one market given its computed signal, mutating
+// the in-memory `record` blob ({ open:{}, closed:[], lastClose:{} }). Synchronous:
+// the whole record is ONE KV get + ONE KV put per tick (see runTick), so we never
+// use KV list() — which is capped at 1,000/day on the free tier and was blowing up
+// /trades. `cost` is the round-turn transaction cost, deducted so P&L is NET.
+export function processPosition({ symbol, meta, sig, live, open, record, now, risk, cost = 0 }) {
+  const pos = record.open[symbol];
   if (pos) {
     const price = live ?? sig.price;
     const short = pos.side === 'SHORT';
@@ -24,18 +26,19 @@ export async function processPosition({ symbol, meta, sig, live, open, store, no
     const gross = resultR * (pos.riskDollars || risk);
     const pnl = Math.round(gross - cost); // NET of round-turn cost
     const outcome = pnl > 0 ? 'Win' : pnl < 0 ? 'Loss' : 'Break-even';
-    await store.put({ pk: 'TRADE', sk: `${String(now).padStart(16, '0')}#${symbol}`, symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', entry: pos.entry, exit: price, resultR: +resultR.toFixed(3), pnl, cost, riskDollars: pos.riskDollars || risk, outcome, exitReason: exit, openedAt: pos.openedAt, closedAt: now });
-    await store.del('POS#OPEN', symbol);
-    await store.put({ pk: 'LASTCLOSE', sk: symbol, signalDay: dayKey(now), at: now });
+    record.closed.unshift({ symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', entry: pos.entry, exit: price, resultR: +resultR.toFixed(3), pnl, cost, riskDollars: pos.riskDollars || risk, outcome, exitReason: exit, openedAt: pos.openedAt, closedAt: now });
+    if (record.closed.length > 300) record.closed.length = 300;
+    delete record.open[symbol];
+    record.lastClose[symbol] = { signalDay: dayKey(now), at: now };
     return `exit:${exit}`;
   }
   if ((sig.verdict === 'BUY' || sig.verdict === 'SELL') && sig.plan && open) {
-    const lastClose = await store.get('LASTCLOSE', symbol);
+    const lastClose = record.lastClose[symbol];
     if (lastClose && lastClose.signalDay === dayKey(now)) return 'skip:tradedToday';
     const short = sig.verdict === 'SELL';
     const entry = live ?? sig.plan.entry;
     const r = sig.plan.risk || Math.abs(sig.plan.entry - sig.plan.stop);
-    await store.put({ pk: 'POS#OPEN', sk: symbol, symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', entry, stop: short ? entry + r : entry - r, target1: short ? entry - r : entry + r, risk: r, riskDollars: risk, conviction: sig.conviction, maxHoldMin: sig.plan.maxHoldMin, exitRule: short ? 'firstDownClose' : 'firstUpClose', openedAt: now });
+    record.open[symbol] = { symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', entry, stop: short ? entry + r : entry - r, target1: short ? entry - r : entry + r, risk: r, riskDollars: risk, conviction: sig.conviction, maxHoldMin: sig.plan.maxHoldMin, exitRule: short ? 'firstDownClose' : 'firstUpClose', openedAt: now };
     return 'open';
   }
   return 'none';
@@ -51,6 +54,23 @@ export async function runTick(env, store) {
   const prevBlob = await store.get('SIGNALS', 'ALL');
   const bySym = {};
   if (prevBlob && Array.isArray(prevBlob.signals)) for (const s of prevBlob.signals) bySym[s.symbol] = s;
+  // The paper record is ONE blob (open positions + closed trades + per-market
+  // last-close guard), read once and written once — no KV list() anywhere.
+  const stored = await store.get('RECORD', 'ALL');
+  const record = {
+    open: (stored && stored.open) || {},
+    closed: (stored && stored.closed) || [],
+    lastClose: (stored && stored.lastClose) || {},
+    migrated: !!(stored && stored.migrated),
+  };
+  // One-time migration from the old per-key layout to this blob, attempted at most
+  // once (the `migrated` flag is then persisted) so we never pin the KV list quota.
+  if (!record.migrated) {
+    try {
+      for (const p of await store.list('POS#OPEN')) if (p && p.symbol) record.open[p.symbol] = p;
+    } catch (e) { /* list quota may be spent today; the record starts fresh */ }
+    record.migrated = true;
+  }
   for (const symbol of Object.keys(MARKETS)) {
     try {
       const meta = MARKETS[symbol];
@@ -68,7 +88,7 @@ export async function runTick(env, store) {
       // can position trade markers by time — not a flat SIM line.
       const history = candles.slice(-64).map((c) => ({ t: c.t, c: Math.round(c.c * 100) / 100 }));
       bySym[symbol] = { symbol, name: meta.name, updatedAt: now, ...sig, live, liveTime, prevClose, history };
-      const res = await processPosition({ symbol, meta, sig, live, open: isOpen(meta), store, now, risk, cost });
+      const res = processPosition({ symbol, meta, sig, live, open: isOpen(meta), record, now, risk, cost });
       if (res === 'open') {
         events.push({ type: 'position.open', event: 'open', symbol, name: meta.name, price: live ?? sig.price, strategy: strategyLabel, plan: sig.plan, signal: sig, at: now });
       } else if (typeof res === 'string' && res.startsWith('exit:')) {
@@ -79,6 +99,9 @@ export async function runTick(env, store) {
   // ONE write for all markets' signals (was one-per-market). Cuts KV writes ~8x
   // so the Worker fits Cloudflare's free tier alongside the account's other apps.
   await store.put({ pk: 'SIGNALS', sk: 'ALL', updatedAt: Date.now(), signals: Object.values(bySym) });
+  // One batched write for the whole paper record (was one put/del per position +
+  // TRADE + LASTCLOSE keys). /trades now reads this single blob via get — no list.
+  await store.put({ pk: 'RECORD', sk: 'ALL', updatedAt: Date.now(), open: record.open, closed: record.closed, lastClose: record.lastClose, migrated: record.migrated });
   // Fan out the fresh events to registered Pro webhooks (best-effort).
   try { await deliverEvents(store, events); } catch (e) { /* delivery never blocks trading */ }
   return { events: events.length };
