@@ -145,7 +145,7 @@ export function render(container) {
 
     ${signalExportHtml()}
 
-    <div class="footer-note">Ajent Signals is an educational tool and does not execute trades.<br>Markets tagged REAL compute indicators from a free public price feed (unofficial, best-effort); SIM markets are simulated placeholders when real data is unavailable · v1.0.0</div>
+    <div class="footer-note">Ajent Signals is an educational tool and does not execute trades.<br>Markets tagged REAL compute indicators from a free public price feed (unofficial, best-effort, delayed). Markets without a live feed show no signal and are hidden — never a fabricated one · v1.0.0</div>
   </div>`;
 
   container.querySelectorAll('#mode-toggle .seg-opt').forEach((btn) => {

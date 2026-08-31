@@ -17,6 +17,6 @@ export function render(container) {
         : 'Your payment went through. If Pro isn’t active in a moment, reopen the app — your subscription will sync.'}
     </p>
     <a href="#/home" class="btn btn-primary" style="height:46px;padding:0 24px;font-size:14px;text-decoration:none;display:flex;align-items:center;justify-content:center">Go to the app</a>
-    <div class="footer-note" style="margin-top:20px;max-width:340px">Educational tool — signals are simulated and Ajent places no orders. Manage or cancel your subscription anytime through your payment provider.</div>
+    <div class="footer-note" style="margin-top:20px;max-width:340px">Educational tool — trading is on virtual money and Ajent places no orders. Manage or cancel your subscription anytime through your payment provider.</div>
   </div>`;
 }

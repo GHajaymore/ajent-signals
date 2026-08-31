@@ -96,8 +96,6 @@ const REASONS = {
   'Stoch RSI': { bull: 'Stochastic RSI is turning up out of oversold territory.', bear: 'Stochastic RSI is turning down out of overbought territory.' },
 };
 
-const MTF_REASON = 'Simulated placeholder signal — real-data analysis for this market is temporarily unavailable.';
-
 function mulberry32(seed) {
   let a = seed >>> 0;
   return function () {

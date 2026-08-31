@@ -90,7 +90,7 @@ export function dataTag(market) {
     : '';
   return (market.signalIsReal
     ? '<span class="data-tag live" title="Indicators computed from real price history">REAL</span>'
-    : '<span class="data-tag sim" title="Simulated — real analysis unavailable right now">SIM</span>') + closed;
+    : '<span class="data-tag sim" title="No live data for this market right now — it is hidden until a real feed returns">NO DATA</span>') + closed;
 }
 
 // Live-status pill. Session (open/closed) is CLOCK-based, so it's correct the
@@ -114,7 +114,7 @@ export function liveTag(market) {
   // Untracked exchange (unknown session) — fall back to raw feed freshness.
   if (delayed) return `${dot(false)}Delayed ~${mins}m`;
   if (live) return `${dot(true)}Live`;
-  return `${dot(false)}Simulated`;
+  return `${dot(false)}No live data`;
 }
 
 export function heroCard(market, verdict) {

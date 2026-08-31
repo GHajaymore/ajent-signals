@@ -29,7 +29,7 @@ import { isMarketAllowed } from '../adaptiveWeights.js';
 // visible avoids the "it says BUY but there's no trade" confusion.
 function autoTradeStatus(market, verdict) {
   if (verdict === 'NO_TRADE') return null;
-  if (!market.signalIsReal) return { ok: false, text: 'On simulated data right now — the live feed is unavailable, so this read is illustrative and is not paper-traded. It resumes trading once real data returns.' };
+  if (!market.signalIsReal) return { ok: false, text: 'No live data for this market right now — the feed is unavailable, so there is nothing to paper-trade. Trading resumes automatically once real data returns.' };
   const enabled = getEnabledPaperMarkets(state.engine.markets.map((m) => m.symbol));
   if (!enabled.has(market.symbol)) return { ok: false, text: 'Not in your auto-trade list — add it in Paper Trading → Auto-traded markets.' };
   if (!isMarketAllowed(market.symbol)) return { ok: false, text: 'Auto-trading is paused for this market after a recent run of losses. It resumes on its own.' };
@@ -293,7 +293,7 @@ export function renderChartPage(container) {
       }).join('')}
       ${!open.length && !trades.length ? '<div class="text-muted" style="font-size:12.5px;padding:14px 4px">No trades on this market yet — entry and exit markers appear here and on the chart once the strategy fires a setup.</div>' : ''}
     </div>
-    <p class="text-faint" style="text-align:center;font-size:11px;margin-top:14px;padding:0 8px">Simulated paper trades on delayed data — real fills, not live-executed. Educational only.</p>
+    <p class="text-faint" style="text-align:center;font-size:11px;margin-top:14px;padding:0 8px">Paper trades on virtual money, filled on delayed real data — not live-executed. Educational only.</p>
   </div>`;
   container.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', () => history.back()));
   container.querySelectorAll('.chart-range-btn').forEach((btn) => btn.addEventListener('click', () => {

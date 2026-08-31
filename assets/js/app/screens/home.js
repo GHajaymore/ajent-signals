@@ -168,7 +168,7 @@ function marketStatus(m) {
   // Untracked exchange — fall back to feed freshness.
   if (delayed) return { label: `Delayed ~${Math.max(1, Math.round(age / 60))}m`, color: '#f5b35a', pulse: false };
   if (m.isLiveFresh) return { label: 'Live', color: 'var(--buy)', pulse: true };
-  return { label: 'Simulated', color: 'var(--text-muted)', pulse: false };
+  return { label: 'No live data', color: 'var(--text-muted)', pulse: false };
 }
 function statusPillInner(st) {
   return `<span class="dot ${st.pulse ? 'dot-pulse' : ''}" style="background:${st.color}"></span>${st.label}`;
