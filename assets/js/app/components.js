@@ -1,6 +1,7 @@
 import { fmtPrice, fmtPct, verdictColorVar, verdictChipClass, stateColorVar, countryFlag } from './format.js';
 import { isInWatchlist } from './state.js';
 import { marketSession } from './marketHours.js';
+import { getOpenPositions } from './paperTrading.js';
 
 // Star toggle for a market row — filled when the market is in the watchlist.
 // The click is handled by a delegated listener (see markets.js) which stops it
@@ -123,8 +124,16 @@ export function heroCard(market, verdict) {
   const subline = verdict === 'NO_TRADE'
     ? 'Waiting for a high-probability setup'
     : (verdict === 'BUY' ? 'Long setup confirmed' : 'Short setup confirmed');
+  // If the paper account already holds this market, say so — otherwise the hero's
+  // fresh signal entry looks like it conflicts with the (earlier) position entry.
+  const pos = getOpenPositions().find((p) => p.symbol === market.symbol);
+  const posLong = pos && (pos.side || 'LONG') === 'LONG';
+  const posLine = pos ? `
+      <div class="hero-inposition" style="display:flex;align-items:center;gap:7px;margin-top:10px;font-size:12px;font-weight:600;color:${posLong ? 'var(--buy)' : 'var(--sell)'};background:${posLong ? 'var(--buy-dim)' : 'var(--sell-dim)'};padding:7px 11px;border-radius:8px">
+        <i class="ph-fill ph-check-circle"></i><span>You're already in this trade — ${posLong ? 'long' : 'short'} from ${fmtPrice(pos.entry, market.decimals)}. The levels above are the current signal.</span>
+      </div>` : '';
   return `
-  <div class="hero-card" data-nav="#/signal/${market.symbol}" data-sym="${market.symbol}" data-verdict="${verdict}" data-createdat="${s.createdAt || 0}" style="--vc:${color}">
+  <div class="hero-card" data-nav="#/signal/${market.symbol}" data-sym="${market.symbol}" data-verdict="${verdict}" data-createdat="${s.createdAt || 0}" data-pos="${pos ? (posLong ? 'L' : 'S') : ''}" style="--vc:${color}">
     <div class="hero-inner">
       <div class="hero-eyebrow"><i class="ph-fill ph-chart-bar"></i>Top signal</div>
       <div class="hero-top">
@@ -156,6 +165,7 @@ export function heroCard(market, verdict) {
         <div class="hero-quad-cell"><div class="k">Target</div><div class="v tabular" style="color:var(--buy)">${fmtPrice(s.plan.target1, market.decimals)}</div></div>
         <div class="hero-quad-cell"><div class="k">R : R</div><div class="v tabular" style="color:var(--accent-200)">${s.plan.riskReward.toFixed(1)} : 1</div></div>
       </div>`}
+      ${posLine}
     </div>
   </div>`;
 }
@@ -210,7 +220,9 @@ function flashPrice(px, oldText, newText) {
 // the caller knows to rebuild the whole card; true when patched cleanly.
 export function patchHero(el, market, verdict) {
   const s = market.signal;
-  if (el.dataset.verdict !== verdict || String(s.createdAt || 0) !== el.dataset.createdat || el.dataset.sym !== market.symbol) {
+  const pos = getOpenPositions().find((p) => p.symbol === market.symbol);
+  const posTag = pos ? ((pos.side || 'LONG') === 'LONG' ? 'L' : 'S') : '';
+  if (el.dataset.verdict !== verdict || String(s.createdAt || 0) !== el.dataset.createdat || el.dataset.sym !== market.symbol || (el.dataset.pos || '') !== posTag) {
     return false;
   }
   const priceStr = fmtPrice(market.price, market.decimals);
