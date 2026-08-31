@@ -274,6 +274,10 @@ function areaChart(market, candles, color, showLevels, chartH) {
     { v: s.plan.entry, stroke: 'var(--accent)', label: 'E' },
     { v: s.plan.stop, stroke: 'var(--sell)', label: 'S' },
   ] : [];
+  // If the paper account holds this market but there's no active setup line,
+  // draw the position entry so the user still sees where they're in.
+  const openPos = getOpenPositions().find((p) => p.symbol === market.symbol);
+  if (!showLevels && openPos && openPos.entry != null) levels.push({ v: openPos.entry, stroke: 'var(--accent-200)', label: 'Pos' });
   const times = candles.map((c) => (c.t < 1e12 ? c.t * 1000 : c.t));
   const markers = tradeMarkers(market.symbol, times);
   // Candlesticks when the user prefers them AND we have real OHLC bars (the Worker
@@ -294,8 +298,9 @@ function chartCanvasHtml(symbol, rangeKey, chartH) {
     return `${chartSvg(market, color, chartH)}<div class="text-muted" style="font-size:11px;margin-top:6px;text-align:center">Historical chart isn't available for this market.</div>`;
   }
   const cached = candleCache.get(`${symbol}|${rangeKey}`);
-  // Only draw entry/stop/target on the chart when there's an actual setup.
-  const showLevels = rangeKey === '1D' && market.verdict(state.settings.threshold) !== 'NO_TRADE';
+  // Draw entry/stop/target on every range when there's an active setup (the plan
+  // levels are the same regardless of the zoom).
+  const showLevels = market.verdict(state.settings.threshold) !== 'NO_TRADE';
   if (cached && cached.candles && cached.candles.length > 1) {
     const closes = cached.candles.map((c) => c.c);
     const first = closes[0], last = closes[closes.length - 1];
@@ -425,6 +430,8 @@ function chartSvg(market, color, chartH) {
     { v: s.plan.entry, stroke: 'var(--accent)', label: 'E' },
     { v: s.plan.stop, stroke: 'var(--sell)', label: 'S' },
   ] : [];
+  const openPos = getOpenPositions().find((p) => p.symbol === market.symbol);
+  if (!showLevels && openPos && openPos.entry != null) levels.push({ v: openPos.entry, stroke: 'var(--accent-200)', label: 'Pos' });
   const n = 48;
   const series = market.history.slice(-n);
   const times = (market.historyTimes || []).slice(-n);
@@ -609,7 +616,6 @@ function renderChartTab(market, color, verdict) {
       <span class="overlay-tag"><span class="dot" style="background:var(--accent)"></span>Entry</span>
       <span class="overlay-tag"><span class="dot" style="background:var(--buy)"></span>Target</span>
       <span class="overlay-tag"><span class="dot" style="background:var(--sell)"></span>Stop</span>
-      <span class="overlay-tag text-muted">Levels shown on 1D</span>
     </div>` : ''}
   </div>
 
