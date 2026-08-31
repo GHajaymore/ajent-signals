@@ -230,7 +230,13 @@ function chartCanvasHtml(symbol, rangeKey, chartH) {
       </div>`;
   }
   if (cached && cached.failed) {
-    return `${chartSvg(market, color, chartH)}<div class="text-muted" style="font-size:11px;margin-top:6px;text-align:center">Live ${RANGES[rangeKey].label} history is unavailable right now — showing daily closes.</div>`;
+    // For the 1M (daily) range the server's daily closes ARE the correct view —
+    // no caveat needed. For intraday ranges, daily closes are a coarser fallback,
+    // so say so honestly.
+    const caption = RANGES[rangeKey].interval === '1d'
+      ? `${market.history.length} daily closes`
+      : `Intraday ${RANGES[rangeKey].label} history is unavailable right now — showing daily closes.`;
+    return `${chartSvg(market, color, chartH)}<div class="text-muted" style="font-size:11px;margin-top:6px;text-align:center">${caption}</div>`;
   }
   // Not loaded yet: instead of a blank spinner, draw instantly from the daily
   // closes the server already sent us (real data, no extra fetch), then swap to
