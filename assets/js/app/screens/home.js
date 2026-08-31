@@ -24,11 +24,13 @@ function portfolioCard(perf) {
   const up = perf.totalPnl >= 0;
   const col = up ? 'var(--buy)' : 'var(--sell)';
   const spark = perf.equity && perf.equity.length > 1 ? sparklineSvg(perf.equity, col, 128, 46) : '';
+  const bal = Number(state.settings.accountBalance) || 25000;
+  const retPct = (perf.totalPnl / bal) * 100;
   return `<div class="pf-card ${up ? 'up' : 'down'}" data-nav="#/track">
     <div class="pf-main">
-      <div class="pf-label">Paper portfolio P&amp;L</div>
-      <div class="pf-value" id="hp-pnl" style="color:${col}">${money(perf.totalPnl)}</div>
-      <div class="pf-meta" id="hp-meta"><span style="color:var(--buy)">${perf.winRate}% win</span> · PF ${pfLabel(perf)} · ${perf.wins}W/${perf.losses}L</div>
+      <div class="pf-label">Paper return · net of costs</div>
+      <div class="pf-value" id="hp-pnl" style="color:${col}">${retPct >= 0 ? '+' : ''}${retPct.toFixed(1)}<span class="pf-cur">%</span></div>
+      <div class="pf-meta" id="hp-meta"><span style="color:${col}">${money(perf.totalPnl)}</span> on ${money(bal)} · ${perf.winRate}% win · PF ${pfLabel(perf)}</div>
     </div>
     <div class="pf-chart">${spark}<div class="pf-go-sm"><i class="ph-bold ph-caret-right"></i></div></div>
   </div>`;
@@ -221,7 +223,9 @@ export function refresh(container) {
   if (pfWrap) {
     const perf = getPerformanceSummary();
     const shown = container.querySelector('#hp-pnl')?.textContent ?? null;
-    const next = perf ? money(perf.totalPnl) : null;
+    const bal = Number(state.settings.accountBalance) || 25000;
+    const rp = perf ? (perf.totalPnl / bal * 100) : 0;
+    const next = perf ? `${rp >= 0 ? '+' : ''}${rp.toFixed(1)}%` : null;
     if (shown !== next) pfWrap.innerHTML = portfolioCard(perf);
   }
 
