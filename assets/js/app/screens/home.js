@@ -110,8 +110,9 @@ function topSetupsHtml(engine, threshold) {
     .sort((a, b) => (isHiConv(b.m) - isHiConv(a.m)) || (b.m.signal.confidence - a.m.signal.confidence))
     .slice(0, 4);
   if (!setups.length) {
+    const held = new Set(getOpenPositions().map((p) => p.symbol));
     const watching = engine.markets
-      .filter((m) => m.signalIsReal && m.signal && (m.signal.proximity || 0) > 0 && m.verdict(threshold) === 'NO_TRADE')
+      .filter((m) => m.signalIsReal && m.signal && (m.signal.proximity || 0) > 0 && m.verdict(threshold) === 'NO_TRADE' && !held.has(m.symbol))
       .sort((a, b) => (b.signal.proximity || 0) - (a.signal.proximity || 0))
       .slice(0, 4);
     if (watching.length) {

@@ -294,8 +294,9 @@ function openList() {
 // live-patch signature so the empty state can update once data arrives).
 function watchMarkets() {
   const threshold = state.settings.threshold;
+  const held = new Set(getOpenPositions().map((p) => p.symbol));
   return state.engine.markets
-    .filter((m) => m.signalIsReal && m.signal && (m.signal.proximity || 0) > 0 && m.verdict(threshold) === 'NO_TRADE')
+    .filter((m) => m.signalIsReal && m.signal && (m.signal.proximity || 0) > 0 && m.verdict(threshold) === 'NO_TRADE' && !held.has(m.symbol))
     .sort((a, b) => (b.signal.proximity || 0) - (a.signal.proximity || 0))
     .slice(0, 5);
 }
