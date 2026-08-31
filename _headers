@@ -7,8 +7,18 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(), microphone=(), camera=()
 
-# Long-cache only immutable media. JS/HTML are deliberately NOT pinned: there's no
-# build-time content hashing and the service worker is network-first, so caching
-# modules hard would serve stale app code after a deploy.
+# Long-cache only immutable media.
 /assets/img/*
   Cache-Control: public, max-age=604800
+
+# App code must always revalidate. There's no build-time content hashing, and the
+# service worker only takes control AFTER the first import graph loads — so without
+# this, the browser's heuristic HTTP cache serves stale modules right after a deploy
+# (observed: chart loading old code). `no-cache` = use the cached copy only after
+# revalidating via ETag (a cheap 304 when unchanged, fresh bytes when changed).
+/assets/js/*
+  Cache-Control: no-cache
+/app/*
+  Cache-Control: no-cache
+/sw.js
+  Cache-Control: no-cache
