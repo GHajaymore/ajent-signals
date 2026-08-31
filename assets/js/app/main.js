@@ -9,6 +9,7 @@ import * as alertsScreen from './screens/alerts.js';
 import * as settingsScreen from './screens/settings.js';
 import * as paywall from './screens/paywall.js';
 import * as methodology from './screens/methodology.js';
+import * as faq from './screens/faq.js';
 import * as onboarding from './screens/onboarding.js';
 import { startLiveDataLoop, startFocusDataLoop } from './liveData.js';
 import { applyGeoDefaults } from './geo.js';
@@ -28,7 +29,7 @@ const TABS = [
 ];
 
 const LIVE_SCREENS = new Set(['home', 'markets', 'signal', 'track']);
-const NO_TABBAR = new Set(['gate', 'paywall', 'methodology', 'welcome', 'pro-success', 'chart']);
+const NO_TABBAR = new Set(['gate', 'paywall', 'methodology', 'welcome', 'pro-success', 'chart', 'faq']);
 
 const contentEl = document.getElementById('app-content');
 const tabbarEl = document.getElementById('tabbar');
@@ -118,6 +119,9 @@ function renderRoute() {
       break;
     case 'methodology':
       methodology.render(contentEl);
+      break;
+    case 'faq':
+      faq.render(contentEl);
       break;
     case 'welcome':
       onboarding.render(contentEl);

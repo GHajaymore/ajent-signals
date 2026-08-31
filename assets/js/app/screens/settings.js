@@ -111,6 +111,15 @@ export function render(container) {
       <i class="ph-bold ph-caret-right" style="color:var(--text-muted)"></i>
     </div>
 
+    <div class="pro-card" data-nav="#/faq" style="cursor:pointer">
+      <div class="pro-icon" style="background:var(--accent-900);color:var(--accent-200)"><i class="ph-fill ph-question"></i></div>
+      <div class="pro-body">
+        <div class="pro-title">Straight answers</div>
+        <div class="pro-sub">Does it beat VOO/QQQ? Is it real-time? The honest FAQ</div>
+      </div>
+      <i class="ph-bold ph-caret-right" style="color:var(--text-muted)"></i>
+    </div>
+
     <div class="panel setting-block">
       <div class="panel-title">Paper trading</div>
       <div class="setting-help" style="margin-top:0">Ajent tests its signals with virtual money on the Paper tab. Clearing history starts your track record fresh.</div>
