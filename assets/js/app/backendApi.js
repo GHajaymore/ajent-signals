@@ -51,6 +51,13 @@ export function fetchServerTrades() { return getJson('/trades'); }
 export function fetchServerSignals() { return getJson('/signals'); }
 // Real-time crypto quotes fetched server-side (no browser CORS). { quotes:{BTC:{price,prevClose,at}}, at } or null.
 export function fetchLiveQuotes() { return getJson('/live'); }
+// Real OHLC candles for a market's chart, fetched server-side (no browser CORS).
+// `appSymbol` is the app's symbol (ES/RTY/BTC…) — the Worker maps it to the same
+// instrument the strategy trades. Returns an array of {t,o,h,l,c} or null.
+export async function fetchServerCandles(appSymbol, interval, range) {
+  const data = await getJson(`/candles?symbol=${encodeURIComponent(appSymbol)}&interval=${interval}&range=${range}`);
+  return data && Array.isArray(data.candles) ? data.candles : null;
+}
 
 // --- Signal-export webhooks (Pro) -------------------------------------------
 // Manage the user's "signal → my own bot/TradingView" webhooks on the backend.

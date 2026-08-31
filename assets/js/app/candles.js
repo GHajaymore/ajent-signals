@@ -4,12 +4,24 @@
 // the quote-feed noise. Same public feed + CORS-proxy chain as liveData.js —
 // unofficial and best-effort, not a licensed data source.
 
+import { fetchServerCandles } from './backendApi.js';
+
 const PROXIES = [
   (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
   (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
 ];
 
-export async function fetchCandles(yahooSymbol, { interval = '15m', range = '1mo', minCandles = 30 } = {}) {
+export async function fetchCandles(yahooSymbol, { interval = '15m', range = '1mo', minCandles = 30, appSymbol = null } = {}) {
+  // Prefer the Worker: it fetches Yahoo server-side (no browser CORS, edge-cached)
+  // using the SAME instrument the strategy trades, so the chart is reliable and on
+  // the right scale. Falls back to the (usually dead) public proxies only if the
+  // backend isn't available.
+  if (appSymbol) {
+    try {
+      const srv = await fetchServerCandles(appSymbol, interval, range);
+      if (srv && srv.length >= minCandles) return srv;
+    } catch (e) { /* fall through to proxies */ }
+  }
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=${interval}&range=${range}`;
   let lastErr;
   for (const wrap of PROXIES) {

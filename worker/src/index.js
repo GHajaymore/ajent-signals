@@ -2,6 +2,7 @@
 // the HTTP handler serves the Pro-gated /signals and /trades endpoints.
 import { db } from './db.js';
 import { runTick } from './scheduler.js';
+import { MARKETS } from './markets.js';
 import { requirePro } from './auth.js';
 import { registerWebhook, listWebhooks, deleteWebhook, deliverEvents, sampleEvent, EDU_DISCLAIMER } from './webhooks.js';
 import { createCheckoutSession, verifyStripeSignature, handleStripeEvent, tokenForSession, refreshToken, validateApple, validateGoogle } from './billing.js';
@@ -72,6 +73,30 @@ export default {
         } catch (e) { /* skip this symbol */ }
       }));
       return json({ quotes, at: Date.now() });
+    }
+
+    // Real OHLC candles for the charts, fetched server-side (no browser CORS,
+    // edge-cached). Keyed by the APP symbol so the chart uses the SAME instrument
+    // the strategy trades (e.g. RTY -> RTY=F), keeping the chart on the same scale
+    // as the daily history and trade markers. Ungated — it's just price history.
+    if (url.pathname === '/candles') {
+      const sym = url.searchParams.get('symbol') || '';
+      const interval = url.searchParams.get('interval') || '15m';
+      const range = url.searchParams.get('range') || '1mo';
+      const meta = MARKETS[sym];
+      if (!meta) return json({ error: 'unknown symbol' }, 400);
+      if (!/^(1m|2m|5m|15m|30m|60m|90m|1h|1d)$/.test(interval) || !/^(1d|5d|1mo|3mo|6mo|1y|2y)$/.test(range)) return json({ error: 'bad params' }, 400);
+      try {
+        const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(meta.yahoo)}?interval=${interval}&range=${range}`, { headers: { 'User-Agent': 'ajent-signals-worker/1.0' }, cf: { cacheTtl: 60, cacheEverything: true } });
+        const result = (await r.json())?.chart?.result?.[0];
+        if (!result || !result.timestamp) return json({ candles: [] });
+        const ts = result.timestamp, q = result.indicators.quote[0], out = [];
+        for (let i = 0; i < ts.length; i++) {
+          if (q.close[i] == null) continue;
+          out.push({ t: ts[i], o: q.open[i] ?? q.close[i], h: q.high[i] ?? q.close[i], l: q.low[i] ?? q.close[i], c: q.close[i] });
+        }
+        return json({ candles: out });
+      } catch (e) { return json({ candles: [] }); }
     }
 
     // --- Billing (UNGATED — this is how a user BECOMES Pro) ---------------------

@@ -55,7 +55,7 @@ function loadCandles(symbol, ySym, rangeKey) {
   if (inflight.has(key)) return;
   inflight.add(key);
   const { interval, range } = RANGES[rangeKey];
-  fetchCandles(ySym, { interval, range, minCandles: 8 })
+  fetchCandles(ySym, { interval, range, minCandles: 8, appSymbol: symbol })
     .then((candles) => candleCache.set(key, { candles, ts: Date.now() }))
     .catch(() => candleCache.set(key, { candles: null, ts: Date.now(), failed: true }))
     .finally(() => {
@@ -116,7 +116,9 @@ function priceChartSvg(series, color, { levels = [], decimals = 2, markers = [],
   const yFor = (v) => h - ((v - lo) / (hi - lo)) * h;
   const step = w / (series.length - 1);
   const pts = series.map((p, i) => [i * step, yFor(p)]);
-  const lineD = smoothPath(pts);
+  // Straight segments between real data points — how actual trading charts draw a
+  // price line. (The old smooth spline made real data look like a designed curve.)
+  const lineD = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
   const areaD = `${lineD} L${w.toFixed(1)},${h} L0,${h} Z`;
   const uid = 'c' + Math.random().toString(36).slice(2, 7);
   const last = pts[pts.length - 1];
