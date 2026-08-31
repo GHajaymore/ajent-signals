@@ -290,14 +290,21 @@ function openList() {
     </div>`;
 }
 
-// What's nearest to triggering a trade, by the server's proximity score — so an
-// empty record still tells you what to watch. Not signals, just "closest".
-function watchingList() {
+// Markets nearest a setup, ranked by proximity (used by both the render and the
+// live-patch signature so the empty state can update once data arrives).
+function watchMarkets() {
   const threshold = state.settings.threshold;
-  const markets = state.engine.markets
+  return state.engine.markets
     .filter((m) => m.signalIsReal && m.signal && (m.signal.proximity || 0) > 0 && m.verdict(threshold) === 'NO_TRADE')
     .sort((a, b) => (b.signal.proximity || 0) - (a.signal.proximity || 0))
     .slice(0, 5);
+}
+function watchSig() { return watchMarkets().map((m) => `${m.symbol}:${m.signal.proximity}:${m.signal.rsi2}`).join(','); }
+
+// What's nearest to triggering a trade, by the server's proximity score — so an
+// empty record still tells you what to watch. Not signals, just "closest".
+function watchingList() {
+  const markets = watchMarkets();
   if (!markets.length) return '';
   return `
     <div class="section-label">Closest to a setup</div>
@@ -334,7 +341,7 @@ function emptyState() {
         ${open.length ? `${open.length} ${open.length === 1 ? 'trade is' : 'trades are'} open right now — results will appear here once they close.` : 'The strategy is in cash right now — that’s normal ~90% of the time.'}
       </p>
     </div>
-    ${watchingList()}
+    <div id="watch-wrap" data-sig="${watchSig()}">${watchingList()}</div>
     ${openList()}
     ${marketSelector()}
     ${pnlHelp()}
@@ -435,6 +442,17 @@ export function render(container) {
 // selector while it's open. Never rebuilds the panel, so the open/closed groups
 // and any in-progress editing stay put.
 export function refresh(container) {
+  // Empty state: if a trade has now closed, switch to the full record; otherwise
+  // live-patch the "closest to a setup" list when proximity data changes (it
+  // usually isn't loaded yet at first render). Patch only #watch-wrap so the
+  // market selector's open/editing state is never disturbed.
+  const watchWrap = container.querySelector('#watch-wrap');
+  if (watchWrap) {
+    if (getPerformanceSummary()) { render(container); return; }
+    const sig = watchSig();
+    if (watchWrap.dataset.sig !== sig) { watchWrap.innerHTML = watchingList(); watchWrap.dataset.sig = sig; }
+  }
+
   const list = container.querySelector('#pm-list');
   if (!list || list.style.display === 'none') return;
   const threshold = state.settings.threshold;
