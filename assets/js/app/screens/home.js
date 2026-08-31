@@ -216,7 +216,13 @@ function computeDerived() {
     : 0;
   const bullish = markets.filter((m) => m.signal.direction > 0).length;
   const riskOn = bullish >= markets.length / 2;
-  let featured = engine.get(state.homeSymbol) || engine.get('ES');
+  // Feature the strongest LIVE setup if one has fired — the hero should showcase
+  // the actionable signal, not a default NO_TRADE market. High-conviction sorts
+  // first, then confidence. Otherwise fall back to the region's default market.
+  const topSetup = openSignals
+    .filter((x) => x.m.signalIsReal)
+    .sort((a, b) => (isHiConv(b.m) - isHiConv(a.m)) || (b.m.signal.confidence - a.m.signal.confidence))[0];
+  let featured = (topSetup && topSetup.m) || engine.get(state.homeSymbol) || engine.get('ES');
   if (backendConfigured() && !isRealMarket(featured)) featured = engine.get('ES') || engine.markets.find(isRealMarket) || featured;
   const featuredVerdict = featured.verdict(threshold);
   const nextEvent = upcomingEvents(engine.calendar)[0] || engine.calendar[0];
