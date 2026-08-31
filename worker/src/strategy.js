@@ -41,6 +41,16 @@ export function computeSignal(candles, live) {
   const confidence = setup > 0 ? Math.round(52 + setup * 47) : 42;
   const fires = setup > 0 && confidence >= 75;
   const verdict = fires ? (side > 0 ? 'BUY' : 'SELL') : 'NO_TRADE';
+  // How close this market is to a setup (0-100), for the "watching" view when
+  // there's no trade. Long side: RSI2 falling toward <10 in an uptrend (maps
+  // RSI2 30→0 … 5→100). Short side: RSI2 rising toward >90 in a downtrend
+  // (70→0 … 95→100). 0 when the trend doesn't even allow a setup, 100 once one
+  // fires — so the app can rank what's brewing instead of showing a flat number.
+  const clamp01 = (x) => Math.max(0, Math.min(1, x));
+  const proximity = fires ? 100
+    : up ? Math.round(clamp01((30 - rsi2) / 25) * 100)
+    : down ? Math.round(clamp01((rsi2 - 70) / 25) * 100)
+    : 0;
   const risk = Math.max(atrN * 2.0, price * 0.004);
   const plan = fires ? {
     entry: price,
@@ -52,7 +62,7 @@ export function computeSignal(candles, live) {
   } : null;
 
   return {
-    verdict, direction: fires ? side : 0, confidence,
+    verdict, direction: fires ? side : 0, confidence, proximity,
     rsi2: Math.round(rsi2), pctB: +pctB.toFixed(2), htfTrend: up ? 'up' : (down ? 'down' : 'flat'),
     conviction, timeframe: '1D', price, provisional: verdict === 'SELL',
     plan,

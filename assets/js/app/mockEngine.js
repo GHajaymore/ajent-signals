@@ -307,6 +307,7 @@ class MarketModel {
       indicators: [],
       confluence: { bull: 0, bear: 0, neutral: 0 },
       rsi2: sig.rsi2, pctB: sig.pctB, htfTrend: sig.htfTrend, conviction: sig.conviction,
+      proximity: typeof sig.proximity === 'number' ? sig.proximity : 0,
       createdAt: sig.updatedAt || Date.now(),
       source: 'server',
     };

@@ -79,6 +79,27 @@ function setupRow(m, v) {
   </div>`;
 }
 
+// When nothing has fired, show the markets closest to a setup so the screen is
+// informative in cash — ranked by the server's proximity score (how near RSI2 is
+// to its trigger, given the trend). Honest: these are NOT signals, just "watching".
+function watchingRow(m) {
+  const s = m.signal;
+  const prox = Math.max(0, Math.min(100, s.proximity || 0));
+  const long = s.htfTrend === 'up';
+  const trig = long ? `RSI2 ${s.rsi2} · long fires under 10` : s.htfTrend === 'down' ? `RSI2 ${s.rsi2} · short fires over 90` : `RSI2 ${s.rsi2} · no trend`;
+  return `<div class="setup-row" data-nav="#/signal/${m.symbol}" data-sym="${m.symbol}">
+    ${symTile(m.symbol, 34)}
+    <div class="setup-body">
+      <div class="setup-name">${m.name} <span style="vertical-align:middle">${dataTag(m)}</span></div>
+      <div class="setup-type" style="color:var(--text-muted)"><i class="ph-fill ph-eye"></i>${trig}</div>
+    </div>
+    <div class="setup-conf">
+      <span class="setup-conf-val text-muted">${prox}%</span>
+      <div class="setup-conf-bar"><span style="width:${prox}%;background:var(--flat)"></span></div>
+    </div>
+  </div>`;
+}
+
 function topSetupsHtml(engine, threshold) {
   // Only REAL signals qualify — simulated placeholders never surface as setups.
   // High-conviction setups (deepest RSI2 + Bollinger extreme) sort to the top, so
@@ -89,8 +110,18 @@ function topSetupsHtml(engine, threshold) {
     .sort((a, b) => (isHiConv(b.m) - isHiConv(a.m)) || (b.m.signal.confidence - a.m.signal.confidence))
     .slice(0, 4);
   if (!setups.length) {
+    const watching = engine.markets
+      .filter((m) => m.signalIsReal && m.signal && (m.signal.proximity || 0) > 0 && m.verdict(threshold) === 'NO_TRADE')
+      .sort((a, b) => (b.signal.proximity || 0) - (a.signal.proximity || 0))
+      .slice(0, 4);
+    if (watching.length) {
+      return `<div class="card" style="padding:12px 12px 2px">
+        <div class="text-muted" style="font-size:11.5px;line-height:1.55;padding:0 2px 6px">No setup has fired — the strategy is in cash (that's normal ~90% of the time). Here's what's <b style="color:var(--text)">closest to firing</b>:</div>
+        ${watching.map(watchingRow).join('')}
+      </div>`;
+    }
     return `<div class="card" style="padding:22px 16px;text-align:center">
-      <div class="text-muted" style="font-size:12.5px;line-height:1.6">No live setups right now — Ajent Pulse is waiting for a genuine oversold dip or overbought pop on a market with a live feed. Most of the time the honest answer is &ldquo;no trade&rdquo;; a setup appears here the moment one fires.</div>
+      <div class="text-muted" style="font-size:12.5px;line-height:1.6">No live setups right now — Ajent is waiting for a genuine oversold dip or overbought pop on a market with a live feed. Most of the time the honest answer is &ldquo;no trade&rdquo;; a setup appears here the moment one fires.</div>
     </div>`;
   }
   return `<div class="card" style="padding:2px 12px">${setups.map((x) => setupRow(x.m, x.v)).join('')}</div>`;
@@ -330,17 +361,29 @@ export function refresh(container) {
     }
   }
 
-  // Top setups: rebuild only when the ranked set changes (avoids per-tick flicker).
+  // Top setups / watching: rebuild only when the content signature changes, so it
+  // doesn't flicker every tick. Signature covers the fired setups AND (when in
+  // cash) the "closest to firing" list and its proximity values.
   const setupsWrap = container.querySelector('#setups-wrap');
   if (setupsWrap) {
-    const cur = [...setupsWrap.querySelectorAll('.setup-row[data-sym]')].map((el) => el.dataset.sym).join(',');
-    const next = engine.markets
+    const fired = engine.markets
       .map((m) => ({ m, v: m.verdict(threshold) }))
-      .filter((x) => x.v !== 'NO_TRADE')
-      .sort((a, b) => b.m.signal.confidence - a.m.signal.confidence)
+      .filter((x) => x.v !== 'NO_TRADE' && x.m.signalIsReal)
+      .sort((a, b) => (isHiConv(b.m) - isHiConv(a.m)) || (b.m.signal.confidence - a.m.signal.confidence))
       .slice(0, 4)
-      .map((x) => x.m.symbol).join(',');
-    if (cur !== next) setupsWrap.innerHTML = topSetupsHtml(engine, threshold);
+      .map((x) => `${x.m.symbol}:${x.v}`).join(',');
+    let sig = fired;
+    if (!fired) {
+      sig = 'W|' + engine.markets
+        .filter((m) => m.signalIsReal && m.signal && (m.signal.proximity || 0) > 0)
+        .sort((a, b) => (b.signal.proximity || 0) - (a.signal.proximity || 0))
+        .slice(0, 4)
+        .map((m) => `${m.symbol}:${m.signal.proximity}:${m.signal.rsi2}`).join(',');
+    }
+    if (setupsWrap.dataset.sig !== sig) {
+      setupsWrap.innerHTML = topSetupsHtml(engine, threshold);
+      setupsWrap.dataset.sig = sig;
+    }
   }
 
   // Watchlist: patch each existing row; rebuild only if the row set changed.

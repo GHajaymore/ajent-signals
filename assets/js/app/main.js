@@ -310,6 +310,14 @@ async function handleBillingReturn() {
 }
 handleBillingReturn();
 
+// Dev aid, only active with ?debug=1 — lets us inspect the engine and exercise
+// the alert pipeline without waiting for a real signal. Inert for normal users.
+try {
+  if (new URLSearchParams(location.search).get('debug') === '1') {
+    window.__ajentDebug = { engine: state.engine, pushAlert, signalAlert, tradeCloseAlert, refreshRoute, renderRoute };
+  }
+} catch (e) { /* ignore */ }
+
 setInterval(() => {
   const beforeAlerts = state.engine.alerts.length;
   state.engine.tick(state.settings.threshold);
