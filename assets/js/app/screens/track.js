@@ -272,21 +272,63 @@ function pnlHelp() {
   </details>`;
 }
 
+// Live unrealized mark-to-market for an open position, in R and dollars, using the
+// market's current price and the same maths the closed record uses.
+function posLivePnl(p) {
+  const m = state.engine.get(p.symbol);
+  const px = m && m.price;
+  const riskPer = Math.abs(p.risk || (p.entry != null && p.stop != null ? p.entry - p.stop : 0));
+  if (!px || p.entry == null || !riskPer) return null;
+  const long = (p.side || 'LONG') === 'LONG';
+  const r = (long ? (px - p.entry) : (p.entry - px)) / riskPer;
+  return { r, dollars: r * (p.riskDollars || 250), px };
+}
+
+// A thin risk bar: stop (−1R, left) · entry (0, centre) · target (+1R, right),
+// with a marker at the live price and the entry→price move filled in.
+function riskBar(r) {
+  const pos = Math.max(2, Math.min(98, ((Math.max(-1, Math.min(1, r)) + 1) / 2) * 100));
+  const from = Math.min(pos, 50), w = Math.abs(pos - 50);
+  const col = r >= 0 ? 'var(--buy)' : 'var(--sell)';
+  return `<div style="position:relative;height:6px;background:var(--neutral-900);border-radius:3px;margin-top:8px">
+      <div style="position:absolute;left:50%;top:-1px;bottom:-1px;width:1px;background:var(--text-faint);opacity:.6"></div>
+      <div style="position:absolute;left:${from}%;width:${w}%;top:0;bottom:0;background:${col};opacity:.85;border-radius:3px"></div>
+      <div style="position:absolute;left:calc(${pos}% - 1.5px);top:-2px;bottom:-2px;width:3px;border-radius:2px;background:${col}"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:9.5px;margin-top:3px;color:var(--text-faint)"><span style="color:var(--sell)">Stop</span><span>Entry</span><span style="color:var(--buy)">Target</span></div>`;
+}
+
+function openRow(p) {
+  const pnl = posLivePnl(p);
+  const col = pnl ? (pnl.dollars >= 0 ? 'var(--buy)' : 'var(--sell)') : 'var(--text-muted)';
+  const pnlStr = pnl ? `${money(pnl.dollars)} · ${pnl.r >= 0 ? '+' : ''}${pnl.r.toFixed(2)}R` : 'live…';
+  return `<div class="closed-row" data-open-row="${p.symbol}" data-nav="#/chart/${p.symbol}" style="cursor:pointer;display:block;padding:11px 4px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="closed-sym">${p.symbol}</div>
+        <div class="closed-body" style="flex:1;min-width:0">
+          <div class="closed-title">${(p.side || 'LONG') === 'LONG' ? 'Long' : 'Short'} · ${p.name}</div>
+          <div class="closed-sub">Entry ${fmtPrice(p.entry, p.decimals)} · stop ${fmtPrice(p.stop, p.decimals)} · target ${fmtPrice(p.target1, p.decimals)}</div>
+        </div>
+        <div style="text-align:right;flex:none">
+          <div class="tabular" data-open-pnl="${p.symbol}" style="color:${col};font-weight:700;font-size:13.5px">${pnlStr}</div>
+          <div class="text-muted" style="font-size:10px;margin-top:1px">unrealized</div>
+        </div>
+      </div>
+      <div data-open-bar="${p.symbol}">${pnl ? riskBar(pnl.r) : ''}</div>
+    </div>`;
+}
+
+function openSig() {
+  return getOpenPositions().map((p) => { const q = posLivePnl(p); return `${p.symbol}:${q ? q.r.toFixed(3) : '?'}`; }).join(',');
+}
+
 function openList() {
   const open = getOpenPositions();
   if (!open.length) return '';
   return `
     <div class="section-label">Open positions · ${open.length}</div>
     <div class="card" style="padding:2px 12px">
-      ${open.map((p) => `
-        <div class="closed-row">
-          <div class="closed-sym">${p.symbol}</div>
-          <div class="closed-body">
-            <div class="closed-title">${p.side === 'LONG' ? 'Long' : 'Short'} · ${p.name}</div>
-            <div class="closed-sub">Entry ${fmtPrice(p.entry, p.decimals)} · target ${fmtPrice(p.target1, p.decimals)} · $${(p.riskDollars || 0).toLocaleString('en-US')} staked</div>
-          </div>
-          <div class="closed-result"><div class="o" style="color:var(--accent-300)">Live</div></div>
-        </div>`).join('')}
+      ${open.map(openRow).join('')}
     </div>`;
 }
 
@@ -343,7 +385,7 @@ function emptyState() {
       </p>
     </div>
     <div id="watch-wrap" data-sig="${watchSig()}">${watchingList()}</div>
-    ${openList()}
+    <div id="open-wrap" data-sig="${openSig()}">${openList()}</div>
     ${marketSelector()}
     ${pnlHelp()}
     <p class="text-faint" style="text-align:center;font-size:11px;margin-top:14px">Educational only · past results don't guarantee future performance.</p>
@@ -405,7 +447,7 @@ export function render(container) {
       </div>
     </div>
 
-    ${openList()}
+    <div id="open-wrap" data-sig="${openSig()}">${openList()}</div>
 
     ${byMarketHtml(closed)}
 
@@ -452,6 +494,30 @@ export function refresh(container) {
     if (getPerformanceSummary()) { render(container); return; }
     const sig = watchSig();
     if (watchWrap.dataset.sig !== sig) { watchWrap.innerHTML = watchingList(); watchWrap.dataset.sig = sig; }
+  }
+
+  // Open positions: patch each row's live P&L + risk bar as prices tick (works in
+  // both the empty state and the full record view).
+  const openWrap = container.querySelector('#open-wrap');
+  if (openWrap) {
+    const sig = openSig();
+    if (openWrap.dataset.sig !== sig) {
+      getOpenPositions().forEach((p) => {
+        const pnl = posLivePnl(p);
+        const pEl = openWrap.querySelector(`[data-open-pnl="${p.symbol}"]`);
+        const bEl = openWrap.querySelector(`[data-open-bar="${p.symbol}"]`);
+        if (pEl && pnl) {
+          pEl.textContent = `${money(pnl.dollars)} · ${pnl.r >= 0 ? '+' : ''}${pnl.r.toFixed(2)}R`;
+          pEl.style.color = pnl.dollars >= 0 ? 'var(--buy)' : 'var(--sell)';
+        }
+        if (bEl && pnl) bEl.innerHTML = riskBar(pnl.r);
+      });
+      // If the set of open positions changed (a trade opened/closed), rebuild.
+      const cur = [...openWrap.querySelectorAll('[data-open-row]')].map((el) => el.dataset.openRow).join(',');
+      const now = getOpenPositions().map((p) => p.symbol).join(',');
+      if (cur !== now) openWrap.innerHTML = openList();
+      openWrap.dataset.sig = sig;
+    }
   }
 
   const list = container.querySelector('#pm-list');
