@@ -14,6 +14,13 @@ function simulate(candles, p) {
   for (let i = p.trendSMA + 2; i < candles.length; i++) {
     const price = cl[i], c = candles[i];
     if (pos) {
+      // Scale in once on a deeper dip (Connors add-down): each unit tracked by its
+      // own entry so P&L is honest; stop moves to the worst unit's stop.
+      if (p.scaleAt && pos.units.length < 2 && rsi2[i] < p.scaleAt) {
+        const a = atr14[i] || price * 0.01, risk = Math.max(a * p.stopATR, price * 0.004);
+        pos.units.push({ entry: price, risk });
+        pos.stop = Math.min(...pos.units.map((u) => u.entry - u.risk));
+      }
       let exit = null;
       if (price <= pos.stop) exit = 'stop';
       else if (i > pos.openIdx) {
@@ -23,17 +30,17 @@ function simulate(candles, p) {
       }
       if (!exit && i - pos.openIdx >= p.maxHold) exit = 'time';
       if (exit) {
-        const r = (price - pos.entry) / pos.risk;
-        trades.push({ r, pnl: Math.round(r * RISK * (p.size || 1) - COST), openedAt: candles[pos.openIdx].t, closedAt: c.t });
+        let pnl = 0, rsum = 0;
+        for (const u of pos.units) { pnl += ((price - u.entry) / u.risk) * RISK - COST; rsum += (price - u.entry) / u.risk; }
+        trades.push({ r: rsum / pos.units.length, pnl: Math.round(pnl), openedAt: candles[pos.openIdx].t, closedAt: c.t });
         pos = null;
       }
     }
     if (!pos && s200[i] != null && rsi2[i] != null) {
       const up = price > s200[i], flush = price < candles[i - 1].l;
-      const deep = p.deep ? rsi2[i] < p.deep : true;
-      if (up && rsi2[i] < p.rsiEntry && deep && (!p.requireFlush || flush)) {
+      if (up && rsi2[i] < p.rsiEntry && (!p.requireFlush || flush)) {
         const a = atr14[i] || price * 0.01, risk = Math.max(a * p.stopATR, price * 0.004);
-        pos = { entry: price, stop: price - risk, risk, openIdx: i };
+        pos = { units: [{ entry: price, risk }], stop: price - risk, openIdx: i };
       }
     }
   }
@@ -66,18 +73,20 @@ function evaluate(p, syms = Object.keys(DATA)) {
   };
 }
 
-const BASE = { rsiEntry: 10, requireFlush: true, trendSMA: 200, stopATR: 2, exit: 'firstUp', maxHold: 5 };
+// NEW baseline = what's now shipped: rsi2<15 entry, exit when RSI2>65.
+const BASE = { rsiEntry: 15, requireFlush: true, trendSMA: 200, stopATR: 2, exit: 'rsiHigh', rsiExit: 65, maxHold: 7 };
 const variants = {
-  'baseline (firstUp exit)':        BASE,
-  'exit: RSI2>65 (let it run)':     { ...BASE, exit: 'rsiHigh', rsiExit: 65 },
-  'exit: close>SMA5':               { ...BASE, exit: 'sma5' },
-  'entry rsi2<15 (more trades)':    { ...BASE, rsiEntry: 15 },
-  'no-flush entry (more trades)':   { ...BASE, requireFlush: false },
-  'wider stop 2.5xATR':             { ...BASE, stopATR: 2.5 },
+  'SHIPPED (rsi2<15, exit>65)':     BASE,
+  '+ scale-in at rsi2<5':           { ...BASE, scaleAt: 5 },
+  '+ scale-in at rsi2<8':           { ...BASE, scaleAt: 8 },
+  'exit>70 (hold longer)':          { ...BASE, rsiExit: 70 },
+  'exit>60 (take sooner)':          { ...BASE, rsiExit: 60 },
+  'wider stop 3xATR':               { ...BASE, stopATR: 3 },
+  'wider stop 3x + scale<5':        { ...BASE, stopATR: 3, scaleAt: 5 },
   'maxHold 10d':                    { ...BASE, maxHold: 10 },
-  'rsi2<15 + RSI2>65 exit':         { ...BASE, rsiEntry: 15, exit: 'rsiHigh', rsiExit: 65 },
-  'no-flush + RSI2>70 exit':        { ...BASE, requireFlush: false, exit: 'rsiHigh', rsiExit: 70 },
-  'no-flush + SMA5 exit + 10d':     { ...BASE, requireFlush: false, exit: 'sma5', maxHold: 10 },
+  'scale<5 + stop3 + exit70 + 10d': { ...BASE, scaleAt: 5, stopATR: 3, rsiExit: 70, maxHold: 10 },
+  'entry rsi2<20':                  { ...BASE, rsiEntry: 20 },
+  'entry<20 + scale<8 + stop3':     { ...BASE, rsiEntry: 20, scaleAt: 8, stopATR: 3 },
 };
 
 const EQ = Object.keys(DATA).filter((s) => s !== 'BTC' && s !== 'ETH');
