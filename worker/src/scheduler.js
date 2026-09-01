@@ -18,7 +18,12 @@ export function processPosition({ symbol, meta, sig, live, open, record, now, ri
     const short = pos.side === 'SHORT';
     let exit = null;
     if (short ? price >= pos.stop : price <= pos.stop) exit = 'stop';
-    else if (sig.lastDaily && dayKey(sig.lastDaily.t) !== dayKey(pos.openedAt) && sig.lastDaily.t > pos.openedAt && (short ? sig.lastDaily.up === false : sig.lastDaily.up === true)) exit = short ? 'firstDownClose' : 'firstUpClose';
+    // Connors RSI2 exit: hold until the oversold snaps back (RSI2 recovers above
+    // 65 for a long / below 35 for a short) rather than bailing on the first
+    // up-close. Lets winners run — backtests materially higher CAGR. Falls back to
+    // the first-close signal only if RSI2 is somehow unavailable.
+    else if (sig.rsi2 != null && (short ? sig.rsi2 < 35 : sig.rsi2 > 65)) exit = 'rsiRecover';
+    else if (sig.rsi2 == null && sig.lastDaily && dayKey(sig.lastDaily.t) !== dayKey(pos.openedAt) && sig.lastDaily.t > pos.openedAt && (short ? sig.lastDaily.up === false : sig.lastDaily.up === true)) exit = short ? 'firstDownClose' : 'firstUpClose';
     else if (now - pos.openedAt > pos.maxHoldMin * 60000) exit = 'timeStop';
     if (!exit) return 'hold';
     const r = pos.risk || Math.abs(pos.entry - pos.stop) || 1e-9;

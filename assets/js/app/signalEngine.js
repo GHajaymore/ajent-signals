@@ -244,13 +244,13 @@ export function computeRealSignal(candles, def, rng, news = [], opts = {}) {
     const prevHigh = n >= 2 ? candles[n - 2].h : Infinity;
     const flushedDown = price < prevLow;
     const poppedUp = price > prevHigh;
-    if (htfTrend === 'up' && rsi2 < 10 && flushedDown) {
+    if (htfTrend === 'up' && rsi2 < 15 && flushedDown) {     // entry <15 (Connors)
       direction = 1;
       const deep = rsi2 < 5;                                 // deepest oversold
       const stretched = lowerBB != null && price < lowerBB;  // below the lower band
       setup = deep && stretched ? 1 : deep ? 0.9 : 0.8;      // elite → strong → ok
       conviction = deep ? 'high' : 'normal';
-    } else if (htfTrend === 'down' && rsi2 > 90 && poppedUp) {
+    } else if (htfTrend === 'down' && rsi2 > 85 && poppedUp) {
       // PROVISIONAL short mirror (2026-08-30). Overbought pop above the prior
       // high in a downtrend. Weak on equity indices (they drift up) — the live
       // record is the judge. Rarely fires; flagged provisional in the UI.

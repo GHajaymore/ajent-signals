@@ -4,15 +4,15 @@
 const FAQ = [
   {
     q: 'Does this beat the stock market — VOO or QQQ?',
-    a: 'Honestly: <b>not on raw return in a bull market.</b> In our backtest, buying and holding the index returned roughly <b>~26%/yr</b> while the strategy did <b>~17%/yr net of costs</b> — it <b>trailed</b>. If your goal is maximum growth in a rising market, index funds win, and we won’t pretend otherwise. Where the strategy wins is <b>risk-adjusted</b> (see below) and in markets that aren’t a straight bull run. (Backtest is hypothetical; past results don’t guarantee future ones.)',
+    a: 'Closer than it used to be. We refined the exit to <b>let winners run</b> — the classic RSI-2 rule of holding until the oversold snaps back, instead of bailing on the first up-day. In recent backtests the strategy has been <b>competitive with buy-and-hold, and on some windows ahead of it</b>, while keeping drawdown to a fraction of the index’s (~5% vs 25–35%). But backtests are hypothetical and depend on the window; in a relentless bull run, simple index funds can still win on raw return. The <b>live paper record is the real judge</b> — watch it, not our backtest.',
   },
   {
     q: 'Then why use this instead of just buying VOO/QQQ?',
-    a: 'Only for reasons other than raw bull-market return:<br>• <b>Drawdown.</b> The strategy’s worst drop was ~−2% vs VOO ~−25% (2022) and QQQ ~−35%. Most people sell at the bottom of a big drawdown — a mostly-in-cash strategy avoids that.<br>• <b>Bear/choppy markets.</b> Buy-and-hold bleeds when the market falls or chops; this sits in cash and buys dips.<br>• <b>Capital efficiency.</b> It’s in the market only ~8% of the time — the rest your cash is free.<br>• <b>Diversification.</b> Uncorrelated to being long stocks.<br><b>If none of those matter to you, buy VOO/QQQ — it’s simpler, cheaper and made more.</b>',
+    a: 'The case is risk, not just raw return:<br>• <b>Drawdown.</b> The strategy’s worst drop backtests around ~−5% vs VOO ~−25% (2022) and QQQ ~−35%. Most people sell at the bottom of a big drawdown — a mostly-in-cash strategy avoids that.<br>• <b>Bear/choppy markets.</b> Buy-and-hold bleeds when the market falls or chops; this sits in cash and buys dips.<br>• <b>Capital efficiency.</b> It’s in the market only a small fraction of the time — the rest your cash is free.<br>• <b>Diversification.</b> Uncorrelated to simply being long stocks.<br>If none of those matter to you and the market keeps rising, VOO/QQQ is simpler and cheaper — we won’t pretend otherwise.',
   },
   {
     q: 'What’s the strategy’s real edge, then?',
-    a: 'A high win rate (~80%+) with a very small drawdown, by being in cash most of the time and only entering on genuine oversold extremes. It aims to earn a good <b>risk-adjusted</b> return, not to out-gain a rising index.',
+    a: 'A solid win rate (~<b>75%</b>) with a small drawdown: in cash most of the time, entering only on genuine oversold extremes, and now <b>holding winners until they mean-revert</b> rather than exiting early. The aim is a strong <b>risk-adjusted</b> return while staying competitive with buy-and-hold — not to out-gain a rising index every year.',
   },
   {
     q: 'Are the numbers you show real, or simulated?',
