@@ -300,6 +300,7 @@ function riskBar(r) {
 
 function openRow(p) {
   const pnl = posLivePnl(p);
+  const dec = state.engine.get(p.symbol)?.decimals ?? p.decimals ?? 2;
   const col = pnl ? (pnl.dollars >= 0 ? 'var(--buy)' : 'var(--sell)') : 'var(--text-muted)';
   const pnlStr = pnl ? `${money(pnl.dollars)} · ${pnl.r >= 0 ? '+' : ''}${pnl.r.toFixed(2)}R` : 'live…';
   return `<div class="closed-row" data-open-row="${p.symbol}" data-nav="#/chart/${p.symbol}" style="cursor:pointer;display:block;padding:11px 4px">
@@ -307,7 +308,7 @@ function openRow(p) {
         <div class="closed-sym">${p.symbol}</div>
         <div class="closed-body" style="flex:1;min-width:0">
           <div class="closed-title">${(p.side || 'LONG') === 'LONG' ? 'Long' : 'Short'} · ${p.name}</div>
-          <div class="closed-sub">Entry ${fmtPrice(p.entry, p.decimals)} · stop ${fmtPrice(p.stop, p.decimals)} · target ${fmtPrice(p.target1, p.decimals)}</div>
+          <div class="closed-sub">Entry ${fmtPrice(p.entry, dec)} · stop ${fmtPrice(p.stop, dec)} · target ${fmtPrice(p.target1, dec)}</div>
         </div>
         <div style="text-align:right;flex:none">
           <div class="tabular" data-open-pnl="${p.symbol}" style="color:${col};font-weight:700;font-size:13.5px">${pnlStr}</div>
