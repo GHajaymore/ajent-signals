@@ -23,19 +23,60 @@ repo secret:
 After that, every `git push` to `main` redeploys `ajent-signals.pages.dev`
 automatically. (The account ID is inlined in the workflow; it isn't secret.)
 
-## 2. Add the custom domain
-> **BLOCKED until DNS cutover finishes.** As of 2026-08-29 the `ajailabs.app` zone
-> is still **pending** on Cloudflare (GoDaddy→Cloudflare nameserver switch not
-> complete). Adding `ajent.ajailabs.app` now just sits "pending / CNAME not set"
-> and can't serve. Finish pointing the domain's nameservers to Cloudflare (zone
-> status → **active**) first, then do this step. `wikifoodia.ajailabs.app` already
-> resolves through Cloudflare, so parts of the zone are migrated but not all.
+## 2. Add the custom domain — **DONE 2026-09-01**
 
-Pages project → **Custom domains → Set up a custom domain** → `ajent.<yourdomain>`.
-Because the domain's DNS is on Cloudflare, it adds the CNAME for you and issues the
-cert. Wait for **Active**. Existing subdomains are untouched.
+Live at **https://ajent.ajailabs.app** (`/` and `/app/` both 200, certificate issued
+in under two minutes, http redirects to https).
+
+> **Correction.** This section previously said the custom domain was "BLOCKED until
+> DNS cutover finishes", and cited `wikifoodia.ajailabs.app` as evidence that "parts
+> of the zone are migrated". **Both were wrong**, and acting on either would have
+> triggered an unnecessary nameserver move.
+>
+> `ajailabs.app` nameservers are `ns59`/`ns60.domaincontrol.com` — GoDaddy. They
+> always have been; no cutover was ever started or needed. Wikifoodia resolves
+> because **Cloudflare Pages custom domains work fine on external DNS**, not because
+> any part of the zone moved.
+
+**The method that actually works, with DNS anywhere:**
+
+1. Pages project → **Custom domains → Set up a custom domain** → `ajent.ajailabs.app`
+2. When asked to choose a setup method, pick **"My DNS provider" → Begin CNAME
+   setup**. **Do not** pick "Cloudflare DNS / Begin DNS transfer" — that starts a
+   nameserver move you do not need.
+3. Cloudflare shows a CNAME target. Add it at GoDaddy:
+
+       CNAME   ajent   →   ajent-signals.pages.dev   (TTL 600)
+
+4. Click **Check DNS records**. Activation and the certificate follow on their own.
+
+Purely additive: `ajailabs.app`'s MX, SPF, both DKIM selectors, `autodiscover`,
+`www` and `wikifoodia` records were all verified unchanged before and after.
 
 ## 3. (Optional) Give the Worker a branded API domain
+
+> **This one genuinely does require the zone on Cloudflare.** Unlike Pages, Workers
+> custom domains and routes only work when the domain's nameservers point at
+> Cloudflare — Cloudflare has to control DNS in order to route. `ajailabs.app` is on
+> GoDaddy, so this step is **not** available today. That is the real constraint the
+> old section 2 was confusing itself with.
+>
+> The Worker is therefore still at `ajent-signals-worker.golferajay.workers.dev`.
+> Three ways out, none taken yet:
+>
+> 1. **Rename the account's `workers.dev` subdomain** `golferajay` → `ajailabs`.
+>    Free and instant, but it breaks *every* `*.golferajay.workers.dev` URL at once
+>    — including the Stripe webhook — and the old subdomain may not be reclaimable.
+>    The only genuinely one-way step of the three.
+> 2. **Move `ajailabs.app` DNS to Cloudflare**, then do this section properly. The
+>    zone carries live Microsoft 365 mail, so it needs care; the escape hatch is
+>    that GoDaddy remains the registrar and can always point the nameservers back.
+> 3. **Leave it.** Nothing is broken; only the personal handle is visible.
+>
+> Note the Worker **cannot** be folded into Pages Functions: `worker/wrangler.toml`
+> declares `[triggers] crons = ["*/5 * * * *"]`, and cron triggers are Workers-only.
+> That 5-minute loop is the product's core behaviour.
+
 Worker (`ajent-signals-worker`) → **Settings → Domains & Routes → Add → Custom domain**
 → e.g. `api.ajent.<yourdomain>`. Then update the app:
 ```html
