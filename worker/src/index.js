@@ -93,7 +93,7 @@ export default {
         const ts = result.timestamp, q = result.indicators.quote[0], out = [];
         for (let i = 0; i < ts.length; i++) {
           if (q.close[i] == null) continue;
-          out.push({ t: ts[i], o: q.open[i] ?? q.close[i], h: q.high[i] ?? q.close[i], l: q.low[i] ?? q.close[i], c: q.close[i] });
+          out.push({ t: ts[i], o: q.open[i] ?? q.close[i], h: q.high[i] ?? q.close[i], l: q.low[i] ?? q.close[i], c: q.close[i], v: (q.volume && q.volume[i]) || 0 });
         }
         return json({ candles: out });
       } catch (e) { return json({ candles: [] }); }

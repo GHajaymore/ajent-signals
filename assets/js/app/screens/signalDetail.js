@@ -216,6 +216,18 @@ function candleChartSvg(candles, { levels = [], decimals = 2, markers = [], h = 
       <rect x="${(w - chipW).toFixed(1)}" y="${(y - 7).toFixed(1)}" width="${chipW.toFixed(1)}" height="14" rx="4" fill="${l.stroke}"/>
       <text x="${(w - chipW / 2).toFixed(1)}" y="${(y + 3.2).toFixed(1)}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#08120d">${label}</text>`;
   }).join('');
+  // Volume band: faint bars along the bottom ~18% of the pane, colored by the
+  // candle's direction and scaled to the largest bar. Drawn first so price sits
+  // on top. Only when the feed actually carries volume (some indices report 0).
+  const maxV = Math.max(...candles.map((c) => c.v || 0), 0);
+  const volMaxH = h * 0.18;
+  const volBars = maxV > 0 ? candles.map((c, i) => {
+    const cx = i * slot + slot / 2;
+    const vh = ((c.v || 0) / maxV) * volMaxH;
+    if (vh < 0.5) return '';
+    const up = c.c >= (c.o != null ? c.o : c.c);
+    return `<rect x="${(cx - bodyW / 2).toFixed(1)}" y="${(h - vh).toFixed(1)}" width="${bodyW.toFixed(1)}" height="${vh.toFixed(1)}" fill="${up ? 'var(--buy)' : 'var(--sell)'}" opacity="0.22"/>`;
+  }).join('') : '';
   const bars = candles.map((c, i) => {
     const cx = i * slot + slot / 2;
     const o = c.o != null ? c.o : c.c, hh = c.h != null ? c.h : c.c, ll = c.l != null ? c.l : c.c;
@@ -238,6 +250,7 @@ function candleChartSvg(candles, { levels = [], decimals = 2, markers = [], h = 
   return `
   <svg viewBox="0 0 ${w} ${vbH}" width="100%" style="height:auto;display:block">
     ${grid}
+    ${volBars}
     ${axisSvg}
     ${levelSvg}
     ${bars}
