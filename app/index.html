@@ -29,6 +29,11 @@
      record; the app reads it here. Update this if you move the Worker to a custom
      domain (e.g. https://ajent.<yourdomain>.app). Empty = fully client-side. -->
 <script>window.__AJENT_API = 'https://ajent-signals-worker.golferajay.workers.dev';</script>
+<!-- Early-access: unlock all Pro features by default (all markets, Active mode,
+     alerts, signal export) so the full performance can be evaluated. No payment
+     is collected yet. To go back to the Free/Pro split, remove this line (or gate
+     it behind a `?unlock=1` check). NOTE: this unlocks Pro for every visitor. -->
+<script>window.__AJENT_UNLOCK_ALL = true;</script>
 <script type="module" src="../assets/js/app/main.js"></script>
 </body>
 </html>
