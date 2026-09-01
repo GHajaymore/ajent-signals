@@ -75,6 +75,30 @@ export default {
       return json({ quotes, at: Date.now() });
     }
 
+    // Market news, fetched server-side (no browser CORS), aggregated across a few
+    // market queries, deduped and time-sorted. Real headlines from a public source,
+    // each linking back to its publisher — never fabricated. Edge-cached ~5m.
+    if (url.pathname === '/news') {
+      const QUERIES = ['S&P 500', 'stock market today', 'Nasdaq', 'Wall Street'];
+      // Keep genuine market/macro headlines; drop the single-company / off-topic
+      // noise Yahoo's search mixes in.
+      const RELEVANT = /\b(stock|stocks|market|markets|s&p|s\s?&\s?p|nasdaq|dow|wall street|fed|federal reserve|rate cut|rate hike|interest rate|futures|index|indexes|inflation|cpi|jobs report|payroll|treasur|yield|rally|sell-?off|selloff|bull|bear|earnings|gdp|recession|tariff|oil|crude)\b/i;
+      const seen = new Set(), items = [];
+      await Promise.all(QUERIES.map(async (q) => {
+        try {
+          const r = await fetch(`https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&newsCount=10&quotesCount=0`, { headers: { 'User-Agent': 'ajent-signals-worker/1.0' }, cf: { cacheTtl: 300, cacheEverything: true } });
+          const news = (await r.json())?.news || [];
+          for (const n of news) {
+            if (!n.title || !n.link || seen.has(n.link) || !RELEVANT.test(n.title)) continue;
+            seen.add(n.link);
+            items.push({ title: n.title, publisher: n.publisher || '', link: n.link, time: (n.providerPublishTime || 0) * 1000 });
+          }
+        } catch (e) { /* skip this query */ }
+      }));
+      items.sort((a, b) => b.time - a.time);
+      return json({ news: items.slice(0, 12), at: Date.now(), source: 'Yahoo Finance (public)' });
+    }
+
     // Real OHLC candles for the charts, fetched server-side (no browser CORS,
     // edge-cached). Keyed by the APP symbol so the chart uses the SAME instrument
     // the strategy trades (e.g. RTY -> RTY=F), keeping the chart on the same scale

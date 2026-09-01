@@ -2,10 +2,52 @@ import { state } from '../state.js';
 import { heroCard, watchlistRow, patchRow, patchHero, symTile, dataTag, sparklineSvg } from '../components.js';
 import { getPerformanceSummary, getOpenCount, getOpenPositions } from '../paperTrading.js';
 import { marketSession } from '../marketHours.js';
-import { backendConfigured } from '../backendApi.js';
+import { backendConfigured, isEntitled, fetchNews } from '../backendApi.js';
 import { isRealMarket } from './markets.js';
 import { upcomingEvents, daysUntil } from '../econCalendar.js';
 import { fmtPrice } from '../format.js';
+
+// --- Market news (Pro/trial) ------------------------------------------------
+let newsCache = null, newsCacheAt = 0;
+function newsRelTime(ms) {
+  if (!ms) return '';
+  const s = Math.max(0, (Date.now() - ms) / 1000);
+  if (s < 3600) return `${Math.max(1, Math.round(s / 60))}m ago`;
+  if (s < 86400) return `${Math.round(s / 3600)}h ago`;
+  return `${Math.round(s / 86400)}d ago`;
+}
+function esc(t) { return String(t).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c])); }
+function newsCardHtml() {
+  if (!backendConfigured()) return '';
+  if (!isEntitled()) {
+    return `<div class="section-label">Market news</div>
+      <div class="card" data-nav="#/paywall" style="padding:16px;display:flex;align-items:center;gap:12px;cursor:pointer">
+        <i class="ph-fill ph-newspaper" style="font-size:22px;color:var(--accent-300)"></i>
+        <div style="flex:1"><div style="font:600 13.5px var(--font-heading)">Real-time market news</div><div class="text-muted" style="font-size:12px">Live headlines from the wire — <span style="color:var(--accent-200)">Pro</span></div></div>
+        <span class="chip-upgrade">Go Pro</span>
+      </div>`;
+  }
+  const items = newsCache && newsCache.news ? newsCache.news : null;
+  const body = !items ? `<div class="text-muted" style="font-size:12.5px;padding:14px 4px"><i class="ph ph-hourglass-medium" style="margin-right:6px"></i>Loading headlines…</div>`
+    : !items.length ? `<div class="text-muted" style="font-size:12.5px;padding:14px 4px">No market headlines right now.</div>`
+    : items.slice(0, 6).map((n) => `<a href="${esc(n.link)}" target="_blank" rel="noopener noreferrer" class="news-row" style="display:block;padding:10px 2px;border-bottom:1px solid var(--hairline);text-decoration:none;color:inherit">
+        <div style="font:600 13px var(--font-heading);line-height:1.35">${esc(n.title)}</div>
+        <div class="text-muted" style="font-size:11px;margin-top:3px">${esc(n.publisher || 'News')} · ${newsRelTime(n.time)}</div>
+      </a>`).join('') + `<div class="text-faint" style="font-size:10.5px;padding:9px 2px 4px">Headlines via Yahoo Finance — tap to read at the source. Delayed, informational only.</div>`;
+  return `<div class="section-label">Market news</div><div class="card" style="padding:2px 12px" id="news-card">${body}</div>`;
+}
+async function loadNews(container) {
+  if (!backendConfigured() || !isEntitled()) return;
+  if (!newsCache || Date.now() - newsCacheAt > 300000) {
+    const data = await fetchNews();
+    if (data) { newsCache = data; newsCacheAt = Date.now(); }
+  }
+  const wrap = container.querySelector('#news-wrap');
+  if (wrap) { wrap.innerHTML = newsCardHtml(); wireGlobalNavLocal(wrap); }
+}
+function wireGlobalNavLocal(el) {
+  el.querySelectorAll('[data-nav]').forEach((n) => { if (n.dataset.navWired) return; n.dataset.navWired = '1'; n.addEventListener('click', () => { location.hash = n.dataset.nav; }); });
+}
 
 function pfLabel(perf) { return perf.profitFactor === Infinity ? '∞' : perf.profitFactor.toFixed(2); }
 
@@ -308,7 +350,11 @@ export function render(container) {
       </div>
       <i class="ph-bold ph-caret-right arrow"></i>
     </div>
+
+    <div id="news-wrap">${newsCardHtml()}</div>
   </div>`;
+
+  loadNews(container);
 }
 
 export function refresh(container) {
