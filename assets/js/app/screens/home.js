@@ -86,7 +86,7 @@ function watchingRow(m) {
   const s = m.signal;
   const prox = Math.max(0, Math.min(100, s.proximity || 0));
   const long = s.htfTrend === 'up';
-  const trig = long ? `RSI2 ${s.rsi2} · long fires under 10` : s.htfTrend === 'down' ? `RSI2 ${s.rsi2} · short fires over 90` : `RSI2 ${s.rsi2} · no trend`;
+  const trig = long ? `RSI2 ${s.rsi2} · long fires under 15` : s.htfTrend === 'down' ? `RSI2 ${s.rsi2} · short fires over 85` : `RSI2 ${s.rsi2} · no trend`;
   return `<div class="setup-row" data-nav="#/signal/${m.symbol}" data-sym="${m.symbol}">
     ${symTile(m.symbol, 34)}
     <div class="setup-body">
@@ -184,23 +184,31 @@ function greeting() {
   return 'Good evening';
 }
 
-// Clock-based session status for the featured market — correct the instant the
-// app opens (e.g. "Market open" at 9:30 ET) without waiting on a quote.
+// Clock-based session status, LABELLED with the market it describes so the pill
+// is never an ambiguous "Market closed". Anchored to the user's local/primary
+// market (set from their region) so it reads as "is MY market open?" — correct
+// the instant the app opens, without waiting on a quote.
 function marketStatus(m) {
-  if (!m) return { label: 'Loading', color: 'var(--text-muted)', pulse: false };
+  if (!m) return { label: 'Loading…', color: 'var(--text-muted)', pulse: false };
+  const tag = m.symbol; // short, and the hero shows the full name for context
   const sess = marketSession(m);
-  if (sess === 'closed') return { label: 'Market closed', color: 'var(--text-muted)', pulse: false };
+  if (sess === 'closed') return { label: `${tag} · closed`, color: 'var(--text-muted)', pulse: false };
   const age = m.quoteAgeSec;
   const delayed = m.isLiveFresh && age != null && age > 180;
   if (sess === 'open') {
-    if (delayed) return { label: `Open · delayed ~${Math.max(1, Math.round(age / 60))}m`, color: '#f5b35a', pulse: false };
-    if (m.isLiveFresh) return { label: 'Market open', color: 'var(--buy)', pulse: true };
-    return { label: 'Market open · connecting…', color: 'var(--text-muted)', pulse: false };
+    if (delayed) return { label: `${tag} open · delayed ~${Math.max(1, Math.round(age / 60))}m`, color: '#f5b35a', pulse: false };
+    if (m.isLiveFresh) return { label: `${tag} · open`, color: 'var(--buy)', pulse: true };
+    return { label: `${tag} · open`, color: 'var(--text-muted)', pulse: false };
   }
   // Untracked exchange — fall back to feed freshness.
-  if (delayed) return { label: `Delayed ~${Math.max(1, Math.round(age / 60))}m`, color: '#f5b35a', pulse: false };
-  if (m.isLiveFresh) return { label: 'Live', color: 'var(--buy)', pulse: true };
-  return { label: 'No live data', color: 'var(--text-muted)', pulse: false };
+  if (delayed) return { label: `${tag} · delayed ~${Math.max(1, Math.round(age / 60))}m`, color: '#f5b35a', pulse: false };
+  if (m.isLiveFresh) return { label: `${tag} · live`, color: 'var(--buy)', pulse: true };
+  return { label: `${tag} · no data`, color: 'var(--text-muted)', pulse: false };
+}
+// The market the header status describes: the user's local/primary market (from
+// their region), which is stable — not the hero's dynamically-featured setup.
+function statusMarket(engine) {
+  return engine.get(state.homeSymbol) || engine.markets.find(isRealMarket) || engine.get('ES');
 }
 function statusPillInner(st) {
   return `<span class="dot ${st.pulse ? 'dot-pulse' : ''}" style="background:${st.color}"></span>${st.label}`;
@@ -244,7 +252,7 @@ export function render(container) {
         <div class="brand-name">Ajent Signals</div>
       </div>
       <div class="header-actions">
-        <span class="pill" id="market-status">${statusPillInner(marketStatus(featured))}</span>
+        <span class="pill" id="market-status">${statusPillInner(marketStatus(statusMarket(engine)))}</span>
         <button class="icon-btn" data-nav="#/alerts">
           <i class="ph-fill ph-bell"></i>
           ${state.hasUnreadAlerts ? '<span class="unread-dot"></span>' : ''}
@@ -311,7 +319,7 @@ export function refresh(container) {
   const { engine, threshold, openSignals, avgConf, riskOn, featured, featuredVerdict } = computeDerived();
 
   const statusEl = container.querySelector('#market-status');
-  if (statusEl) statusEl.innerHTML = statusPillInner(marketStatus(featured));
+  if (statusEl) statusEl.innerHTML = statusPillInner(marketStatus(statusMarket(engine)));
 
   // Portfolio card: rebuild only when the P&L actually changes (a trade closed),
   // so the equity sparkline stays current without per-tick flicker.

@@ -356,8 +356,8 @@ function watchingList() {
       ${markets.map((m) => {
         const prox = Math.max(0, Math.min(100, m.signal.proximity || 0));
         const up = m.signal.htfTrend === 'up';
-        const trig = up ? `RSI2 ${m.signal.rsi2} · long fires under 10`
-          : m.signal.htfTrend === 'down' ? `RSI2 ${m.signal.rsi2} · short fires over 90`
+        const trig = up ? `RSI2 ${m.signal.rsi2} · long fires under 15`
+          : m.signal.htfTrend === 'down' ? `RSI2 ${m.signal.rsi2} · short fires over 85`
           : `RSI2 ${m.signal.rsi2} · no clear trend`;
         return `<div class="closed-row" data-nav="#/signal/${m.symbol}" style="cursor:pointer">
           <div class="closed-sym">${m.symbol}</div>
