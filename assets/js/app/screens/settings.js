@@ -2,6 +2,28 @@ import { state, saveSettings, perTradeRisk, setPaperMarkets, setAllPaperMarkets,
 import { fmtMoney } from '../format.js';
 import { resetPaperTrades } from '../paperTrading.js';
 import { wireSignalExport, signalExportHtml } from './signalExport.js';
+import { isPaid, trialDaysLeft } from '../backendApi.js';
+
+// Plan status card — reflects trial countdown / Pro / post-trial Free.
+function planCard() {
+  if (isPaid()) {
+    return `<div class="pro-card" data-nav="#/paywall">
+      <div class="pro-icon"><i class="ph-fill ph-crown-simple"></i></div>
+      <div class="pro-body"><div class="pro-title">Ajent Pro</div><div class="pro-sub">Active · all markets, real-time, alerts, export</div></div>
+      <span class="chip-upgrade">Manage</span></div>`;
+  }
+  const days = trialDaysLeft();
+  if (days > 0) {
+    return `<div class="pro-card" data-nav="#/paywall">
+      <div class="pro-icon"><i class="ph-fill ph-crown-simple"></i></div>
+      <div class="pro-body"><div class="pro-title">Free trial · ${days} day${days === 1 ? '' : 's'} left</div><div class="pro-sub">Everything unlocked — real-time, all markets, alerts, export</div></div>
+      <span class="chip-upgrade">Go Pro</span></div>`;
+  }
+  return `<div class="pro-card" data-nav="#/paywall">
+    <div class="pro-icon"><i class="ph-fill ph-crown-simple"></i></div>
+    <div class="pro-body"><div class="pro-title">Free plan</div><div class="pro-sub">1 market · delayed signals — Go Pro for real-time &amp; all markets</div></div>
+    <span class="chip-upgrade">Upgrade</span></div>`;
+}
 
 const NOTIF_ROWS = [
   { key: 'buy', label: 'Buy signals', icon: 'ph-arrow-up-right', color: 'var(--buy)' },
@@ -54,14 +76,7 @@ export function render(container) {
     <div class="dash-glow"></div>
     <h1 class="h-title" style="margin-bottom:18px">Settings</h1>
 
-    <div class="pro-card" data-nav="#/paywall">
-      <div class="pro-icon"><i class="ph-fill ph-crown-simple"></i></div>
-      <div class="pro-body">
-        <div class="pro-title">Ajent Pro</div>
-        <div class="pro-sub">Unlimited signals, all markets, alerts</div>
-      </div>
-      <span class="chip-upgrade">Upgrade</span>
-    </div>
+    ${planCard()}
 
     <div class="panel setting-block">
       <div class="panel-title" style="margin-bottom:8px">Strategy</div>

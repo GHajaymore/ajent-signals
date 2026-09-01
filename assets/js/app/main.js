@@ -17,7 +17,7 @@ import { startUpdateWatcher } from './updateCheck.js';
 import { startSignalRefreshLoop } from './signalRefreshLoop.js';
 import { maybeOpenPositions, checkOpenPositions, applyServerRecord, getClosedTrades } from './paperTrading.js';
 import { fmtPrice } from './format.js';
-import { backendConfigured, fetchServerTrades, fetchServerSignals, fetchLiveQuotes, redeemSession, refreshProToken, confirmEntitlement, initBilling } from './backendApi.js';
+import { backendConfigured, fetchServerTrades, fetchServerSignals, fetchLiveQuotes, redeemSession, refreshProToken, confirmEntitlement, initBilling, isEntitled } from './backendApi.js';
 import { initIap } from './iap.js';
 import * as proSuccess from './screens/proSuccess.js';
 
@@ -266,7 +266,10 @@ if (backendConfigured()) { syncServerSignals(); setInterval(syncServerSignals, 2
 // trade signal — this only refreshes the displayed price + unrealized P&L, so
 // crypto reads "live" and ticks, while futures/indices stay honestly delayed.
 async function syncCryptoLive() {
-  if (!backendConfigured()) return;
+  // Real-time price is a Pro/trial perk — Free users get crypto at the 5-min cron
+  // freshness (still real, just not live-ticking). Futures/indices are delayed at
+  // the source for everyone until a licensed real-time feed is added.
+  if (!backendConfigured() || !isEntitled()) return;
   const data = await fetchLiveQuotes();
   if (!data || !data.quotes) return;
   let touched = false;

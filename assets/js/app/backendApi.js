@@ -21,10 +21,34 @@ function proToken() {
 }
 export function hasProToken() { return !!proToken(); }
 
-// Entitled to Pro features (all markets, 24/7, Active, alerts…)? True for a native
-// purchase, a valid Pro token, or an explicit early-access override. Client-side
-// gate only — the backend enforces the real gate server-side.
+// --- Free trial -------------------------------------------------------------
+// New users get the full experience free for TRIAL_DAYS, then drop to the Free
+// tier (limited markets + extra-delayed signals) unless they go Pro. The clock
+// starts on first launch and is stored locally.
+const TRIAL_DAYS = 30;
+function trialStartMs() {
+  try {
+    let t = localStorage.getItem('ajent_trial_start');
+    if (!t) { t = String(Date.now()); localStorage.setItem('ajent_trial_start', t); }
+    return Number(t) || Date.now();
+  } catch (e) { return Date.now(); }
+}
+export function trialDaysLeft() {
+  return Math.max(0, Math.ceil((TRIAL_DAYS * 86400000 - (Date.now() - trialStartMs())) / 86400000));
+}
+export function trialActive() { return trialDaysLeft() > 0; }
+
+// Entitled to Pro features (all markets, real-time data, Active, alerts, export)?
+// True during the free trial, for a native purchase, a valid Pro token, or the
+// early-access override. Client-side gate only — the backend enforces its own.
 export function isEntitled() {
+  try { if (typeof window !== 'undefined' && window.__AJENT_UNLOCK_ALL) return true; } catch (e) { /* ignore */ }
+  if (trialActive()) return true;
+  return isProNative() || hasProToken();
+}
+// Distinguish a paying/entitled user from a trial user (both get full access, but
+// the UI messages differ — trial shows a countdown, Pro shows "Pro").
+export function isPaid() {
   try { if (typeof window !== 'undefined' && window.__AJENT_UNLOCK_ALL) return true; } catch (e) { /* ignore */ }
   return isProNative() || hasProToken();
 }
