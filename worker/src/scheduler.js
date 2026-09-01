@@ -11,7 +11,7 @@ const dayKey = (ms) => new Date(ms).toISOString().slice(0, 10);
 // the whole record is ONE KV get + ONE KV put per tick (see runTick), so we never
 // use KV list() — which is capped at 1,000/day on the free tier and was blowing up
 // /trades. `cost` is the round-turn transaction cost, deducted so P&L is NET.
-export function processPosition({ symbol, meta, sig, live, open, record, now, risk, cost = 0 }) {
+export function processPosition({ symbol, meta, sig, live, open, record, now, risk, cost = 0, exitRsi = 65 }) {
   const pos = record.open[symbol];
   if (pos) {
     const price = live ?? sig.price;
@@ -19,10 +19,10 @@ export function processPosition({ symbol, meta, sig, live, open, record, now, ri
     let exit = null;
     if (short ? price >= pos.stop : price <= pos.stop) exit = 'stop';
     // Connors RSI2 exit: hold until the oversold snaps back (RSI2 recovers above
-    // 65 for a long / below 35 for a short) rather than bailing on the first
-    // up-close. Lets winners run — backtests materially higher CAGR. Falls back to
-    // the first-close signal only if RSI2 is somehow unavailable.
-    else if (sig.rsi2 != null && (short ? sig.rsi2 < 35 : sig.rsi2 > 65)) exit = 'rsiRecover';
+    // `exitRsi` for a long / below its mirror for a short) rather than bailing on
+    // the first up-close. Lets winners run — backtests materially higher CAGR.
+    // Falls back to the first-close signal only if RSI2 is somehow unavailable.
+    else if (sig.rsi2 != null && (short ? sig.rsi2 < (100 - exitRsi) : sig.rsi2 > exitRsi)) exit = 'rsiRecover';
     else if (sig.rsi2 == null && sig.lastDaily && dayKey(sig.lastDaily.t) !== dayKey(pos.openedAt) && sig.lastDaily.t > pos.openedAt && (short ? sig.lastDaily.up === false : sig.lastDaily.up === true)) exit = short ? 'firstDownClose' : 'firstUpClose';
     else if (now - pos.openedAt > pos.maxHoldMin * 60000) exit = 'timeStop';
     if (!exit) return 'hold';

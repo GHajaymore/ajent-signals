@@ -19,15 +19,16 @@ for (const sym of SYMS) {
   } catch (e) { /* skip */ }
 }
 
-export async function backtest(signalFn) {
+export async function backtest(signalFn, opts = {}) {
+  const syms = opts.syms || Object.keys(DATA);
   const closed = [];
   let tMin = Infinity, tMax = -Infinity, bhSum = 0, nMkt = 0;
-  for (const sym of Object.keys(DATA)) {
+  for (const sym of syms) {
     const candles = DATA[sym], meta = MARKETS[sym];
     const record = { open: {}, closed: [], lastClose: {} };
     for (let i = 210; i < candles.length; i++) {
       const sig = signalFn(candles.slice(0, i + 1), candles[i].c);
-      processPosition({ symbol: sym, meta, sig, live: candles[i].c, open: true, record, now: candles[i].t, risk: RISK, cost: COST });
+      processPosition({ symbol: sym, meta, sig, live: candles[i].c, open: true, record, now: candles[i].t, risk: RISK, cost: COST, exitRsi: opts.exitRsi });
     }
     for (const t of record.closed) { closed.push(t); tMin = Math.min(tMin, t.openedAt); tMax = Math.max(tMax, t.closedAt); }
     const first = candles[210].c, last = candles[candles.length - 1].c;
