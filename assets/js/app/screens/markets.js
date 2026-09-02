@@ -64,7 +64,7 @@ const CAT_COLOR = {
 };
 
 let query = '';
-let filter = 'all'; // all | buy | sell | conv | fav
+let filter = 'all'; // all | buy | watch | conv | fav
 
 // A fired, real signal the engine flags as its strongest tier (deepest RSI2 +
 // Bollinger extreme). Only meaningful for markets currently printing a signal.
@@ -83,24 +83,32 @@ function subtitleText() {
   return n ? `${n} markets with live data — real signals only` : 'Loading live market data…';
 }
 
-function breadthHtml() {
+// Long-only board, so there is no "Sell". Breadth = Buy (firing) / Watching
+// (no trade yet but a setup is brewing — proximity > 0) / No-trade (nothing near).
+export function breadthCounts() {
   const threshold = state.settings.threshold;
-  let buy = 0, sell = 0, flat = 0;
+  let buy = 0, watching = 0, flat = 0;
   for (const m of state.engine.markets) {
     const v = m.verdict(threshold);
-    if (v === 'BUY') buy++; else if (v === 'SELL') sell++; else flat++;
+    if (v === 'BUY') buy++;
+    else if ((m.signal && m.signal.proximity) > 0) watching++;
+    else flat++;
   }
-  const total = buy + sell + flat || 1;
-  return `<div class="breadth" data-counts="${buy},${sell}">
+  return { buy, watching, flat };
+}
+function breadthHtml() {
+  const { buy, watching, flat } = breadthCounts();
+  const total = buy + watching + flat || 1;
+  return `<div class="breadth" data-counts="${buy},${watching}">
     <div class="breadth-row">
       <span class="breadth-stat"><b style="color:var(--buy)">${buy}</b> Buy</span>
-      <span class="breadth-stat"><b style="color:var(--sell)">${sell}</b> Sell</span>
+      <span class="breadth-stat"><b style="color:var(--flat)">${watching}</b> Watching</span>
       <span class="breadth-stat"><b>${flat}</b> No-trade</span>
     </div>
     <div class="breadth-bar">
       <span style="width:${(buy / total) * 100}%;background:var(--buy)"></span>
+      <span style="width:${(watching / total) * 100}%;background:var(--flat)"></span>
       <span style="width:${(flat / total) * 100}%;background:var(--neutral-700)"></span>
-      <span style="width:${(sell / total) * 100}%;background:var(--sell)"></span>
     </div>
   </div>`;
 }
@@ -110,7 +118,6 @@ function filterChips() {
   return `<div class="mkt-filters">
     ${c('all', 'All', '')}
     ${c('buy', 'Buy', '<i class="ph-fill ph-caret-up" style="color:var(--buy);font-size:11px"></i>')}
-    ${c('sell', 'Sell', '<i class="ph-fill ph-caret-down" style="color:var(--sell);font-size:11px"></i>')}
     ${c('watch', 'Watching', '<i class="ph-fill ph-eye" style="color:var(--accent-300);font-size:11px"></i>')}
     ${c('conv', 'Conviction', '<i class="ph-fill ph-star" style="color:var(--flat);font-size:11px"></i>')}
     ${c('fav', 'Watchlist', '<i class="ph-fill ph-star" style="color:var(--accent-200);font-size:11px"></i>')}
@@ -126,7 +133,7 @@ function listHtml() {
   // firing markets sit at the top.
   if (filter === 'watch') {
     const watching = watchMarkets(threshold, q);
-    if (!watching.length) return `<p class="text-muted" style="text-align:center;margin-top:40px">Nothing close to a setup right now — the board isn't stretched. The strategy waits for a genuine oversold dip (or overbought pop).</p>`;
+    if (!watching.length) return `<p class="text-muted" style="text-align:center;margin-top:40px">Nothing close to a setup right now — the board isn't stretched. The strategy waits for a genuine oversold dip in an uptrend.</p>`;
     return `<div class="card" style="padding:2px 12px">${watching.map(watchRow).join('')}</div>`;
   }
 
@@ -136,7 +143,6 @@ function listHtml() {
     if (q && !(m.symbol.includes(q) || m.name.toUpperCase().includes(q) || m.exchange.includes(q))) return false;
     const v = m.verdict(threshold);
     if (filter === 'buy' && v !== 'BUY') return false;
-    if (filter === 'sell' && v !== 'SELL') return false;
     if (filter === 'conv' && !isHiConv(m, threshold)) return false;
     if (filter === 'fav' && !state.homeWatchlist.includes(m.symbol)) return false;
     return true;
@@ -154,8 +160,8 @@ function listHtml() {
       </div>
     </details>
   `).join('') || `<p class="text-muted" style="text-align:center;margin-top:40px">${
-    filter === 'conv' ? 'No high-conviction setups right now — the deepest oversold/overbought extremes are rare. Check back, or browse All.'
-    : filter === 'buy' || filter === 'sell' ? `No ${filter.toUpperCase()} signals firing right now.`
+    filter === 'conv' ? 'No high-conviction setups right now — the deepest oversold extremes are rare. Check back, or browse All.'
+    : filter === 'buy' ? 'No BUY signals firing right now.'
     : 'No contracts match your search.'}</p>`;
 }
 
@@ -206,12 +212,11 @@ export function refresh(container) {
   const sub = container.querySelector('#mkt-subtitle');
   if (sub) { const t = subtitleText(); if (sub.innerHTML !== t) sub.innerHTML = t; }
 
-  // Breadth bar: rebuild only when the buy/sell counts actually change.
+  // Breadth bar: rebuild only when the buy/watching counts actually change.
   const bWrap = container.querySelector('#breadth-wrap');
   if (bWrap) {
-    let buy = 0, sell = 0;
-    for (const m of state.engine.markets) { const v = m.verdict(threshold); if (v === 'BUY') buy++; else if (v === 'SELL') sell++; }
-    if (bWrap.querySelector('.breadth')?.dataset.counts !== `${buy},${sell}`) bWrap.innerHTML = breadthHtml();
+    const { buy, watching } = breadthCounts();
+    if (bWrap.querySelector('.breadth')?.dataset.counts !== `${buy},${watching}`) bWrap.innerHTML = breadthHtml();
   }
 
   // "Watching" is a custom proximity-ranked list (not .mkt-row), so patch it by
@@ -224,13 +229,12 @@ export function refresh(container) {
 
   // With a verdict filter active, the visible set changes as verdicts flip —
   // rebuild only when membership actually differs (otherwise patch in place).
-  if (filter === 'buy' || filter === 'sell' || filter === 'conv') {
+  if (filter === 'buy' || filter === 'conv') {
     const q = query.trim().toUpperCase();
     const want = state.engine.markets.filter((m) => {
       if (q && !(m.symbol.includes(q) || m.name.toUpperCase().includes(q) || m.exchange.includes(q))) return false;
-      const v = m.verdict(threshold);
       if (filter === 'conv') return isHiConv(m, threshold);
-      return filter === 'buy' ? v === 'BUY' : v === 'SELL';
+      return m.verdict(threshold) === 'BUY';
     }).map((m) => m.symbol).join(',');
     const have = [...wrap.querySelectorAll('.mkt-row[data-sym]')].map((el) => el.dataset.sym).join(',');
     if (want !== have) { wrap.innerHTML = listHtml(); wireStars(wrap); return; }
@@ -238,7 +242,13 @@ export function refresh(container) {
 
   // Patch every existing row in place — no innerHTML rebuild, so no flicker.
   const rows = wrap.querySelectorAll('.mkt-row[data-sym]');
-  if (!rows.length) return;
+  if (!rows.length) {
+    // Cold load: the screen rendered empty before any feed arrived. Once markets
+    // have data, build the list now instead of staying stuck on the empty state.
+    const hasData = state.engine.markets.some((m) => !backendConfigured() || isRealMarket(m));
+    if (hasData) { wrap.innerHTML = listHtml(); wireStars(wrap); }
+    return;
+  }
   rows.forEach((el) => {
     const m = state.engine.get(el.dataset.sym);
     if (m) patchRow(el, m, m.verdict(threshold));
