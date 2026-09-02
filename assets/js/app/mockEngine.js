@@ -15,9 +15,17 @@ function currentTimeframe() {
 function serverReasons(sig, trend) {
   const r = Math.round(sig.rsi2 ?? 50);
   const tl = trend.toLowerCase();
-  if (sig.verdict === 'BUY') return [`Oversold flush — RSI2 at ${r} inside a ${tl} trend.`, 'Mean-reversion buy: the trade exits as price snaps back toward the mean.'];
-  if (sig.verdict === 'SELL') return [`Overbought pop — RSI2 at ${r} against a ${tl} trend.`, 'Mean-reversion short: fades the stretch back toward the mean.'];
-  return [`No setup right now — RSI2 at ${r} isn't stretched enough to trade.`, `Trend is ${tl}; waiting for a genuine oversold flush before entering.`];
+  if (sig.verdict === 'BUY') return [
+    `Oversold dip — RSI2 at ${r} (below 15) inside a ${tl} uptrend.`,
+    'This is a <b>buy-the-dip</b> (mean-reversion): we go LONG expecting the pullback to bounce back up — we do <b>not</b> short a falling market.',
+    'It profits only if price recovers; it closes when RSI2 snaps back above 65, or on its stop.',
+  ];
+  if (sig.verdict === 'SELL') return [
+    `Overbought pop — RSI2 at ${r} (above 85) inside a ${tl} downtrend.`,
+    'The mirror of the buy: we go SHORT expecting an over-extended rally to fade back down.',
+    'Provisional side — the short is weaker on stock indices (they drift up over time).',
+  ];
+  return [`No setup right now — RSI2 at ${r} isn't stretched enough to trade.`, `Trend is ${tl}; waiting for a genuine oversold dip (or overbought pop) before entering.`];
 }
 
 const MARKET_DEFS = [

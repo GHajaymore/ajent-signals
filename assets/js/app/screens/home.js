@@ -87,10 +87,10 @@ function portfolioCard(perf) {
 
 function strategyChip() {
   const daily = state.settings.strategyMode !== 'intraday';
-  return `<div class="stat-card strat-card" data-nav="#/settings">
+  return `<div class="stat-card strat-card" data-nav="#/methodology" title="How the strategy works">
     <div class="stat-label">Strategy</div>
     <div class="stat-value" style="font-size:14px;display:flex;align-items:center;gap:5px"><i class="ph-fill ${daily ? 'ph-calendar-check' : 'ph-lightning'}" style="color:var(--accent-300);font-size:14px"></i>${daily ? 'Proven' : 'Active'}</div>
-    <div class="stat-sub">${daily ? 'daily · long-only' : '15-min · long &amp; short'}</div>
+    <div class="stat-sub">${daily ? 'daily · buys dips' : '15-min · both ways'}</div>
   </div>`;
 }
 
