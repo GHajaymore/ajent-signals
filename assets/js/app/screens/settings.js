@@ -3,6 +3,21 @@ import { fmtMoney } from '../format.js';
 import { resetPaperTrades } from '../paperTrading.js';
 import { wireSignalExport, signalExportHtml } from './signalExport.js';
 import { isPaid, trialDaysLeft } from '../backendApi.js';
+import { isStandalone, isIOS, installAvailable, promptInstall } from '../install.js';
+
+// One-tap install (or iOS/desktop instructions). Hidden once running as an app.
+function installCardHtml() {
+  if (isStandalone()) return '';
+  const ios = isIOS();
+  const sub = ios ? 'Tap the Share icon, then “Add to Home Screen”.'
+    : installAvailable() ? 'One tap — get the app on your home screen for instant access.'
+    : 'In your browser menu, choose “Install app” / “Add to Home Screen”.';
+  return `<div class="panel setting-block" style="display:flex;align-items:center;gap:12px">
+    <i class="ph-fill ph-device-mobile-camera" style="font-size:22px;color:var(--accent-300);flex:none"></i>
+    <div style="flex:1;min-width:0"><div style="font:600 13.5px var(--font-heading)">Install Ajent Signals</div><div class="text-muted" style="font-size:12px;line-height:1.45">${sub}</div></div>
+    ${!ios && installAvailable() ? `<button class="btn btn-ghost" id="install-btn" style="height:34px;padding:0 16px;font-size:13px;flex:none">Install</button>` : ''}
+  </div>`;
+}
 
 // Plan status card — reflects trial countdown / Pro / post-trial Free.
 function planCard() {
@@ -77,6 +92,8 @@ export function render(container) {
     <h1 class="h-title" style="margin-bottom:18px">Settings</h1>
 
     ${planCard()}
+
+    ${installCardHtml()}
 
     <div class="panel setting-block">
       <div class="panel-title" style="margin-bottom:8px">Strategy</div>
@@ -162,6 +179,13 @@ export function render(container) {
 
     <div class="footer-note">Ajent Signals is an educational tool and does not execute trades.<br>Markets tagged REAL compute indicators from a free public price feed (unofficial, best-effort, delayed). Markets without a live feed show no signal and are hidden — never a fabricated one · v1.0.0</div>
   </div>`;
+
+  const installBtn = container.querySelector('#install-btn');
+  if (installBtn) installBtn.addEventListener('click', async () => {
+    installBtn.disabled = true; installBtn.textContent = 'Installing…';
+    const outcome = await promptInstall();
+    if (outcome !== 'accepted') { installBtn.disabled = false; installBtn.textContent = 'Install'; }
+  });
 
   container.querySelectorAll('#mode-toggle .seg-opt').forEach((btn) => {
     btn.addEventListener('click', () => {

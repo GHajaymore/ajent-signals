@@ -19,6 +19,7 @@ import { maybeOpenPositions, checkOpenPositions, applyServerRecord, getClosedTra
 import { fmtPrice } from './format.js';
 import { backendConfigured, fetchServerTrades, fetchServerSignals, fetchLiveQuotes, redeemSession, refreshProToken, confirmEntitlement, initBilling, isEntitled } from './backendApi.js';
 import { initIap } from './iap.js';
+import { initInstall } from './install.js';
 import * as proSuccess from './screens/proSuccess.js';
 
 const TABS = [
@@ -312,6 +313,10 @@ async function handleBillingReturn() {
   } catch (e) { /* non-fatal */ }
 }
 handleBillingReturn();
+
+// PWA install prompt capture — re-render Settings if the install offer appears so
+// its "Install" button lights up.
+initInstall(() => { if (parseHash()[0] === 'settings') renderRoute(); });
 
 // Dev aid, only active with ?debug=1 — lets us inspect the engine and exercise
 // the alert pipeline without waiting for a real signal. Inert for normal users.
