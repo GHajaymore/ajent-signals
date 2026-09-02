@@ -1,4 +1,4 @@
-import { state } from '../state.js';
+import { state, saveSettings } from '../state.js';
 import { heroCard, watchlistRow, patchRow, patchHero, symTile, dataTag, sparklineSvg } from '../components.js';
 import { getPerformanceSummary, getOpenCount, getOpenPositions, getClosedTrades } from '../paperTrading.js';
 import { marketSession } from '../marketHours.js';
@@ -17,10 +17,23 @@ function newsRelTime(ms) {
   return `${Math.round(s / 86400)}d ago`;
 }
 function esc(t) { return String(t).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c])); }
+// Collapsible header for the news section (persisted in settings). Kept distinct
+// from the "Market-moving events" banner above it — events are scheduled and
+// forward-looking; news is published headlines about what already happened.
+function newsHeader() {
+  const collapsed = !!state.settings.newsCollapsed;
+  return `<div class="section-label news-head" id="news-head" role="button" tabindex="0" aria-expanded="${!collapsed}">
+      <span>Market news</span>
+      <i class="ph-bold ph-caret-${collapsed ? 'down' : 'up'}" id="news-caret" style="font-size:14px;color:var(--text-muted)"></i>
+    </div>`;
+}
 function newsCardHtml() {
   if (!backendConfigured()) return '';
+  const collapsed = !!state.settings.newsCollapsed;
+  if (collapsed) return newsHeader();
+  const hint = `<div class="sub-hint">Latest published headlines — what already happened.</div>`;
   if (!isEntitled()) {
-    return `<div class="section-label">Market news</div>
+    return `${newsHeader()}${hint}
       <div class="card" data-nav="#/paywall" style="padding:16px;display:flex;align-items:center;gap:12px;cursor:pointer">
         <i class="ph-fill ph-newspaper" style="font-size:22px;color:var(--accent-300)"></i>
         <div style="flex:1"><div style="font:600 13.5px var(--font-heading)">Real-time market news</div><div class="text-muted" style="font-size:12px">Live headlines from the wire — <span style="color:var(--accent-200)">Pro</span></div></div>
@@ -34,7 +47,21 @@ function newsCardHtml() {
         <div style="font:600 13px var(--font-heading);line-height:1.35">${esc(n.title)}</div>
         <div class="text-muted" style="font-size:11px;margin-top:3px">${esc(n.publisher || 'News')} · ${newsRelTime(n.time)}</div>
       </a>`).join('') + `<div class="text-faint" style="font-size:10.5px;padding:9px 2px 4px">Headlines via Yahoo Finance — tap to read at the source. Delayed, informational only.</div>`;
-  return `<div class="section-label">Market news</div><div class="card" style="padding:2px 12px" id="news-card">${body}</div>`;
+  return `${newsHeader()}${hint}<div class="card" style="padding:2px 12px" id="news-card">${body}</div>`;
+}
+// Toggle + persist the news collapse state; re-render just the news section.
+function wireNews(scope) {
+  const head = scope.querySelector('#news-head');
+  if (!head || head.dataset.wired) return;
+  head.dataset.wired = '1';
+  const toggle = () => {
+    state.settings.newsCollapsed = !state.settings.newsCollapsed;
+    saveSettings();
+    const wrap = document.getElementById('news-wrap');
+    if (wrap) { wrap.innerHTML = newsCardHtml(); wireGlobalNavLocal(wrap); wireNews(wrap); }
+  };
+  head.addEventListener('click', toggle);
+  head.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
 }
 async function loadNews(container) {
   if (!backendConfigured() || !isEntitled()) return;
@@ -43,7 +70,7 @@ async function loadNews(container) {
     if (data) { newsCache = data; newsCacheAt = Date.now(); }
   }
   const wrap = container.querySelector('#news-wrap');
-  if (wrap) { wrap.innerHTML = newsCardHtml(); wireGlobalNavLocal(wrap); }
+  if (wrap) { wrap.innerHTML = newsCardHtml(); wireGlobalNavLocal(wrap); wireNews(wrap); }
 }
 function wireGlobalNavLocal(el) {
   el.querySelectorAll('[data-nav]').forEach((n) => { if (n.dataset.navWired) return; n.dataset.navWired = '1'; n.addEventListener('click', () => { location.hash = n.dataset.nav; }); });
@@ -86,11 +113,10 @@ function portfolioCard(perf) {
 }
 
 function strategyChip() {
-  const daily = state.settings.strategyMode !== 'intraday';
   return `<div class="stat-card strat-card" data-nav="#/methodology" title="How the strategy works">
-    <div class="stat-label">Strategy</div>
-    <div class="stat-value" style="font-size:14px;display:flex;align-items:center;gap:5px"><i class="ph-fill ${daily ? 'ph-calendar-check' : 'ph-lightning'}" style="color:var(--accent-300);font-size:14px"></i>${daily ? 'Proven' : 'Active'}</div>
-    <div class="stat-sub">${daily ? 'daily · buys dips' : '15-min · both ways'}</div>
+    <div class="stat-label">Trading style</div>
+    <div class="stat-value" style="font-size:14px;display:flex;align-items:center;gap:5px"><i class="ph-fill ph-calendar-check" style="color:var(--accent-300);font-size:14px"></i>Swing</div>
+    <div class="stat-sub">buys dips · holds days</div>
   </div>`;
 }
 
@@ -208,6 +234,11 @@ function todayCardHtml() {
   if (!t.closedCount && !t.openCount) return '';
   const net = t.realized + t.unreal;
   const col = (v) => (v >= 0 ? 'var(--buy)' : 'var(--sell)');
+  // Swing trades hold ~1-3 days, so a day with open positions but nothing closed
+  // shows unrealized-only — that's expected, not a stuck app. Say so once.
+  const swingHint = (t.openCount && !t.closedCount)
+    ? `<div class="text-faint" style="font-size:10.5px;margin-top:4px">Swing style — positions hold a few days, so today may show unrealized only until one closes.</div>`
+    : '';
   return `<div class="card" data-nav="#/track" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:13px 16px;margin-top:10px">
       <div style="flex:1">
         <div class="text-muted" style="font-size:11px;letter-spacing:.04em;text-transform:uppercase">Today</div>
@@ -215,6 +246,7 @@ function todayCardHtml() {
         <div class="text-muted" style="font-size:11px;margin-top:2px" id="today-sub">
           <span style="color:${col(t.realized)}">${money(t.realized)}</span> realized${t.closedCount ? ` · ${t.closedCount} closed` : ''} · <span style="color:${col(t.unreal)}">${money(t.unreal)}</span> unrealized${t.openCount ? ` · ${t.openCount} open` : ''}
         </div>
+        ${swingHint}
       </div>
       <i class="ph-bold ph-caret-right" style="color:var(--text-muted)"></i>
     </div>`;
@@ -311,11 +343,14 @@ function computeDerived() {
   const bullish = markets.filter((m) => m.signal.direction > 0).length;
   const riskOn = bullish >= markets.length / 2;
   // Feature the strongest LIVE setup if one has fired — the hero should showcase
-  // the actionable signal, not a default NO_TRADE market. High-conviction sorts
-  // first, then confidence. Otherwise fall back to the region's default market.
+  // the actionable signal, not a default NO_TRADE market. Prefer a market whose
+  // session is OPEN (you can act on it now) over a closed one; then high-conviction,
+  // then confidence. A closed-market signal is still valid at the next open, so it's
+  // not excluded — just ranked below anything actionable right now.
+  const isOpenNow = (m) => (marketSession(m) === 'open' ? 1 : 0);
   const topSetup = openSignals
     .filter((x) => x.m.signalIsReal)
-    .sort((a, b) => (isHiConv(b.m) - isHiConv(a.m)) || (b.m.signal.confidence - a.m.signal.confidence))[0];
+    .sort((a, b) => (isOpenNow(b.m) - isOpenNow(a.m)) || (isHiConv(b.m) - isHiConv(a.m)) || (b.m.signal.confidence - a.m.signal.confidence))[0];
   let featured = (topSetup && topSetup.m) || engine.get(state.homeSymbol) || engine.get('ES');
   if (backendConfigured() && !isRealMarket(featured)) featured = engine.get('ES') || engine.markets.find(isRealMarket) || featured;
   const featuredVerdict = featured.verdict(threshold);
@@ -387,6 +422,8 @@ export function render(container) {
         .join('') || '<div class="text-muted" style="font-size:12.5px;padding:14px 4px">Live data is loading — your watchlist markets will appear as their feeds come in.</div>'}</div>
     </div>
 
+    <div class="section-label">Market-moving events<a data-nav="#/calendar">Calendar &rsaquo;</a></div>
+    <div class="sub-hint">Scheduled economic releases that can move prices — known in advance.</div>
     <div class="calendar-banner" data-nav="#/calendar">
       <i class="ph-fill ph-calendar-check"></i>
       <div>
@@ -399,6 +436,7 @@ export function render(container) {
     <div id="news-wrap">${newsCardHtml()}</div>
   </div>`;
 
+  wireNews(container);
   loadNews(container);
 }
 

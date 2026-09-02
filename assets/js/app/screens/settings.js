@@ -7,6 +7,45 @@ import { isStandalone, isIOS, installAvailable, promptInstall } from '../install
 import { pushSupported, pushPermission, enablePush, disablePush } from '../pushClient.js';
 import { isEntitled } from '../backendApi.js';
 
+// Trading styles (industry-standard, by holding period). Only 'swing' is live and
+// validated; the others are shown honestly with their real status so the picker
+// never implies a capability we don't have. 'day'/'position' are being built as
+// clearly-labelled experiments; 'scalping' needs sub-minute data the free feed
+// can't provide. `status`: 'live' (selectable/active) | 'soon' | 'na'.
+const TRADING_STYLES = [
+  { key: 'scalping', name: 'Scalping', icon: 'ph-lightning', hold: 'Seconds–minutes', freq: 'dozens+/day', status: 'na',
+    note: 'Needs tick / sub-minute data — the free feed only serves 15-minute bars. Possible only with a paid market-data feed.' },
+  { key: 'day', name: 'Day trading', icon: 'ph-sun-horizon', hold: 'Intraday · flat by close', freq: '~5–50/day', status: 'soon',
+    note: 'Intraday mean reversion on 15-minute bars, no overnight risk. In development — an earlier version lost money live, so it will ship as a clearly-labelled experiment tracked on a real record, never with advertised returns.' },
+  { key: 'swing', name: 'Swing', icon: 'ph-calendar-check', hold: '~1–5 days', freq: '~1–5/week', status: 'live',
+    note: 'The validated strategy running now — daily Connors RSI-2, long-only. Buys deeply oversold dips in an uptrend, holds until RSI2 recovers. This is what auto-trades your paper account.' },
+  { key: 'position', name: 'Position', icon: 'ph-mountains', hold: 'Weeks–months', freq: 'a few/month', status: 'soon',
+    note: 'Longer-hold trend/mean-reversion for multi-week moves. Planned — not yet separately validated, so it will also arrive labelled experimental.' },
+];
+const STYLE_BADGE = {
+  live: '<span class="style-badge live">Live</span>',
+  soon: '<span class="style-badge soon">In development</span>',
+  na: '<span class="style-badge na">Unavailable</span>',
+};
+function activeStyle() {
+  const s = state.settings.tradingStyle || 'swing';
+  // Only 'live' styles can actually be active; anything else falls back to swing.
+  return TRADING_STYLES.some((x) => x.key === s && x.status === 'live') ? s : 'swing';
+}
+function styleRow(s) {
+  const active = s.key === activeStyle();
+  const selectable = s.status === 'live';
+  return `<button class="style-row${active ? ' active' : ''}${selectable ? '' : ' locked'}" data-style="${s.key}" ${selectable ? '' : 'aria-disabled="true"'}>
+    <i class="ph-fill ${s.icon} style-ico"></i>
+    <div class="style-body">
+      <div class="style-name">${s.name}${active ? ' <span class="style-active-tag">Active</span>' : ''} ${STYLE_BADGE[s.status]}</div>
+      <div class="style-meta">${s.hold} · ${s.freq}</div>
+      <div class="style-note">${s.note}</div>
+    </div>
+    ${selectable ? `<span class="style-check">${active ? '<i class="ph-bold ph-check-circle"></i>' : ''}</span>` : '<i class="ph-bold ph-lock-simple style-lock"></i>'}
+  </button>`;
+}
+
 // Push signal alerts — a Pro/trial perk. Get a notification when a BUY/SELL fires,
 // even with the app closed.
 function pushCardHtml() {
@@ -118,9 +157,10 @@ export function render(container) {
     ${installCardHtml()}
 
     <div class="panel setting-block">
-      <div class="panel-title" style="margin-bottom:8px">Strategy</div>
-      <div class="strat-badge"><span class="dot"></span>Proven · daily Connors RSI-2</div>
-      <div class="setting-help" style="margin-top:10px">Daily Connors mean reversion, long-only. It buys deeply oversold days that flush below the prior day's low in an uptrend, then holds until RSI2 snaps back (above 65) — letting winners run rather than bailing on the first green close. (Shorting overbought pops backtested as a drag, so it's dropped.) Backtested over 10 years on US indices: profit factor ~1.6, win rate ~74%, ~1.6-day average hold — profitable in every one of five ~2-year walk-forward windows and out-of-sample on four more global indices. The deepest setups (RSI2 below 5, below the lower Bollinger band) are flagged as higher conviction. It auto-trades the validated set — US indices (deepest edge) plus ASX, Euro Stoxx, Nikkei &amp; TSX for session diversification (adjust in Paper Trading). <a href="#/methodology">Full methodology →</a> Past results never guarantee future performance.</div>
+      <div class="panel-title" style="margin-bottom:4px">Trading style</div>
+      <div class="setting-help" style="margin:0 0 12px">Pick how you like to trade. Only styles we can run honestly on real, validated data are selectable — the rest show why not.</div>
+      <div class="style-list">${TRADING_STYLES.map(styleRow).join('')}</div>
+      <div class="setting-help" style="margin-top:12px">You're trading <b style="color:var(--text)">Swing</b> — the only decade-validated style (daily Connors RSI-2, long-only: PF ~1.6, ~74% win). Day trading &amp; Position are in development and will arrive labelled experimental with a real tracked record; Scalping needs a paid sub-minute data feed. <a href="#/methodology">How it works →</a></div>
     </div>
 
     <div class="panel setting-block">
@@ -223,6 +263,25 @@ export function render(container) {
     if (outcome !== 'accepted') { installBtn.disabled = false; installBtn.textContent = 'Install'; }
   });
 
+
+  // Trading-style picker. Only 'live' styles can be activated; tapping an
+  // in-development / unavailable one briefly flags why (it stays on its note).
+  container.querySelectorAll('.style-row[data-style]').forEach((row) => {
+    row.addEventListener('click', () => {
+      const key = row.dataset.style;
+      const def = TRADING_STYLES.find((s) => s.key === key);
+      if (!def || def.status !== 'live') {
+        row.classList.remove('nudge'); void row.offsetWidth; row.classList.add('nudge');
+        return;
+      }
+      if (state.settings.tradingStyle === key) return;
+      state.settings.tradingStyle = key;
+      saveSettings();
+      container.querySelector('.style-list').innerHTML = TRADING_STYLES.map(styleRow).join('');
+      // re-wire the freshly-rendered rows
+      render(container);
+    });
+  });
 
   const thresholdRange = document.getElementById('threshold-range');
   thresholdRange.addEventListener('input', () => {

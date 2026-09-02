@@ -75,6 +75,11 @@ const defaultSettings = {
   // safer, more-validated strategy is the honest default. Active stays one tap
   // away in Settings for users who want the higher-frequency, both-directions run.
   strategyMode: 'daily',
+  // Trading style the user has picked (industry-standard, by holding period). Only
+  // 'swing' is validated and live today; 'day'/'position' are in development and
+  // 'scalping' needs a paid sub-minute feed — the Settings picker shows each one's
+  // real status. Non-'swing' values fall back to swing for the actual engine.
+  tradingStyle: 'swing',
   // Default auto-trade set matches the default (daily) mode's validated markets.
   paperMarkets: [...DAILY_AUTOTRADE_MARKETS],
   threshold: 75,

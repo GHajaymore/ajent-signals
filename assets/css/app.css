@@ -82,6 +82,11 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .section-label > a { margin-left: auto; }
 .section-label:first-child { margin-top: 0; }
 .section-label a { font-size: 12px; text-transform: none; letter-spacing: 0; color: var(--accent-300); font-weight: 600; }
+.news-head { cursor: pointer; user-select: none; }
+.news-head > span { display: inline-flex; align-items: center; }
+.news-head > i { margin-left: auto; transition: transform 0.15s; }
+.news-head:hover > i { color: var(--text) !important; }
+.sub-hint { font-size: 11.5px; color: var(--text-muted); margin: -4px 0 10px; line-height: 1.4; }
 
 /* Hero signal card */
 .hero-card {
@@ -301,6 +306,33 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .seg-opt.on { background: var(--accent-800); color: var(--accent-100); }
 .strat-badge { display: inline-flex; align-items: center; gap: 8px; background: var(--neutral-900); border: 1px solid var(--accent-800); color: var(--accent-100); font: 600 13px var(--font-heading); padding: 8px 12px; border-radius: 9px; }
 .strat-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--pos, #34d399); box-shadow: 0 0 0 3px color-mix(in srgb, var(--pos, #34d399) 25%, transparent); }
+
+/* ── Trading-style picker ─────────────────────────────────────────── */
+.style-list { display: flex; flex-direction: column; gap: 8px; }
+.style-row {
+  display: flex; align-items: flex-start; gap: 12px; width: 100%; text-align: left;
+  background: var(--neutral-900); border: 1px solid var(--hairline); border-radius: 12px;
+  padding: 12px 13px; cursor: pointer; color: inherit; font: inherit; transition: border-color 0.15s, background 0.15s;
+}
+.style-row:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--hairline)); }
+.style-row.active { border-color: var(--accent-700); background: color-mix(in srgb, var(--accent) 8%, var(--neutral-900)); }
+.style-row.locked { cursor: default; opacity: 0.82; }
+.style-row.locked:hover { border-color: var(--hairline); }
+.style-ico { font-size: 20px; color: var(--accent-300); flex: none; margin-top: 1px; }
+.style-row.locked .style-ico { color: var(--text-muted); }
+.style-body { flex: 1; min-width: 0; }
+.style-name { font: 700 13.5px var(--font-heading); display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.style-active-tag { font: 700 9.5px var(--font-heading); letter-spacing: .05em; text-transform: uppercase; color: var(--accent-100); background: var(--accent-800); padding: 2px 6px; border-radius: 5px; }
+.style-meta { font-size: 11.5px; color: var(--text-muted); margin-top: 3px; }
+.style-note { font-size: 11px; color: var(--text-faint, var(--text-muted)); line-height: 1.45; margin-top: 5px; }
+.style-badge { font: 700 9.5px var(--font-heading); letter-spacing: .04em; text-transform: uppercase; padding: 2px 7px; border-radius: 5px; }
+.style-badge.live { color: #0b2b20; background: var(--pos, #34d399); }
+.style-badge.soon { color: #3a2a06; background: #e2b660; }
+.style-badge.na { color: var(--text-muted); background: var(--neutral-800, rgba(255,255,255,.06)); }
+.style-check { flex: none; color: var(--accent-300); font-size: 20px; width: 20px; display: flex; align-items: center; justify-content: center; }
+.style-lock { flex: none; color: var(--text-muted); font-size: 15px; margin-top: 2px; }
+@keyframes styleNudge { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-3px)} 75%{transform:translateX(3px)} }
+.style-row.nudge { animation: styleNudge 0.25s ease; }
 
 /* ── Modern Home ───────────────────────────────────────────────── */
 .home-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
