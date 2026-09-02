@@ -1,5 +1,31 @@
 import { state } from '../state.js';
 import { fmtAgo } from '../format.js';
+import { backendConfigured } from '../backendApi.js';
+import { isRealMarket } from './markets.js';
+
+// The markets nearest a BUY setup right now (real proximity score), so the Alerts
+// tab is useful even before anything fires — it shows what may alert next. Honest:
+// proximity is the server's real "how close is RSI2 to the trigger" measure.
+function brewingMarkets() {
+  const threshold = state.settings.threshold;
+  const realOnly = backendConfigured();
+  return state.engine.markets
+    .filter((m) => (!realOnly || isRealMarket(m)) && m.signal && (m.signal.proximity || 0) > 0 && m.verdict(threshold) === 'NO_TRADE')
+    .sort((a, b) => (b.signal.proximity || 0) - (a.signal.proximity || 0))
+    .slice(0, 6);
+}
+function brewingRow(m) {
+  const prox = Math.max(0, Math.min(100, Math.round(m.signal.proximity || 0)));
+  const rsi = m.signal.rsi2;
+  return `<div class="closed-row" data-nav="#/signal/${m.symbol}" style="cursor:pointer">
+    <div class="closed-sym">${m.symbol}</div>
+    <div class="closed-body">
+      <div class="closed-title">${m.name}</div>
+      <div class="closed-sub">${prox}% to a setup${rsi != null ? ` · RSI2 ${Math.round(rsi)}` : ''}</div>
+      <div style="height:5px;border-radius:3px;background:var(--neutral-900);margin-top:6px;overflow:hidden"><div style="height:100%;width:${prox}%;background:linear-gradient(90deg,var(--accent-700),var(--accent-300))"></div></div>
+    </div>
+  </div>`;
+}
 
 const ALERT_META = {
   BUY: { color: 'var(--buy)', dim: 'var(--buy-dim)', icon: 'ph-arrow-up-right' },
@@ -13,6 +39,7 @@ const ALERT_META = {
 
 export function render(container) {
   const alerts = state.engine.alerts;
+  const brewing = brewingMarkets();
 
   container.innerHTML = `
   <div class="fade-in glow-wrap">
@@ -37,5 +64,12 @@ export function render(container) {
         </div>
       </div>`;
     }).join('')}
+
+    ${brewing.length ? `
+    <div class="section-label" style="margin-top:22px">Closest to firing<a data-nav="#/markets">All markets &rsaquo;</a></div>
+    <div class="sub-hint">No alert yet — these markets are nearest a BUY setup. You'll be notified the moment one triggers.</div>
+    <div class="card" style="padding:2px 12px">${brewing.map(brewingRow).join('')}</div>
+    <div class="text-faint" style="font-size:11px;text-align:center;margin-top:10px">Get pushed the instant a setup fires — turn on alerts in <a data-nav="#/settings" style="color:var(--accent-300)">Settings</a>.</div>
+    ` : ''}
   </div>`;
 }
