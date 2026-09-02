@@ -421,6 +421,29 @@ function emptyState() {
   </div>`;
 }
 
+// Export the real closed-trade record as CSV — the user's own data, for their
+// own analysis in a spreadsheet. Nothing fabricated: every row is a real paper
+// trade. Runs entirely in the browser (a Blob download; no upload anywhere).
+function tradesToCsv(trades) {
+  const cols = ['Symbol', 'Name', 'Side', 'Entry', 'Exit', 'Result_R', 'PnL_net_$', 'Cost_$', 'Risk_$', 'Outcome', 'Exit_reason', 'Opened_at', 'Closed_at'];
+  const iso = (t) => (t ? new Date(t).toISOString() : '');
+  const esc = (v) => { const s = v == null ? '' : String(v); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const rows = trades.map((c) => [
+    c.symbol, c.name || '', c.side || '', c.entry ?? '', c.exit ?? '',
+    c.resultR ?? '', tradePnl(c), c.cost ?? '', c.riskDollars ?? '',
+    c.outcome || '', c.exitReason || '', iso(c.openedAt), iso(c.closedAt),
+  ].map(esc).join(','));
+  return [cols.join(','), ...rows].join('\r\n');
+}
+function downloadCsv(filename, csv) {
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }); // BOM → Excel reads UTF-8
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+}
+
 export function render(container) {
   const perf = getPerformanceSummary();
   if (!perf) { container.innerHTML = emptyState(); wireSelector(container); return; }
@@ -482,7 +505,7 @@ export function render(container) {
 
     ${byMarketHtml(closed)}
 
-    <div class="section-label">Recent trades</div>
+    <div class="section-label">Recent trades${closed.length ? `<a id="export-csv" style="cursor:pointer"><i class="ph-bold ph-download-simple" style="font-size:12px;vertical-align:-1px"></i> Export CSV</a>` : ''}</div>
     <div class="card" style="padding:2px 12px">
       ${closed.slice(0, 30).map((c) => {
         const pnl = tradePnl(c);
@@ -510,6 +533,13 @@ export function render(container) {
   </div>`;
 
   wireSelector(container);
+
+  const exportBtn = container.querySelector('#export-csv');
+  if (exportBtn) exportBtn.addEventListener('click', () => {
+    const trades = getClosedTrades();
+    if (!trades.length) return;
+    downloadCsv(`ajent-paper-trades-${new Date().toISOString().slice(0, 10)}.csv`, tradesToCsv(trades));
+  });
 }
 
 // Live, in-place refresh: only re-paint the per-market Buy/Sell/Flat tags in the
