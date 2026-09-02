@@ -161,6 +161,34 @@ function fmtHoldMin(min) {
   return `${(min / 60).toFixed(1)} hrs`;
 }
 
+// Realized P&L grouped by the (local) day each trade closed — the day-by-day trend.
+function dailyPnlHtml(closed) {
+  if (!closed || closed.length < 2) return '';
+  const byDay = new Map();
+  for (const c of closed) {
+    const key = new Date(c.closedAt || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    byDay.set(key, (byDay.get(key) || 0) + tradePnl(c));
+  }
+  // closed is newest-first, so take the newest 14 days then flip to chronological.
+  const days = [...byDay.entries()].slice(0, 14).reverse();
+  if (days.length < 2) return '';
+  const maxAbs = Math.max(...days.map(([, v]) => Math.abs(v)), 1);
+  return `
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <div class="panel-title" style="margin-bottom:0">Daily P&amp;L</div>
+        <span class="text-muted" style="font-size:12px">last ${days.length} days traded</span>
+      </div>
+      <div class="bar-chart">
+        ${days.map(([label, value]) => {
+          const color = value >= 0 ? 'var(--buy)' : 'var(--sell)';
+          const h = Math.max(6, (Math.abs(value) / maxAbs) * 100);
+          return `<div class="bar-col"><span class="bv" style="color:${color}">${money(value)}</span><div class="b" style="height:${h}%;background:${color}"></div><span class="bl">${label}</span></div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
 // Group real closed trades by market → net P&L, win rate, count. Sorted best→worst.
 function byMarketStats(closed) {
   const map = new Map();
@@ -429,6 +457,8 @@ export function render(container) {
       <div class="stat-card"><div class="stat-label">Best streak</div><div class="stat-value" style="color:var(--buy)">${perf.bestWinStreak}W</div><div class="stat-sub">consecutive wins</div></div>
       <div class="stat-card"><div class="stat-label">Max drawdown</div><div class="stat-value" style="color:var(--sell)">${money(perf.maxDrawdown)}</div><div class="stat-sub">peak-to-trough</div></div>
     </div>
+
+    ${dailyPnlHtml(closed)}
 
     <div class="panel">
       <div style="display:flex;justify-content:space-between;align-items:baseline">
