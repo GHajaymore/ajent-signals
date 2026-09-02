@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { heroCard, watchlistRow, patchRow, patchHero, symTile, dataTag, sparklineSvg } from '../components.js';
-import { getPerformanceSummary, getOpenCount, getOpenPositions } from '../paperTrading.js';
+import { getPerformanceSummary, getOpenCount, getOpenPositions, getClosedTrades } from '../paperTrading.js';
 import { marketSession } from '../marketHours.js';
 import { backendConfigured, isEntitled, fetchNews } from '../backendApi.js';
 import { isRealMarket } from './markets.js';
@@ -192,6 +192,34 @@ function livePnl(p) {
   return { r, dollars: r * (p.riskDollars || 250), px, decimals: market.decimals };
 }
 
+// Today's P&L: realized from trades that closed since local midnight, plus the
+// live unrealized on everything still open. Honest — separates the two.
+function todayPnl() {
+  const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+  const closedToday = getClosedTrades().filter((c) => (c.closedAt || 0) >= t0.getTime());
+  const realized = closedToday.reduce((s, c) => s + (c.pnl || 0), 0);
+  const open = getOpenPositions();
+  let unreal = 0, marked = 0;
+  for (const p of open) { const q = livePnl(p); if (q) { unreal += q.dollars; marked++; } }
+  return { realized, closedCount: closedToday.length, unreal, openCount: open.length, marked };
+}
+function todayCardHtml() {
+  const t = todayPnl();
+  if (!t.closedCount && !t.openCount) return '';
+  const net = t.realized + t.unreal;
+  const col = (v) => (v >= 0 ? 'var(--buy)' : 'var(--sell)');
+  return `<div class="card" data-nav="#/track" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:13px 16px;margin-top:10px">
+      <div style="flex:1">
+        <div class="text-muted" style="font-size:11px;letter-spacing:.04em;text-transform:uppercase">Today</div>
+        <div id="today-net" style="font:800 22px var(--font-heading);color:${col(net)};line-height:1.1;margin-top:1px">${money(net)}</div>
+        <div class="text-muted" style="font-size:11px;margin-top:2px" id="today-sub">
+          <span style="color:${col(t.realized)}">${money(t.realized)}</span> realized${t.closedCount ? ` · ${t.closedCount} closed` : ''} · <span style="color:${col(t.unreal)}">${money(t.unreal)}</span> unrealized${t.openCount ? ` · ${t.openCount} open` : ''}
+        </div>
+      </div>
+      <i class="ph-bold ph-caret-right" style="color:var(--text-muted)"></i>
+    </div>`;
+}
+
 function positionRow(p) {
   const market = state.engine.get(p.symbol);
   const long = (p.side || 'LONG') === 'LONG';
@@ -305,6 +333,8 @@ export function render(container) {
     <div class="home-greeting">${greeting()}</div>
 
     <div id="portfolio-wrap">${portfolioCard(perf)}</div>
+
+    <div id="today-wrap">${todayCardHtml()}</div>
 
     <div class="stat-row" style="grid-template-columns:repeat(2,1fr)">
       <div class="stat-card">
@@ -420,6 +450,15 @@ export function refresh(container) {
         el.style.color = pnl.dollars >= 0 ? 'var(--buy)' : 'var(--sell)';
       });
     }
+  }
+
+  // Today's P&L: rebuild the card when its content changes (prices tick, a trade
+  // opens/closes) so realized + unrealized stay live.
+  const todayWrap = container.querySelector('#today-wrap');
+  if (todayWrap) {
+    const t = todayPnl();
+    const sig = `${Math.round(t.realized)}|${Math.round(t.unreal)}|${t.closedCount}|${t.openCount}`;
+    if (todayWrap.dataset.sig !== sig) { todayWrap.innerHTML = todayCardHtml(); todayWrap.dataset.sig = sig; }
   }
 
   // Top setups / watching: rebuild only when the content signature changes, so it

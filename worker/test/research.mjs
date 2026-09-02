@@ -21,12 +21,19 @@ function simulate(candles, p) {
         pos.units.push({ entry: price, risk });
         pos.stop = Math.min(...pos.units.map((u) => u.entry - u.risk));
       }
+      const avgEntry = pos.units.reduce((s, u) => s + u.entry, 0) / pos.units.length;
       let exit = null;
       if (price <= pos.stop) exit = 'stop';
       else if (i > pos.openIdx) {
         if (p.exit === 'firstUp' && c.c > candles[i - 1].c) exit = 'firstUp';
         else if (p.exit === 'rsiHigh' && rsi2[i] > p.rsiExit) exit = 'rsiHigh';
         else if (p.exit === 'sma5' && price > s5[i]) exit = 'sma5';
+        // ASYMMETRIC: winners run to RSI2>exitRsi; a loser is cut on the first
+        // up-close (weak bounce while still below entry) so losses stay small.
+        else if (p.exit === 'asym') {
+          if (price >= avgEntry && rsi2[i] > p.rsiExit) exit = 'rsiHigh';
+          else if (price < avgEntry && c.c > candles[i - 1].c) exit = 'cutLoser';
+        }
       }
       if (!exit && i - pos.openIdx >= p.maxHold) exit = 'time';
       if (exit) {
@@ -77,16 +84,11 @@ function evaluate(p, syms = Object.keys(DATA)) {
 const BASE = { rsiEntry: 15, requireFlush: true, trendSMA: 200, stopATR: 2, exit: 'rsiHigh', rsiExit: 65, maxHold: 7 };
 const variants = {
   'SHIPPED (rsi2<15, exit>65)':     BASE,
-  '+ scale-in at rsi2<5':           { ...BASE, scaleAt: 5 },
-  '+ scale-in at rsi2<8':           { ...BASE, scaleAt: 8 },
-  'exit>70 (hold longer)':          { ...BASE, rsiExit: 70 },
-  'exit>60 (take sooner)':          { ...BASE, rsiExit: 60 },
-  'wider stop 3xATR':               { ...BASE, stopATR: 3 },
-  'wider stop 3x + scale<5':        { ...BASE, stopATR: 3, scaleAt: 5 },
-  'maxHold 10d':                    { ...BASE, maxHold: 10 },
-  'scale<5 + stop3 + exit70 + 10d': { ...BASE, scaleAt: 5, stopATR: 3, rsiExit: 70, maxHold: 10 },
-  'entry rsi2<20':                  { ...BASE, rsiEntry: 20 },
-  'entry<20 + scale<8 + stop3':     { ...BASE, rsiEntry: 20, scaleAt: 8, stopATR: 3 },
+  'ASYM: run wins, cut losers':     { ...BASE, exit: 'asym' },
+  'ASYM + exit>70':                 { ...BASE, exit: 'asym', rsiExit: 70 },
+  'ASYM + tighter stop 1.5xATR':    { ...BASE, exit: 'asym', stopATR: 1.5 },
+  'old firstUp exit (was live)':    { ...BASE, exit: 'firstUp' },
+  'tighter stop 1.5xATR':           { ...BASE, stopATR: 1.5 },
 };
 
 const EQ = Object.keys(DATA).filter((s) => s !== 'BTC' && s !== 'ETH');
