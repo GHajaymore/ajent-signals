@@ -6,6 +6,27 @@ import { deliverEvents } from './webhooks.js';
 
 const dayKey = (ms) => new Date(ms).toISOString().slice(0, 10);
 
+// Meaningful transitions for the per-market signal timeline (verdict flips,
+// proximity milestones, deep-oversold). Honest, real-state changes only — nothing
+// fabricated. Returns short human strings.
+function changeEvents(prev, sig) {
+  const ev = [];
+  const pv = prev && prev.verdict, nv = sig.verdict;
+  if (pv && pv !== nv) {
+    if (nv === 'BUY') ev.push(`Fired a BUY — oversold dip (RSI2 ${sig.rsi2}) in an uptrend.`);
+    else if (nv === 'SELL') ev.push(`Fired a SELL — overbought pop (RSI2 ${sig.rsi2}) in a downtrend.`);
+    else if (pv === 'BUY' || pv === 'SELL') ev.push('Setup cleared — back to no-trade.');
+  }
+  const pp = (prev && prev.proximity) || 0, np = sig.proximity || 0;
+  if (nv === 'NO_TRADE') {
+    if (pp < 60 && np >= 60) ev.push(`Approaching a setup — ${np}% of the way (RSI2 ${sig.rsi2}).`);
+    else if (pp < 100 && np >= 100 && !ev.length) ev.push(`At the trigger — waiting on the flush below the prior day's low (RSI2 ${sig.rsi2}).`);
+  }
+  const pr = prev && prev.rsi2, nr = sig.rsi2;
+  if (typeof pr === 'number' && pr >= 5 && typeof nr === 'number' && nr < 5) ev.push('Deeply oversold (RSI2 < 5) — high-conviction tier.');
+  return ev;
+}
+
 // Open/close the paper position for one market given its computed signal, mutating
 // the in-memory `record` blob ({ open:{}, closed:[], lastClose:{} }). Synchronous:
 // the whole record is ONE KV get + ONE KV put per tick (see runTick), so we never
@@ -76,6 +97,11 @@ export async function runTick(env, store) {
     } catch (e) { /* list quota may be spent today; the record starts fresh */ }
     record.migrated = true;
   }
+  // Per-market signal timeline (bounded rolling log). Read once, written once only
+  // if something changed this tick.
+  const histBlob = (await store.get('HISTORY', 'ALL')) || {};
+  const hist = histBlob.hist || {};
+  let histChanged = false;
   for (const symbol of Object.keys(MARKETS)) {
     try {
       const meta = MARKETS[symbol];
@@ -92,6 +118,14 @@ export async function runTick(env, store) {
       // Recent daily closes (timestamped) so the app charts real price action and
       // can position trade markers by time — not a flat SIM line.
       const history = candles.slice(-64).map((c) => ({ t: c.t, c: Math.round(c.c * 100) / 100 }));
+      // Log meaningful transitions to this market's timeline.
+      const evs = changeEvents(prev, sig);
+      if (evs.length) {
+        hist[symbol] = hist[symbol] || [];
+        for (const t of evs) hist[symbol].unshift({ at: now, text: t });
+        if (hist[symbol].length > 12) hist[symbol].length = 12;
+        histChanged = true;
+      }
       bySym[symbol] = { symbol, name: meta.name, updatedAt: now, ...sig, live, liveTime, prevClose, history };
       const res = processPosition({ symbol, meta, sig, live, open: isOpen(meta), record, now, risk, cost });
       if (res === 'open') {
@@ -107,6 +141,7 @@ export async function runTick(env, store) {
   // One batched write for the whole paper record (was one put/del per position +
   // TRADE + LASTCLOSE keys). /trades now reads this single blob via get — no list.
   await store.put({ pk: 'RECORD', sk: 'ALL', updatedAt: Date.now(), open: record.open, closed: record.closed, lastClose: record.lastClose, migrated: record.migrated });
+  if (histChanged) await store.put({ pk: 'HISTORY', sk: 'ALL', updatedAt: Date.now(), hist });
   // Fan out the fresh events to registered Pro webhooks (best-effort).
   try { await deliverEvents(store, events); } catch (e) { /* delivery never blocks trading */ }
   const fired = events.filter((e) => e.type === 'signal').map((e) => ({ symbol: e.symbol, name: e.name, verdict: e.event, confidence: e.signal && e.signal.confidence }));

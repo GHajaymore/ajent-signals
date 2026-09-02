@@ -70,6 +70,14 @@ export default {
     // known crypto symbols so it can't be abused as an open proxy. Ungated: this
     // is just a price, and crypto's feed has no exchange delay, so it lets the app
     // tick BTC/ETH live between the 5-min signal ticks.
+    // Per-market signal timeline — meaningful transitions logged over time. Ungated.
+    if (url.pathname === '/history') {
+      const sym = url.searchParams.get('symbol') || '';
+      const blob = await db(env).get('HISTORY', 'ALL');
+      const hist = (blob && blob.hist) || {};
+      return json({ symbol: sym, events: (sym ? hist[sym] : null) || [] });
+    }
+
     if (url.pathname === '/live') {
       const MAP = { BTC: 'BTC-USD', ETH: 'ETH-USD' };
       const quotes = {};

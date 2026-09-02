@@ -77,6 +77,8 @@ export function fetchServerSignals() { return getJson('/signals'); }
 export function fetchLiveQuotes() { return getJson('/live'); }
 // Market news fetched server-side. { news:[{title,publisher,link,time}], source } or null.
 export function fetchNews() { return getJson('/news'); }
+// Per-market signal timeline (verdict flips, proximity milestones…). { events:[{at,text}] } or null.
+export function fetchHistory(symbol) { return getJson(`/history?symbol=${encodeURIComponent(symbol)}`); }
 // Real OHLC candles for a market's chart, fetched server-side (no browser CORS).
 // `appSymbol` is the app's symbol (ES/RTY/BTC…) — the Worker maps it to the same
 // instrument the strategy trades. Returns an array of {t,o,h,l,c} or null.

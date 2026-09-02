@@ -22,6 +22,55 @@ import { YAHOO_SYMBOL } from '../liveData.js';
 import { fetchCandles } from '../candles.js';
 import { isHighConviction, getOpenPositions } from '../paperTrading.js';
 import { isMarketAllowed } from '../adaptiveWeights.js';
+import { fetchHistory, backendConfigured } from '../backendApi.js';
+
+// Relative-time for the signal timeline.
+function tlAgo(ms) {
+  if (!ms) return '';
+  const s = Math.max(0, (Date.now() - ms) / 1000);
+  if (s < 3600) return `${Math.max(1, Math.round(s / 60))}m ago`;
+  if (s < 86400) return `${Math.round(s / 3600)}h ago`;
+  return `${Math.round(s / 86400)}d ago`;
+}
+function timelineHtml(events) {
+  if (!events || !events.length) return '';
+  return `<div class="panel">
+    <div class="panel-title">Signal timeline</div>
+    ${events.slice(0, 8).map((e) => `<div class="reason-row" style="align-items:flex-start">
+      <i class="ph-fill ph-clock-countdown" style="color:var(--accent-300)"></i>
+      <span style="font-size:12.5px;line-height:1.5">${e.text}<br><span class="text-faint" style="font-size:10.5px">${tlAgo(e.at)}</span></span>
+    </div>`).join('')}
+  </div>`;
+}
+async function loadTimeline(container, symbol) {
+  if (!backendConfigured()) return;
+  const data = await fetchHistory(symbol);
+  const el = container.querySelector('#signal-timeline');
+  if (el && data && Array.isArray(data.events) && data.events.length) el.innerHTML = timelineHtml(data.events);
+}
+
+// Honest "what could hold it back" — real caveats from the signal state, never a
+// fabricated confidence booster. Mirrors the discipline of showing losses too.
+function caveatsHtml(market, verdict) {
+  const s = market.signal, c = [];
+  if (verdict === 'BUY') {
+    c.push('This is a bounce bet — if the dip keeps falling, it loses. Profit needs a recovery, not more downside.');
+    if (!(s.plan && s.plan.conviction === 'high')) c.push('Standard tier, not the deepest oversold (RSI2 isn’t below 5) — the per-trade edge is smaller than a high-conviction setup.');
+    if (s.pctB != null && s.pctB >= 0) c.push('Price hasn’t pierced below the lower Bollinger band — a less-stretched setup than the strongest ones.');
+  } else if (verdict === 'SELL') {
+    c.push('Provisional short — historically the weaker side on stock indices (they drift up over time). The live record is the judge.');
+    c.push('A short bets on a fade; if the pop keeps running, it loses.');
+  } else {
+    return '';
+  }
+  const edge = dailyEdge(market.symbol);
+  if (edge === 'negative') c.push('This daily strategy has historically LOST on this market — treat the signal as informational, not a proven edge here.');
+  else if (edge === 'untested' || edge === 'flat') c.push('Not strongly backtested on this specific market — the validated edge is on developed-market equity indices.');
+  return `<div class="panel" style="border:1px solid var(--hairline)">
+    <div class="panel-title" style="display:flex;align-items:center;gap:7px"><i class="ph-fill ph-warning" style="color:var(--flat)"></i>What could hold it back</div>
+    ${c.map((t) => `<div class="reason-row" style="align-items:flex-start"><i class="ph-bold ph-minus" style="color:var(--text-muted)"></i><span style="font-size:12.5px;line-height:1.55">${t}</span></div>`).join('')}
+  </div>`;
+}
 
 // Explains whether this signal is actually being paper-traded, and if not, why.
 // A BUY/SELL verdict clears the confidence threshold, but the paper-trader is
@@ -513,6 +562,8 @@ function renderSignalTab(market, verdict, color) {
     ${s.reasons.map((r) => `<div class="reason-row"><i class="ph-bold ph-check-circle" style="color:${color}"></i><span>${r}</span></div>`).join('')}
   </div>
 
+  <div id="signal-timeline"></div>
+
   <div class="countdown-note"><i class="ph ph-arrows-clockwise"></i>Next model update in <span data-f="countdown">${fmtCountdown(market.nextUpdateSec)}</span></div>
   `;
 }
@@ -563,6 +614,8 @@ function renderBreakdownTab(market, color) {
 
   <div class="section-label">What the engine actually sees</div>
   <div class="panel">${rsi2Row}${bbRow}${trendRow}</div>
+
+  ${caveatsHtml(market, market.verdict(state.settings.threshold))}
 
   <div class="text-muted" style="font-size:11.5px;line-height:1.6;margin-top:8px;padding:0 4px">
     This is a <b style="color:var(--text)">mean-reversion</b> signal — <b>not</b> a multi-indicator confluence score. It buys a deeply oversold dip (RSI-2 low) or short-sells an overbought pop (RSI-2 high); the Bollinger stretch flags the strongest setups and the 200-period trend is context. A trade fires only once the setup clears your ${state.settings.threshold}% confidence threshold (adjustable in Settings). Rule-based — no method guarantees a win rate.
@@ -689,6 +742,7 @@ export function render(container) {
     render(container);
   });
   if (tab === 'chart') wireChartRange(container, market, verdict, color);
+  if (tab === 'signal') loadTimeline(container, market.symbol);
 }
 
 export function refresh(container) {
