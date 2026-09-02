@@ -41,8 +41,12 @@ export default {
     ctx.waitUntil((async () => {
       const store = db(env);
       const r = await runTick(env, store);
-      // Ping push subscribers only when a fresh BUY/SELL actually fires.
-      if (r && r.signalFired) { try { await pushToAll(env, store); } catch (e) { /* never block the loop */ } }
+      // Ping push subscribers only when a fresh BUY/SELL actually fires. Record
+      // WHAT fired so the notification can name the market(s), not just "a setup".
+      if (r && r.signalFired) {
+        try { await store.put({ pk: 'PUSH', sk: 'LAST', fired: r.fired, at: Date.now() }); } catch (e) { /* non-fatal */ }
+        try { await pushToAll(env, store); } catch (e) { /* never block the loop */ }
+      }
     })());
   },
 
@@ -92,6 +96,10 @@ export default {
     if (url.pathname === '/push/unsubscribe' && request.method === 'POST') {
       try { const b = await readJson(request); await removeSubscription(db(env), b && b.endpoint); return json({ ok: true }); }
       catch (e) { return json({ ok: true }); }
+    }
+    if (url.pathname === '/push/last') {
+      const blob = await db(env).get('PUSH', 'LAST');
+      return json({ fired: (blob && blob.fired) || [], at: (blob && blob.at) || 0 });
     }
     if (url.pathname === '/push/test') {
       if (!env.ADMIN_KEY || url.searchParams.get('key') !== env.ADMIN_KEY) return json({ error: 'not found' }, 404);

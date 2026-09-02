@@ -47,8 +47,11 @@ unless you specifically want to preserve the record (KV bulk export/import).
   `window.__AJENT_API = 'https://ajent-signals-worker.golferajay.workers.dev';`
   Change to the new Worker URL (or the planned custom subdomain
   `https://ajent.ajailabs.app` once that zone is active — see the memory note; the
-  `ajailabs.app` zone was PENDING). This is the ONLY place the app reads the backend
+  `ajailabs.app` zone was PENDING). This is the main place the app reads the backend
   from (`backendApi.js` reads `window.__AJENT_API`).
+- `sw.js` ALSO hardcodes the Worker URL as `const AJENT_API = '…golferajay.workers.dev'`
+  — the service worker fetches `/push/last` to name markets in push notifications and
+  can't read `window.__AJENT_API`. Update this line together with `app/index.html`.
 
 ---
 

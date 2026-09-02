@@ -18,17 +18,28 @@ self.addEventListener('activate', (event) => {
   })());
 });
 
-// Web push: a payload-less "tickle" from the Worker when a signal fires. Show a
-// notification; tapping it opens (or focuses) the app on the Alerts screen.
+// Web push: a payload-less "tickle" from the Worker when a signal fires. The SW
+// fetches what fired so the notification names the market(s) and direction, then
+// falls back to a generic message if that lookup fails.
+const AJENT_API = 'https://ajent-signals-worker.golferajay.workers.dev';
 self.addEventListener('push', (event) => {
-  event.waitUntil(self.registration.showNotification('Ajent Signals', {
-    body: 'A new trade setup just fired — tap to view.',
-    icon: '/assets/img/icon-192.png',
-    badge: '/assets/img/icon-192.png',
-    tag: 'ajent-signal',
-    renotify: true,
-    data: { url: '/app/#/alerts' },
-  }));
+  event.waitUntil((async () => {
+    let title = 'Ajent Signals', body = 'A new trade setup just fired — tap to view.', target = '/app/#/alerts';
+    try {
+      const data = await fetch(`${AJENT_API}/push/last`, { cache: 'no-store' }).then((r) => r.json());
+      const fired = (data && data.fired) || [];
+      if (fired.length) {
+        const parts = fired.slice(0, 3).map((f) => `${f.verdict} ${f.symbol}${f.confidence ? ` ${f.confidence}%` : ''}`);
+        title = fired.length === 1 ? `${fired[0].verdict} · ${fired[0].name || fired[0].symbol}` : `${fired.length} new signals`;
+        body = parts.join(' · ') + (fired.length > 3 ? ` +${fired.length - 3} more` : '');
+        target = fired.length === 1 ? `/app/#/signal/${fired[0].symbol}` : '/app/#/home';
+      }
+    } catch (e) { /* keep the generic message */ }
+    await self.registration.showNotification(title, {
+      body, icon: '/assets/img/icon-192.png', badge: '/assets/img/icon-192.png',
+      tag: 'ajent-signal', renotify: true, data: { url: target },
+    });
+  })());
 });
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
