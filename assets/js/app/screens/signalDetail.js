@@ -618,7 +618,7 @@ function renderBreakdownTab(market, color) {
   ${caveatsHtml(market, market.verdict(state.settings.threshold))}
 
   <div class="text-muted" style="font-size:11.5px;line-height:1.6;margin-top:8px;padding:0 4px">
-    This is a <b style="color:var(--text)">mean-reversion</b> signal — <b>not</b> a multi-indicator confluence score. It buys a deeply oversold dip (RSI-2 low) or short-sells an overbought pop (RSI-2 high); the Bollinger stretch flags the strongest setups and the 200-period trend is context. A trade fires only once the setup clears your ${state.settings.threshold}% confidence threshold (adjustable in Settings). Rule-based — no method guarantees a win rate.
+    This is a <b style="color:var(--text)">mean-reversion</b> signal — <b>not</b> a multi-indicator confluence score. It buys a deeply oversold dip (RSI-2 low) in an uptrend; the Bollinger stretch flags the strongest setups and the 200-period trend is the filter. A trade fires only once the setup clears your ${state.settings.threshold}% confidence threshold (adjustable in Settings). Rule-based — no method guarantees a win rate.
   </div>`;
 }
 
@@ -696,7 +696,7 @@ function renderChartTab(market, color, verdict) {
   </div>` : `
   <div class="panel">
     <div class="panel-title">Key levels</div>
-    <div class="text-muted" style="font-size:12.5px;line-height:1.6;padding:6px 2px">No active setup — entry, stop and target levels appear once a BUY or SELL signal fires. The daily strategy is long (validated) plus a provisional short side; Active mode trades both directions intraday.</div>
+    <div class="text-muted" style="font-size:12.5px;line-height:1.6;padding:6px 2px">No active setup — entry, stop and target levels appear once a BUY signal fires. The strategy is long-only: it buys deeply oversold dips in an uptrend and stands aside otherwise.</div>
   </div>`}`;
 }
 

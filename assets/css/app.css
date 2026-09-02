@@ -299,6 +299,8 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .seg-toggle { display: flex; gap: 4px; background: var(--neutral-900); border-radius: 11px; padding: 4px; }
 .seg-opt { flex: 1; border: none; background: transparent; color: var(--text-muted); font: 600 13px var(--font-heading); padding: 9px 8px; border-radius: 8px; cursor: pointer; transition: background 0.15s, color 0.15s; }
 .seg-opt.on { background: var(--accent-800); color: var(--accent-100); }
+.strat-badge { display: inline-flex; align-items: center; gap: 8px; background: var(--neutral-900); border: 1px solid var(--accent-800); color: var(--accent-100); font: 600 13px var(--font-heading); padding: 8px 12px; border-radius: 9px; }
+.strat-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--pos, #34d399); box-shadow: 0 0 0 3px color-mix(in srgb, var(--pos, #34d399) 25%, transparent); }
 
 /* ── Modern Home ───────────────────────────────────────────────── */
 .home-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }

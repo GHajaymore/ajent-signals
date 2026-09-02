@@ -258,9 +258,24 @@ function greeting() {
 // is never an ambiguous "Market closed". Anchored to the user's local/primary
 // market (set from their region) so it reads as "is MY market open?" — correct
 // the instant the app opens, without waiting on a quote.
+// Friendly name for the pill — the user's *market by country* ("US market",
+// "India market") rather than a bare ticker, since the pill answers "is MY
+// market open?". Crypto is 24/7; commodities keep their own name.
+const REGION_NAME = {
+  US: 'US market', IN: 'India market', GB: 'UK market', DE: 'Germany market',
+  FR: 'Europe market', EU: 'Europe market', JP: 'Japan market', HK: 'Hong Kong market',
+  CN: 'China market', AU: 'Australia market', CA: 'Canada market', BR: 'Brazil market',
+  SG: 'Singapore market',
+};
+function marketRegion(m) {
+  if (!m) return 'Market';
+  if (m.category === 'Crypto') return 'Crypto';
+  if (/Index/.test(m.category || '')) return REGION_NAME[m.country] || (m.country ? `${m.country} market` : m.name);
+  return m.name; // commodities/FX etc. — their own name is clearest
+}
 function marketStatus(m) {
   if (!m) return { label: 'Loading…', color: 'var(--text-muted)', pulse: false };
-  const tag = m.symbol; // short, and the hero shows the full name for context
+  const tag = marketRegion(m); // the user's market by country; hero shows the instrument
   const sess = marketSession(m);
   if (sess === 'closed') return { label: `${tag} · closed`, color: 'var(--text-muted)', pulse: false };
   const age = m.quoteAgeSec;

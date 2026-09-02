@@ -23,6 +23,14 @@ export function computeSignal(candles, live) {
   const pctB = (price - lowerBB) / ((upperBB - lowerBB) || 1);
   const up = price > s200, down = price < s200;
 
+  // The strategy is LONG-ONLY. The mirror short side was backtested and lost money
+  // on the equity universe — indices structurally drift up, so shorting mean
+  // reversion fights that drift, the setup rarely fires, and bear rallies stop it
+  // out (short P&L ran −$887 to −$4,149 across variants). It's disabled rather than
+  // shipped as something the record says loses. The branch is kept behind this flag
+  // so the experiment can be re-enabled (clearly labelled) without a rewrite.
+  const ALLOW_SHORTS = false;
+
   let setup = 0, conviction = 'normal', side = 0;
   // LONG (validated): oversold flush below the prior day's low in an uptrend.
   // Entry RSI2<15 (a standard Connors threshold — backtests +32% more CAGR than
@@ -32,9 +40,9 @@ export function computeSignal(candles, live) {
     setup = deep && stretched ? 1 : deep ? 0.9 : 0.8;
     conviction = deep && stretched ? 'high' : 'normal';
     side = 1;
-  } else if (down && rsi2 > 85 && price > c[n - 2].h) {
-    // SHORT (PROVISIONAL): overbought pop above the prior day's high in a
-    // downtrend — the mirror of the long. Not backtest-validated.
+  } else if (ALLOW_SHORTS && down && rsi2 > 85 && price > c[n - 2].h) {
+    // SHORT (PROVISIONAL, disabled): overbought pop above the prior day's high in a
+    // downtrend — the mirror of the long. Not backtest-validated; lost money.
     const deep = rsi2 > 95, stretched = price > upperBB;
     setup = deep && stretched ? 1 : deep ? 0.9 : 0.8;
     conviction = deep && stretched ? 'high' : 'normal';
@@ -51,7 +59,7 @@ export function computeSignal(candles, live) {
   const clamp01 = (x) => Math.max(0, Math.min(1, x));
   const proximity = fires ? 100
     : up ? Math.round(clamp01((30 - rsi2) / 25) * 100)
-    : down ? Math.round(clamp01((rsi2 - 70) / 25) * 100)
+    : (ALLOW_SHORTS && down) ? Math.round(clamp01((rsi2 - 70) / 25) * 100)
     : 0;
   const risk = Math.max(atrN * 2.0, price * 0.004);
   const plan = fires ? {

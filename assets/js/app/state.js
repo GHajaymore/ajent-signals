@@ -17,6 +17,10 @@ function loadSettings() {
     if (!Number.isFinite(parsed.threshold)) delete parsed.threshold;
     if (!Number.isFinite(parsed.riskPct)) delete parsed.riskPct;
     if (!Number.isFinite(parsed.targetRatio)) delete parsed.targetRatio;
+    // The intraday ("Active") strategy was retired — only the validated daily
+    // strategy runs. Coerce any legacy stored mode so returning users aren't
+    // pinned to a mode that no longer exists (and whose toggle is gone).
+    if (parsed.strategyMode && parsed.strategyMode !== 'daily') delete parsed.strategyMode;
     return parsed;
   } catch (e) { /* ignore malformed local storage */ }
   return null;

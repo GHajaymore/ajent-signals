@@ -27,8 +27,8 @@ const FAQ = [
     a: 'Yes. Every P&L is shown <b>net of a round-turn cost</b> (commission + slippage). Gross numbers flatter a strategy — especially a high-frequency one, where fees can turn a “winner” into a net loss. We always show after-cost.',
   },
   {
-    q: 'Does it trade long only, or both ways?',
-    a: 'The daily strategy is <b>long</b> (the decade-validated edge) plus a <b>provisional short side</b> — the mirror, <b>not yet proven</b> (on equity indices shorts rarely fire and the backtest is weak, since indices drift up). The live record is the judge. Active mode trades both ways intraday.',
+    q: 'Does it trade long only, or short too?',
+    a: 'It is <b>long-only</b>. We backtested the mirror short side (short overbought pops in downtrends) and it <b>lost money</b> — indices structurally drift up, so shorting mean-reversion fights that drift, the setup rarely fires, and bear-market rallies stop it out. Rather than ship something the record says loses, we dropped it. The validated edge is buying deeply oversold dips in uptrends.',
   },
   {
     q: 'Is this investment advice?',
