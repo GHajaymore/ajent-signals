@@ -6,8 +6,34 @@ import { CATEGORY_ORDER } from '../mockEngine.js';
 // client fetch). When the backend is connected we never display SIM markets —
 // no fabricated data, ever.
 export function isRealMarket(m) { return !!(m && (m.hasServerSignal || m.signalIsReal)); }
-import { marketRow, patchRow } from '../components.js';
+import { marketRow, patchRow, symTile } from '../components.js';
 import { escapeHtml } from '../format.js';
+
+// Markets nearest a setup (by the server proximity score), ranked — used by the
+// "Watching" filter so you can scan what's brewing across the whole board.
+function watchMarkets(threshold, q) {
+  return state.engine.markets
+    .filter((m) => isRealMarket(m) && m.signal && (m.signal.proximity || 0) > 0 && m.verdict(threshold) === 'NO_TRADE'
+      && (!q || m.symbol.includes(q) || m.name.toUpperCase().includes(q) || m.exchange.includes(q)))
+    .sort((a, b) => (b.signal.proximity || 0) - (a.signal.proximity || 0));
+}
+function watchRow(m) {
+  const s = m.signal;
+  const prox = Math.max(0, Math.min(100, s.proximity || 0));
+  const trig = s.htfTrend === 'up' ? `RSI2 ${s.rsi2} · long fires under 15`
+    : s.htfTrend === 'down' ? `RSI2 ${s.rsi2} · short fires over 85` : `RSI2 ${s.rsi2}`;
+  return `<div class="closed-row" data-nav="#/signal/${m.symbol}" data-sym="${m.symbol}" style="cursor:pointer">
+    ${symTile(m.symbol, 34)}
+    <div class="closed-body">
+      <div class="closed-title">${m.name}</div>
+      <div class="closed-sub"><i class="ph-fill ph-eye" style="font-size:11px;color:var(--text-muted)"></i> ${trig}</div>
+    </div>
+    <div style="text-align:right;flex:none;width:60px">
+      <div class="text-muted tabular" style="font-size:12.5px;font-weight:700">${prox}%</div>
+      <div style="height:4px;background:var(--neutral-900);border-radius:2px;margin-top:4px"><div style="width:${prox}%;height:100%;background:var(--flat);border-radius:2px"></div></div>
+    </div>
+  </div>`;
+}
 
 // Wire the per-row star toggles. stopPropagation keeps the tap from bubbling to
 // the row's navigation, so starring never opens the signal detail.
@@ -76,6 +102,7 @@ function filterChips() {
     ${c('all', 'All', '')}
     ${c('buy', 'Buy', '<i class="ph-fill ph-caret-up" style="color:var(--buy);font-size:11px"></i>')}
     ${c('sell', 'Sell', '<i class="ph-fill ph-caret-down" style="color:var(--sell);font-size:11px"></i>')}
+    ${c('watch', 'Watching', '<i class="ph-fill ph-eye" style="color:var(--accent-300);font-size:11px"></i>')}
     ${c('conv', 'Conviction', '<i class="ph-fill ph-star" style="color:var(--flat);font-size:11px"></i>')}
     ${c('fav', 'Watchlist', '<i class="ph-fill ph-star" style="color:var(--accent-200);font-size:11px"></i>')}
   </div>`;
@@ -85,6 +112,14 @@ function listHtml() {
   const engine = state.engine;
   const threshold = state.settings.threshold;
   const q = query.trim().toUpperCase();
+
+  // "Watching": a flat, proximity-ranked view (not grouped) so the closest-to-
+  // firing markets sit at the top.
+  if (filter === 'watch') {
+    const watching = watchMarkets(threshold, q);
+    if (!watching.length) return `<p class="text-muted" style="text-align:center;margin-top:40px">Nothing close to a setup right now — the board isn't stretched. The strategy waits for a genuine oversold dip (or overbought pop).</p>`;
+    return `<div class="card" style="padding:2px 12px">${watching.map(watchRow).join('')}</div>`;
+  }
 
   const realOnly = backendConfigured();
   const filtered = engine.markets.filter((m) => {
@@ -166,6 +201,14 @@ export function refresh(container) {
     let buy = 0, sell = 0;
     for (const m of state.engine.markets) { const v = m.verdict(threshold); if (v === 'BUY') buy++; else if (v === 'SELL') sell++; }
     if (bWrap.querySelector('.breadth')?.dataset.counts !== `${buy},${sell}`) bWrap.innerHTML = breadthHtml();
+  }
+
+  // "Watching" is a custom proximity-ranked list (not .mkt-row), so patch it by
+  // rebuilding when the ranking/proximity changes; never fall through to patchRow.
+  if (filter === 'watch') {
+    const sig = watchMarkets(threshold, query.trim().toUpperCase()).map((m) => `${m.symbol}:${m.signal.proximity}:${m.signal.rsi2}`).join(',');
+    if (wrap.dataset.watchSig !== sig) { wrap.innerHTML = listHtml(); wireStars(wrap); wrap.dataset.watchSig = sig; }
+    return;
   }
 
   // With a verdict filter active, the visible set changes as verdicts flip —
