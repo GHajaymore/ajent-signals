@@ -74,6 +74,15 @@ function isHiConv(m, threshold) {
 }
 
 // Live market-breadth bar — how the whole board is leaning right now.
+// Subtitle count — recomputed live (real-market count is 0 at first render, before
+// server signals sync in).
+function subtitleText() {
+  const engine = state.engine;
+  if (!backendConfigured()) return `${engine.markets.length} global markets — futures, indexes, FX &amp; crypto`;
+  const n = engine.markets.filter(isRealMarket).length;
+  return n ? `${n} markets with live data — real signals only` : 'Loading live market data…';
+}
+
 function breadthHtml() {
   const threshold = state.settings.threshold;
   let buy = 0, sell = 0, flat = 0;
@@ -157,9 +166,7 @@ export function render(container) {
   <div class="fade-in glow-wrap">
     <div class="dash-glow"></div>
     <h1 class="h-title">Markets</h1>
-    <p class="text-muted" style="font-size:13px;margin:4px 0 14px">${backendConfigured()
-      ? `${engine.markets.filter(isRealMarket).length} markets with live data — real signals only`
-      : `${engine.markets.length} global markets — futures, indexes, FX &amp; crypto`}</p>
+    <p class="text-muted" id="mkt-subtitle" style="font-size:13px;margin:4px 0 14px">${subtitleText()}</p>
 
     <div id="breadth-wrap">${breadthHtml()}</div>
 
@@ -194,6 +201,10 @@ export function refresh(container) {
   const wrap = container.querySelector('#market-list-wrap');
   if (!wrap) return;
   const threshold = state.settings.threshold;
+
+  // Subtitle: patch the live-data count once signals have synced.
+  const sub = container.querySelector('#mkt-subtitle');
+  if (sub) { const t = subtitleText(); if (sub.innerHTML !== t) sub.innerHTML = t; }
 
   // Breadth bar: rebuild only when the buy/sell counts actually change.
   const bWrap = container.querySelector('#breadth-wrap');
