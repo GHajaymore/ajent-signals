@@ -109,5 +109,5 @@ export async function runTick(env, store) {
   await store.put({ pk: 'RECORD', sk: 'ALL', updatedAt: Date.now(), open: record.open, closed: record.closed, lastClose: record.lastClose, migrated: record.migrated });
   // Fan out the fresh events to registered Pro webhooks (best-effort).
   try { await deliverEvents(store, events); } catch (e) { /* delivery never blocks trading */ }
-  return { events: events.length };
+  return { events: events.length, signalFired: events.some((e) => e.type === 'signal') };
 }

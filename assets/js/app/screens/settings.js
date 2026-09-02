@@ -4,6 +4,26 @@ import { resetPaperTrades } from '../paperTrading.js';
 import { wireSignalExport, signalExportHtml } from './signalExport.js';
 import { isPaid, trialDaysLeft } from '../backendApi.js';
 import { isStandalone, isIOS, installAvailable, promptInstall } from '../install.js';
+import { pushSupported, pushPermission, enablePush, disablePush } from '../pushClient.js';
+import { isEntitled } from '../backendApi.js';
+
+// Push signal alerts — a Pro/trial perk. Get a notification when a BUY/SELL fires,
+// even with the app closed.
+function pushCardHtml() {
+  if (!pushSupported()) return '';
+  if (!isEntitled()) {
+    return `<div class="panel setting-block" data-nav="#/paywall" style="display:flex;align-items:center;gap:12px;cursor:pointer">
+      <i class="ph-fill ph-bell-ringing" style="font-size:22px;color:var(--accent-300);flex:none"></i>
+      <div style="flex:1"><div style="font:600 13.5px var(--font-heading)">Push signal alerts</div><div class="text-muted" style="font-size:12px">Get pinged when a setup fires — <span style="color:var(--accent-200)">Pro</span></div></div>
+      <span class="chip-upgrade">Go Pro</span></div>`;
+  }
+  const denied = pushPermission() === 'denied';
+  return `<div class="panel setting-block" style="display:flex;align-items:center;gap:12px">
+    <i class="ph-fill ph-bell-ringing" style="font-size:22px;color:var(--accent-300);flex:none"></i>
+    <div style="flex:1;min-width:0"><div style="font:600 13.5px var(--font-heading)">Push signal alerts</div><div class="text-muted" style="font-size:12px;line-height:1.45" id="push-sub">${denied ? 'Blocked in your browser settings — re-allow notifications to enable.' : 'A notification the moment a BUY/SELL fires — even with the app closed.'}</div></div>
+    ${denied ? '' : `<button class="btn btn-ghost" id="push-btn" style="height:34px;padding:0 16px;font-size:13px;flex:none">Enable</button>`}
+  </div>`;
+}
 
 // One-tap install (or iOS/desktop instructions). Hidden once running as an app.
 function installCardHtml() {
@@ -93,6 +113,8 @@ export function render(container) {
 
     ${planCard()}
 
+    ${pushCardHtml()}
+
     ${installCardHtml()}
 
     <div class="panel setting-block">
@@ -179,6 +201,25 @@ export function render(container) {
 
     <div class="footer-note">Ajent Signals is an educational tool and does not execute trades.<br>Markets tagged REAL compute indicators from a free public price feed (unofficial, best-effort, delayed). Markets without a live feed show no signal and are hidden — never a fabricated one · v1.0.0</div>
   </div>`;
+
+  const pushBtn = container.querySelector('#push-btn');
+  if (pushBtn) {
+    // Reflect current state, then toggle on click.
+    import('../pushClient.js').then((m) => m.isPushEnabled()).then((on) => { if (on) pushBtn.textContent = 'On ✓'; }).catch(() => {});
+    pushBtn.addEventListener('click', async () => {
+      const sub = container.querySelector('#push-sub');
+      if (pushBtn.textContent.includes('On')) {
+        pushBtn.disabled = true; await disablePush(); pushBtn.disabled = false; pushBtn.textContent = 'Enable';
+        if (sub) sub.textContent = 'A notification the moment a BUY/SELL fires — even with the app closed.';
+        return;
+      }
+      pushBtn.disabled = true; pushBtn.textContent = 'Enabling…';
+      const r = await enablePush();
+      pushBtn.disabled = false;
+      if (r.ok) { pushBtn.textContent = 'On ✓'; if (sub) sub.textContent = 'On — you’ll be notified when a setup fires.'; }
+      else { pushBtn.textContent = 'Enable'; if (sub) sub.textContent = r.reason === 'denied' ? 'Notifications were blocked — allow them in your browser to enable.' : 'Could not enable right now — try again.'; }
+    });
+  }
 
   const installBtn = container.querySelector('#install-btn');
   if (installBtn) installBtn.addEventListener('click', async () => {

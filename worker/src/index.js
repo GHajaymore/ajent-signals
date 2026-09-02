@@ -3,6 +3,7 @@
 import { db } from './db.js';
 import { runTick } from './scheduler.js';
 import { MARKETS } from './markets.js';
+import { addSubscription, removeSubscription, pushToAll } from './push.js';
 import { requirePro } from './auth.js';
 import { registerWebhook, listWebhooks, deleteWebhook, deliverEvents, sampleEvent, EDU_DISCLAIMER } from './webhooks.js';
 import { createCheckoutSession, verifyStripeSignature, handleStripeEvent, tokenForSession, refreshToken, validateApple, validateGoogle } from './billing.js';
@@ -37,7 +38,12 @@ function summarize(closed) {
 export default {
   // Cron: '*/15 * * * *' — the 24/7 loop, whether or not anyone's app is open.
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(runTick(env, db(env)));
+    ctx.waitUntil((async () => {
+      const store = db(env);
+      const r = await runTick(env, store);
+      // Ping push subscribers only when a fresh BUY/SELL actually fires.
+      if (r && r.signalFired) { try { await pushToAll(env, store); } catch (e) { /* never block the loop */ } }
+    })());
   },
 
   async fetch(request, env) {
@@ -73,6 +79,24 @@ export default {
         } catch (e) { /* skip this symbol */ }
       }));
       return json({ quotes, at: Date.now() });
+    }
+
+    // --- Web push (signal alerts when the app is closed) -----------------------
+    if (url.pathname === '/push/config') {
+      return json({ key: env.VAPID_PUBLIC || '', enabled: !!(env.VAPID_PUBLIC && env.VAPID_JWK) });
+    }
+    if (url.pathname === '/push/subscribe' && request.method === 'POST') {
+      try { const sub = await readJson(request); const ok = await addSubscription(db(env), sub && sub.subscription ? sub.subscription : sub); return json({ ok }); }
+      catch (e) { return json({ error: 'bad subscription' }, 400); }
+    }
+    if (url.pathname === '/push/unsubscribe' && request.method === 'POST') {
+      try { const b = await readJson(request); await removeSubscription(db(env), b && b.endpoint); return json({ ok: true }); }
+      catch (e) { return json({ ok: true }); }
+    }
+    if (url.pathname === '/push/test') {
+      if (!env.ADMIN_KEY || url.searchParams.get('key') !== env.ADMIN_KEY) return json({ error: 'not found' }, 404);
+      const r = await pushToAll(env, db(env));
+      return json({ ok: true, ...r });
     }
 
     // Market news, fetched server-side (no browser CORS), aggregated across a few

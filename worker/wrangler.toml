@@ -18,6 +18,9 @@ id = "422c04e36c574a6f831151c871bce2c0"
 [vars]
 DATA_PROVIDER = "yahoo"   # or "twelvedata"
 RISK_DOLLARS = "250"
+# Web-push VAPID public key (safe to expose; the private JWK is a wrangler secret).
+VAPID_PUBLIC = "BA2xDY7G-opfJAtm7hBYwKbwVBXm_kDtHzQatocdRvW2RfPe9O3xb7Z-F4td3fIyrb_ED2z1WxoEliI0CujwUDw"
+VAPID_SUBJECT = "mailto:admin@ajailabs.app"
 # Stripe price IDs for the two plans (create them in the Stripe dashboard).
 # Public identifiers, safe to keep here; the SECRET key is a wrangler secret below.
 STRIPE_PRICE_MONTHLY = "price_REPLACE_MONTHLY"

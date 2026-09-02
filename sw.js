@@ -18,6 +18,28 @@ self.addEventListener('activate', (event) => {
   })());
 });
 
+// Web push: a payload-less "tickle" from the Worker when a signal fires. Show a
+// notification; tapping it opens (or focuses) the app on the Alerts screen.
+self.addEventListener('push', (event) => {
+  event.waitUntil(self.registration.showNotification('Ajent Signals', {
+    body: 'A new trade setup just fired — tap to view.',
+    icon: '/assets/img/icon-192.png',
+    badge: '/assets/img/icon-192.png',
+    tag: 'ajent-signal',
+    renotify: true,
+    data: { url: '/app/#/alerts' },
+  }));
+});
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || '/app/';
+  event.waitUntil((async () => {
+    const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of all) { if (c.url.includes('/app') && 'focus' in c) { try { await c.navigate(target); } catch (e) { /* ignore */ } return c.focus(); } }
+    if (self.clients.openWindow) return self.clients.openWindow(target);
+  })());
+});
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
