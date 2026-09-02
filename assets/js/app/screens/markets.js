@@ -7,7 +7,8 @@ import { CATEGORY_ORDER } from '../mockEngine.js';
 // no fabricated data, ever.
 export function isRealMarket(m) { return !!(m && (m.hasServerSignal || m.signalIsReal)); }
 import { marketRow, patchRow, symTile } from '../components.js';
-import { escapeHtml } from '../format.js';
+import { escapeHtml, fmtPct } from '../format.js';
+import { marketSession } from '../marketHours.js';
 
 // Markets nearest a setup (by the server proximity score), ranked — used by the
 // "Watching" filter so you can scan what's brewing across the whole board.
@@ -65,6 +66,7 @@ const CAT_COLOR = {
 
 let query = '';
 let filter = 'all'; // all | buy | watch | conv | fav
+let view = 'list';  // list | heat
 
 // A fired, real signal the engine flags as its strongest tier (deepest RSI2 +
 // Bollinger extreme). Only meaningful for markets currently printing a signal.
@@ -124,6 +126,50 @@ function filterChips() {
   </div>`;
 }
 
+// List / Heatmap view switch.
+function viewToggle() {
+  const v = (id, label, icon) => `<button class="vchip ${view === id ? 'on' : ''}" data-view="${id}"><i class="ph-bold ${icon}"></i>${label}</button>`;
+  return `<div class="mkt-view">${v('list', 'List', 'ph-list')}${v('heat', 'Heatmap', 'ph-grid-four')}</div>`;
+}
+
+// --- Heatmap ---------------------------------------------------------------
+// A Finviz-style board: one tile per market, background coloured by the REAL
+// daily % change (green up / red down), grouped by category. A BUY setup gets an
+// accent ring; closed markets are dimmed. No fabricated values — colour == change.
+function heatColor(pct) {
+  const p = Math.max(-2, Math.min(2, pct || 0)) / 2; // clamp ±2% → -1..1
+  const mag = Math.round((0.1 + Math.abs(p) * 0.5) * 100); // 10%..60% tint
+  const hue = p >= 0 ? 'var(--buy)' : 'var(--sell)';
+  return `background:color-mix(in srgb, ${hue} ${mag}%, var(--neutral-900));`;
+}
+function heatTile(m, threshold) {
+  const buy = m.verdict(threshold) === 'BUY';
+  const closed = marketSession(m) === 'closed';
+  const up = (m.changePct || 0) >= 0;
+  return `<button class="heat-tile${buy ? ' buy' : ''}${closed ? ' closed' : ''}" style="${heatColor(m.changePct)}" data-nav="#/signal/${m.symbol}" data-heat="${m.symbol}" title="${escapeHtml(m.name)}">
+    <div class="heat-sym">${m.symbol}${buy ? '<span class="heat-badge">BUY</span>' : ''}</div>
+    <div class="heat-chg" style="color:${up ? 'var(--buy)' : 'var(--sell)'}">${fmtPct(m.changePct)}</div>
+  </button>`;
+}
+function heatmapHtml() {
+  const threshold = state.settings.threshold;
+  const q = query.trim().toUpperCase();
+  const realOnly = backendConfigured();
+  const markets = state.engine.markets.filter((m) => {
+    if (realOnly && !isRealMarket(m)) return false;
+    if (q && !(m.symbol.includes(q) || m.name.toUpperCase().includes(q) || m.exchange.includes(q))) return false;
+    return true;
+  });
+  if (!markets.length) return `<p class="text-muted" style="text-align:center;margin-top:40px">Live data is loading — the heatmap will fill in as feeds arrive.</p>`;
+  const byCategory = CATEGORY_ORDER.map((cat) => ({ cat, list: markets.filter((m) => m.category === cat) })).filter((g) => g.list.length);
+  return `<div class="heat-legend"><span><i class="dot" style="background:var(--sell)"></i>Down</span><span><i class="dot" style="background:var(--neutral-700)"></i>Flat</span><span><i class="dot" style="background:var(--buy)"></i>Up</span><span style="margin-left:auto">Tile colour = today's % change</span></div>
+  ${byCategory.map((g) => `
+    <div class="cat-label" style="color:${CAT_COLOR[g.cat]}"><span>${g.cat.toUpperCase()}<span class="cat-count">${g.list.length}</span></span></div>
+    <div class="heat-grid">${g.list.map((m) => heatTile(m, threshold)).join('')}</div>
+  `).join('')}`;
+}
+function contentHtml() { return view === 'heat' ? heatmapHtml() : listHtml(); }
+
 function listHtml() {
   const engine = state.engine;
   const threshold = state.settings.threshold;
@@ -181,15 +227,17 @@ export function render(container) {
       <input id="mkt-search" class="search-input" placeholder="Search CME, NSE, LSE, ASX..." value="${escapeHtml(query)}">
     </div>
 
-    <div id="mkt-filters-wrap">${filterChips()}</div>
+    <div id="mkt-view-wrap">${viewToggle()}</div>
 
-    <div id="market-list-wrap">${listHtml()}</div>
+    <div id="mkt-filters-wrap"${view === 'heat' ? ' hidden' : ''}>${filterChips()}</div>
+
+    <div id="market-list-wrap">${contentHtml()}</div>
   </div>`;
 
   const listWrap = document.getElementById('market-list-wrap');
   wireStars(listWrap);
 
-  const rebuild = () => { listWrap.innerHTML = listHtml(); wireStars(listWrap); };
+  const rebuild = () => { listWrap.innerHTML = contentHtml(); wireStars(listWrap); };
 
   const input = document.getElementById('mkt-search');
   input.addEventListener('input', () => { query = input.value; rebuild(); });
@@ -198,6 +246,17 @@ export function render(container) {
     chip.addEventListener('click', () => {
       filter = chip.dataset.filter;
       container.querySelectorAll('#mkt-filters-wrap .fchip').forEach((c) => c.classList.toggle('on', c.dataset.filter === filter));
+      rebuild();
+    });
+  });
+
+  container.querySelectorAll('#mkt-view-wrap .vchip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      if (view === chip.dataset.view) return;
+      view = chip.dataset.view;
+      container.querySelectorAll('#mkt-view-wrap .vchip').forEach((c) => c.classList.toggle('on', c.dataset.view === view));
+      const fw = document.getElementById('mkt-filters-wrap');
+      if (fw) fw.hidden = (view === 'heat');
       rebuild();
     });
   });
@@ -217,6 +276,17 @@ export function refresh(container) {
   if (bWrap) {
     const { buy, watching } = breadthCounts();
     if (bWrap.querySelector('.breadth')?.dataset.counts !== `${buy},${watching}`) bWrap.innerHTML = breadthHtml();
+  }
+
+  // Heatmap view: rebuild the grid only when a tile's colour/verdict/membership
+  // actually shifts (change% bucketed) — wireGlobalNav (post-refresh) re-wires taps.
+  if (view === 'heat') {
+    const realOnly = backendConfigured();
+    const sig = state.engine.markets
+      .filter((m) => !realOnly || isRealMarket(m))
+      .map((m) => `${m.symbol}:${Math.round((m.changePct || 0) * 20)}:${m.verdict(threshold)}`).join(',');
+    if (wrap.dataset.heatSig !== sig) { wrap.innerHTML = heatmapHtml(); wrap.dataset.heatSig = sig; }
+    return;
   }
 
   // "Watching" is a custom proximity-ranked list (not .mkt-row), so patch it by

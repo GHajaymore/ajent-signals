@@ -371,6 +371,24 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .fchip { display: inline-flex; align-items: center; gap: 4px; background: var(--surface); border: 1px solid var(--hairline); color: var(--text-muted); font: 600 12.5px var(--font-heading); padding: 7px 13px; border-radius: 20px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
 .fchip.on { background: var(--accent-800); color: var(--accent-100); border-color: transparent; }
 
+/* List / Heatmap view switch */
+.mkt-view { display: inline-flex; gap: 3px; background: var(--neutral-900); border-radius: 10px; padding: 3px; margin-bottom: 12px; }
+.vchip { display: inline-flex; align-items: center; gap: 5px; border: none; background: transparent; color: var(--text-muted); font: 600 12.5px var(--font-heading); padding: 6px 13px; border-radius: 8px; cursor: pointer; transition: background 0.15s, color 0.15s; }
+.vchip.on { background: var(--accent-800); color: var(--accent-100); }
+.vchip i { font-size: 13px; }
+
+/* Heatmap */
+.heat-legend { display: flex; align-items: center; gap: 12px; font-size: 10.5px; color: var(--text-muted); margin: 2px 0 12px; flex-wrap: wrap; }
+.heat-legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+.heat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 7px; margin-bottom: 6px; }
+.heat-tile { position: relative; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 3px; min-height: 62px; padding: 9px 10px; border: 1px solid var(--hairline); border-radius: 11px; cursor: pointer; color: var(--text); font: inherit; text-align: left; transition: transform 0.1s, border-color 0.15s; }
+.heat-tile:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--accent) 45%, var(--hairline)); }
+.heat-tile.buy { border-color: var(--buy); box-shadow: 0 0 0 1px var(--buy) inset; }
+.heat-tile.closed { opacity: 0.62; }
+.heat-sym { display: flex; align-items: center; gap: 5px; font: 800 14px var(--font-heading); letter-spacing: -0.01em; }
+.heat-chg { font: 700 12px var(--font-heading); font-variant-numeric: tabular-nums; }
+.heat-badge { font: 800 8px var(--font-heading); letter-spacing: 0.04em; color: #0b2b20; background: var(--buy); padding: 1px 4px; border-radius: 4px; }
+
 /* Paper Trading hero */
 .pf-hero { position: relative; overflow: hidden; border: 1px solid var(--hairline); border-radius: 20px; padding: 22px 20px 10px; margin-bottom: 14px; background: linear-gradient(160deg, color-mix(in srgb, var(--buy) 12%, var(--surface)), var(--surface) 66%); box-shadow: 0 16px 40px -26px rgba(0,0,0,0.8); }
 .pf-hero.down { background: linear-gradient(160deg, color-mix(in srgb, var(--sell) 12%, var(--surface)), var(--surface) 66%); }
