@@ -341,8 +341,15 @@ function computeDerived() {
   const avgConf = openSignals.length
     ? Math.round(openSignals.reduce((s, x) => s + x.m.signal.confidence, 0) / openSignals.length)
     : 0;
-  const bullish = markets.filter((m) => m.signal.direction > 0).length;
-  const riskOn = bullish >= markets.length / 2;
+  // "Daily trend" = market breadth today (how many markets are up vs down),
+  // scoped to markets with live data so stale/no-feed ones don't skew it. NOTE:
+  // this reflects price direction, NOT how many BUY signals fired — the strategy
+  // is in cash most of the time, so signal-count would read "Down" almost always.
+  const liveMkts = markets.filter((m) => m.signalIsReal);
+  const trendScope = liveMkts.length ? liveMkts : markets;
+  const upToday = trendScope.filter((m) => (m.changePct || 0) > 0).length;
+  const downToday = trendScope.filter((m) => (m.changePct || 0) < 0).length;
+  const riskOn = upToday >= downToday;
   // Feature the strongest LIVE setup if one has fired — the hero should showcase
   // the actionable signal, not a default NO_TRADE market. Prefer a market whose
   // session is OPEN (you can act on it now) over a closed one; then high-conviction,
@@ -357,11 +364,11 @@ function computeDerived() {
   const featuredVerdict = featured.verdict(threshold);
   const nextEvent = upcomingEvents(engine.calendar)[0] || engine.calendar[0];
 
-  return { engine, threshold, openSignals, avgConf, riskOn, featured, featuredVerdict, nextEvent };
+  return { engine, threshold, openSignals, avgConf, riskOn, upToday, trendCount: trendScope.length, featured, featuredVerdict, nextEvent };
 }
 
 export function render(container) {
-  const { engine, threshold, openSignals, avgConf, riskOn, featured, featuredVerdict, nextEvent } = computeDerived();
+  const { engine, threshold, openSignals, avgConf, riskOn, upToday, trendCount, featured, featuredVerdict, nextEvent } = computeDerived();
   const perf = getPerformanceSummary();
 
   container.innerHTML = `
@@ -403,6 +410,7 @@ export function render(container) {
         <div class="stat-value" id="stat-daily-trend" style="font-size:15px;color:${riskOn ? 'var(--buy)' : 'var(--sell)'};display:flex;align-items:center;gap:5px">
           <i class="ph-bold ${riskOn ? 'ph-trend-up' : 'ph-trend-down'}"></i>${riskOn ? 'Up' : 'Down'}
         </div>
+        <div class="stat-sub" id="stat-daily-trend-sub">${upToday} of ${trendCount} markets up</div>
       </div>
       ${strategyChip()}
     </div>
@@ -446,7 +454,7 @@ export function refresh(container) {
   const watchlistWrap = container.querySelector('#watchlist-wrap');
   if (!heroWrap || !watchlistWrap) return;
 
-  const { engine, threshold, openSignals, avgConf, riskOn, featured, featuredVerdict } = computeDerived();
+  const { engine, threshold, openSignals, avgConf, riskOn, upToday, trendCount, featured, featuredVerdict } = computeDerived();
 
   const statusEl = container.querySelector('#market-status');
   if (statusEl) statusEl.innerHTML = statusPillInner(marketStatus(statusMarket(engine)));
@@ -478,6 +486,8 @@ export function refresh(container) {
     trendEl.style.color = riskOn ? 'var(--buy)' : 'var(--sell)';
     trendEl.innerHTML = `<i class="ph-bold ${riskOn ? 'ph-trend-up' : 'ph-trend-down'}"></i>${riskOn ? 'Up' : 'Down'}`;
   }
+  const trendSubEl = container.querySelector('#stat-daily-trend-sub');
+  if (trendSubEl) trendSubEl.textContent = `${upToday} of ${trendCount} markets up`;
 
   // Hero: patch in place; only rebuild the whole card if the signal changed.
   const heroEl = heroWrap.querySelector('.hero-card');
