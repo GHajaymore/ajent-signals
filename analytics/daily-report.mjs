@@ -36,7 +36,7 @@ try {
   const closedToday = closed.filter((c) => (c.closedAt || 0) >= t0);
   const netToday = closedToday.reduce((a, c) => a + (c.pnl || 0), 0);
 
-  const a = signals.strategy && signals.strategy.adaptive;
+  const a = signals.strategy && signals.strategy.adaptiveState;
 
   p(`# Ajent Pulse — Daily Report · ${today}`);
   p();
@@ -75,12 +75,11 @@ try {
   if (!a) {
     p('- Adaptive state not yet reported (awaiting a cron tick).');
   } else if (a.learning) {
-    p(`- **Learning** — ${a.trades}/20 pooled trades before the dials adapt. Trading: proven defaults (stop 2× ATR, size 100%).`);
+    p(`- **Learning** — ${a.trades}/20 pooled trades before the strategy re-tunes. Trading its proven defaults.`);
   } else {
-    const ad = a.adopted || {};
-    p(`- **Trading now (adopted):** stop ${(+(ad.stopMult ?? 2)).toFixed(1)}× ATR · size ${Math.round((ad.sizeMult ?? 1) * 100)}% — adopted ${ad.at ? new Date(ad.at).toISOString().slice(0, 10) : '—'} from ${ad.fromTrades ?? '?'} trades.`);
-    p(`- **Latest learned read:** stop ${(+a.stopMult).toFixed(1)}× ATR · size ${Math.round((a.sizeMult || 1) * 100)}% (win rate ${a.winRate}%, ${a.trades} trades).`);
-    if (a.nextRetune) p(`- **Next scheduled re-tune:** ${new Date(a.nextRetune).toISOString().slice(0, 10)} — it adopts the learned read then (weekly cadence, within hard bounds). Automatic; no action needed.`);
+    p(`- **Adapting automatically** on a weekly cadence, within hard safety bounds (${a.trades} trades pooled, ${a.winRate}% win). No action needed.`);
+    if (a.retunedAt) p(`- Last re-tuned: ${new Date(a.retunedAt).toISOString().slice(0, 10)}.`);
+    if (a.nextRetune) p(`- Next scheduled re-tune: ${new Date(a.nextRetune).toISOString().slice(0, 10)}.`);
   }
   p();
   p('## Notes');

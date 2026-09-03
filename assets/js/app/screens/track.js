@@ -356,17 +356,21 @@ function honestBanner() {
   </div>`;
 }
 
-// The evolving Ajent Strategy — shows the current global dials (learned from all
-// trades) so the adaptation is transparent, honest, and clearly the same recipe.
+// The evolving Ajent Pulse — surfaces the adaptation transparently (learning state,
+// re-tune cadence, per-engine weights) WITHOUT the proprietary recipe dials.
 function strategyCard() {
   const s = getStrategy();
   const a = getAdaptive();
-  const ad = (a && a.adopted) || { stopMult: s.stopAtrMult, sizeMult: 1 };
-  const note = a ? a.note : 'Gathering the record before the dials adapt.';
   const learning = a ? a.learning : true;
-  const chips = a && !learning
-    ? `<span class="sc-dial">stop ${(+ad.stopMult).toFixed(1)}× ATR</span><span class="sc-dial">size ${Math.round((ad.sizeMult || 1) * 100)}%</span><span class="sc-dial">exit ${s.indicator} ≥ ${s.exitAbove}</span>`
-    : `<span class="sc-dial learning">${a ? `learning · ${a.trades}/20 trades` : 'learning'}</span>`;
+  const nextRt = a && a.nextRetune ? new Date(a.nextRetune).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null;
+  const note = !a ? 'Gathering the record before it re-tunes.'
+    : learning ? `Learning — ${a.trades}/20 pooled trades before it re-tunes.`
+    : `Adapting automatically on a weekly cadence (${a.trades} trades, ${a.winRate}% win).${nextRt ? ` Next re-tune ${nextRt}.` : ''}`;
+  const eng = a && a.engines;
+  const engChips = eng ? ['mr', 'trend'].map((k) => { const e = eng[k]; if (!e) return ''; const lbl = k === 'trend' ? 'Trend' : 'Mean-rev'; return `<span class="sc-dial">${lbl} ${e.learning ? '1.0×' : `${(+e.weight).toFixed(2)}×`}</span>`; }).join('') : '';
+  const chips = learning
+    ? `<span class="sc-dial learning">${a ? `learning · ${a.trades}/20 trades` : 'learning'}</span>`
+    : (engChips || '<span class="sc-dial">adapting</span>');
   return `<div class="panel" style="padding:13px 15px;margin-bottom:12px">
     <div style="display:flex;align-items:center;gap:8px">
       <i class="ph-fill ph-seal-check" style="color:var(--accent-300);font-size:18px"></i>

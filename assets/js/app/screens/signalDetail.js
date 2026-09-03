@@ -777,7 +777,7 @@ function renderChartTab(market, color, verdict) {
     <div class="level-row"><span class="text-muted">Reference target · ${clvRr}:1</span><span style="color:var(--buy);font-weight:600" class="tabular">${fmtPrice(clvTarget, market.decimals)}</span></div>
     <div class="level-row"><span class="text-muted">Entry</span><span style="font-weight:600" class="tabular">${fmtPrice(s.plan.entry, market.decimals)}</span></div>
     <div class="level-row"><span class="text-muted">Stop loss</span><span style="color:var(--sell);font-weight:600" class="tabular">${fmtPrice(clvStop, market.decimals)}</span></div>
-    <div class="level-row"><span class="text-muted">Exit trigger</span><span style="color:var(--buy);font-weight:600" class="tabular">${getStrategy().indicator} &ge; ${(s.plan && s.plan.exitAbove) || getStrategy().exitAbove}</span></div>
+    <div class="level-row"><span class="text-muted">Exit trigger</span><span style="color:var(--buy);font-weight:600" class="tabular">Reverts to the mean</span></div>
   </div>` : `
   <div class="panel">
     <div class="panel-title">Key levels</div>

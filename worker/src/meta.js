@@ -33,7 +33,8 @@ export function publicStrategy(adaptive) {
     key: s.key, name: s.name, label: 'Momentum mean-reversion · daily',
     approach: s.approach, direction: s.direction, proven: s.proven,
     adaptive: s.adaptive, version: s.version,
-    // Generalized adaptive state only — no raw dial values.
-    adaptiveState: a ? { learning: !!a.learning, trades: a.trades || 0, winRate: a.winRate ?? null, retunedAt: (a.adopted && a.adopted.at) || null, nextRetune: a.nextRetune || null } : null,
+    // Generalized adaptive state — no raw recipe dials, but the portfolio-level
+    // per-engine weights are fine to surface (they aren't the recipe).
+    adaptiveState: a ? { learning: !!a.learning, trades: a.trades || 0, winRate: a.winRate ?? null, retunedAt: (a.adopted && a.adopted.at) || null, nextRetune: a.nextRetune || null, engines: a.engines || null } : null,
   };
 }

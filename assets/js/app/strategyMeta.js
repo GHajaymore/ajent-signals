@@ -20,11 +20,11 @@ const DEFAULT = {
 };
 let live = null;
 export function setStrategyMeta(m) {
-  if (m && typeof m === 'object' && (m.exitAbove != null || m.entryBelow != null)) live = m;
+  if (m && typeof m === 'object' && (m.name || m.key || m.adaptiveState)) live = m;
 }
 export function getStrategy() { return { ...DEFAULT, ...(live || {}) }; }
 // The evolving dials the Ajent Strategy has learned globally (or null before sync).
-export function getAdaptive() { return (live && live.adaptive) || null; }
+export function getAdaptive() { return (live && live.adaptiveState) || null; }
 
 // GENERALIZED phrases — describe the behaviour, never the proprietary recipe
 // (no indicator names, thresholds or stop multiples in user-facing copy).
