@@ -152,6 +152,23 @@ function fmtAxisTick(ms, spanMs) {
 // target levels with small value chips, and a real time axis when `times` is
 // supplied. `levels` = [{v, stroke, label}]; `times` = ms timestamps aligned
 // with `series` (drives the x-axis labels).
+// Split reference levels into their dashed lines (drawn behind the price) and
+// their price chips (drawn on top), so the price line/bars never cross through
+// the label text. `w` is the plot width; chips hug the right edge.
+function levelParts(levels, yFor, h, decimals, w) {
+  let lines = '', chips = '';
+  for (const l of levels) {
+    const y = yFor(l.v);
+    if (y < 6 || y > h - 6) continue;
+    const label = l.v.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    const chipW = 8 + label.length * 5.4;
+    lines += `<line x1="0" y1="${y.toFixed(1)}" x2="${(w - chipW - 3).toFixed(1)}" y2="${y.toFixed(1)}" stroke="${l.stroke}" stroke-width="1" stroke-dasharray="3 4" opacity="0.8"/>`;
+    chips += `<rect x="${(w - chipW).toFixed(1)}" y="${(y - 7).toFixed(1)}" width="${chipW.toFixed(1)}" height="14" rx="4" fill="${l.stroke}"/>`
+      + `<text x="${(w - chipW / 2).toFixed(1)}" y="${(y + 3.2).toFixed(1)}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#08120d">${label}</text>`;
+  }
+  return { lines, chips };
+}
+
 function priceChartSvg(series, color, { levels = [], decimals = 2, markers = [], h = 188, times = [] } = {}) {
   const w = 500;
   const hasAxis = Array.isArray(times) && times.length === (series ? series.length : -1) && times.length >= 2;
@@ -186,15 +203,7 @@ function priceChartSvg(series, color, { levels = [], decimals = 2, markers = [],
       axisSvg += `<text x="${xClamped.toFixed(1)}" y="${(h + 13).toFixed(1)}" text-anchor="${anchor}" font-size="9" fill="var(--text-muted)" opacity="0.85">${fmtAxisTick(times[idx], spanMs)}</text>`;
     }
   }
-  const levelSvg = levels.map((l) => {
-    const y = yFor(l.v);
-    if (y < 6 || y > h - 6) return '';
-    const label = l.v.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-    const chipW = 8 + label.length * 5.4;
-    return `<line x1="0" y1="${y.toFixed(1)}" x2="${(w - chipW - 3).toFixed(1)}" y2="${y.toFixed(1)}" stroke="${l.stroke}" stroke-width="1" stroke-dasharray="3 4" opacity="0.8"/>
-      <rect x="${(w - chipW).toFixed(1)}" y="${(y - 7).toFixed(1)}" width="${chipW.toFixed(1)}" height="14" rx="4" fill="${l.stroke}"/>
-      <text x="${(w - chipW / 2).toFixed(1)}" y="${(y + 3.2).toFixed(1)}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#08120d">${label}</text>`;
-  }).join('');
+  const lv = levelParts(levels, yFor, h, decimals, w);
   return `
   <svg viewBox="0 0 ${w} ${vbH}" width="100%" style="height:auto;display:block">
     <defs>
@@ -205,7 +214,7 @@ function priceChartSvg(series, color, { levels = [], decimals = 2, markers = [],
     </defs>
     ${grid}
     ${axisSvg}
-    ${levelSvg}
+    ${lv.lines}
     <path d="${areaD}" fill="url(#fill${uid})"/>
     <path d="${lineD}" fill="none" stroke="${color}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" opacity="0.3" filter="url(#glow${uid})"/>
     <path d="${lineD}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
@@ -221,6 +230,7 @@ function priceChartSvg(series, color, { levels = [], decimals = 2, markers = [],
       const t = up ? `M${x.toFixed(1)},${(y - 7).toFixed(1)} l-5,8 l10,0 Z` : `M${x.toFixed(1)},${(y + 7).toFixed(1)} l-5,-8 l10,0 Z`;
       return `<path d="${t}" fill="${c}" stroke="var(--bg)" stroke-width="0.8"/>`;
     }).join('')}
+    ${lv.chips}
   </svg>`;
 }
 
@@ -257,15 +267,7 @@ function candleChartSvg(candles, { levels = [], decimals = 2, markers = [], h = 
       axisSvg += `<text x="${x.toFixed(1)}" y="${(h + 13).toFixed(1)}" text-anchor="${anchor}" font-size="9" fill="var(--text-muted)" opacity="0.85">${fmtAxisTick(times[idx], spanMs)}</text>`;
     }
   }
-  const levelSvg = levels.map((l) => {
-    const y = yFor(l.v);
-    if (y < 6 || y > h - 6) return '';
-    const label = l.v.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-    const chipW = 8 + label.length * 5.4;
-    return `<line x1="0" y1="${y.toFixed(1)}" x2="${(w - chipW - 3).toFixed(1)}" y2="${y.toFixed(1)}" stroke="${l.stroke}" stroke-width="1" stroke-dasharray="3 4" opacity="0.8"/>
-      <rect x="${(w - chipW).toFixed(1)}" y="${(y - 7).toFixed(1)}" width="${chipW.toFixed(1)}" height="14" rx="4" fill="${l.stroke}"/>
-      <text x="${(w - chipW / 2).toFixed(1)}" y="${(y + 3.2).toFixed(1)}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#08120d">${label}</text>`;
-  }).join('');
+  const lv = levelParts(levels, yFor, h, decimals, w);
   // Volume band: faint bars along the bottom ~18% of the pane, colored by the
   // candle's direction and scaled to the largest bar. Drawn first so price sits
   // on top. Only when the feed actually carries volume (some indices report 0).
@@ -302,9 +304,10 @@ function candleChartSvg(candles, { levels = [], decimals = 2, markers = [], h = 
     ${grid}
     ${volBars}
     ${axisSvg}
-    ${levelSvg}
+    ${lv.lines}
     ${bars}
     ${markerSvg}
+    ${lv.chips}
   </svg>`;
 }
 
