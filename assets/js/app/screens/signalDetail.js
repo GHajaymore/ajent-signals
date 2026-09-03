@@ -709,6 +709,13 @@ function categoryRows(indicators) {
 function renderChartTab(market, color, verdict) {
   const s = market.signal;
   const hasSetup = verdict !== 'NO_TRADE';
+  // Key levels use the same honest plan as the Signal tab: user's stop + reward:risk
+  // reference target, and the real RSI2 exit — no invented Target 2/3.
+  const clvLong = verdict !== 'SELL';
+  const clvCfg = planConfigFor();
+  const clvStop = s.plan ? planStopPrice(s.plan.entry, s.plan.stop, clvLong, clvCfg) : 0;
+  const clvTarget = s.plan ? planTargetPrice(s.plan.entry, clvStop, clvLong, clvCfg) : 0;
+  const clvRr = (Number(clvCfg.rr) || 1).toFixed(clvCfg.rr % 1 ? 1 : 0);
   if (!activeRange) activeRange = RANGES[state.settings.chartRange] ? state.settings.chartRange : '1D';
   const ySym = YAHOO_SYMBOL[market.symbol];
   if (ySym) queueMicrotask(() => loadCandles(market.symbol, ySym, activeRange));
@@ -743,11 +750,10 @@ function renderChartTab(market, color, verdict) {
   ${hasSetup ? `
   <div class="panel">
     <div class="panel-title">Key levels</div>
-    <div class="level-row"><span class="text-muted">Target 3</span><span style="color:var(--buy);font-weight:600" class="tabular">${fmtPrice(s.plan.target3, market.decimals)}</span></div>
-    <div class="level-row"><span class="text-muted">Target 2</span><span style="color:var(--buy);font-weight:600" class="tabular">${fmtPrice(s.plan.target2, market.decimals)}</span></div>
-    <div class="level-row"><span class="text-muted">Target 1</span><span style="color:var(--buy);font-weight:600" class="tabular">${fmtPrice(s.plan.target1, market.decimals)}</span></div>
+    <div class="level-row"><span class="text-muted">Reference target · ${clvRr}:1</span><span style="color:var(--buy);font-weight:600" class="tabular">${fmtPrice(clvTarget, market.decimals)}</span></div>
     <div class="level-row"><span class="text-muted">Entry</span><span style="font-weight:600" class="tabular">${fmtPrice(s.plan.entry, market.decimals)}</span></div>
-    <div class="level-row"><span class="text-muted">Stop loss</span><span style="color:var(--sell);font-weight:600" class="tabular">${fmtPrice(s.plan.stop, market.decimals)}</span></div>
+    <div class="level-row"><span class="text-muted">Stop loss</span><span style="color:var(--sell);font-weight:600" class="tabular">${fmtPrice(clvStop, market.decimals)}</span></div>
+    <div class="level-row"><span class="text-muted">Exit trigger</span><span style="color:var(--buy);font-weight:600" class="tabular">RSI2 &ge; 65</span></div>
   </div>` : `
   <div class="panel">
     <div class="panel-title">Key levels</div>
