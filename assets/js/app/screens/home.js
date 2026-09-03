@@ -424,7 +424,7 @@ export function render(container) {
     </div>
 
     <div class="section-label">Market-moving events<a data-nav="#/calendar">Calendar &rsaquo;</a></div>
-    <div class="sub-hint">Scheduled economic releases that can move prices — known in advance.</div>
+    <div class="sub-hint">Scheduled releases that can move prices. Ajent Pulse stands aside on high-impact days — it won't fade a scheduled event.</div>
     <div class="calendar-banner" data-nav="#/calendar">
       <i class="ph-fill ph-calendar-check"></i>
       <div>
