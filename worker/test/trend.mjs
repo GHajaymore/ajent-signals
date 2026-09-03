@@ -76,10 +76,24 @@ const smaTrend = (arr) => ({
   entry: ({ p, i, price }) => up(p, i) && arr(p)[i] != null && price > arr(p)[i] && arr(p)[i] > arr(p)[i - 5],
   exit: ({ p, i, price }) => arr(p)[i] != null && price < arr(p)[i],
 });
+// Trailing-stop variants of the PRODUCTION trend engine (50SMA rising entry) — does
+// a ratcheting ATR trail from the peak beat the plain "exit when price < 50SMA"?
+// `alsoSma` = trail AND the MA-break (whichever hits first). Trail uses CURRENT ATR.
+const trailTrend = (mult, alsoSma) => ({
+  stopMult: 3,
+  entry: ({ p, i, price }) => up(p, i) && p.sma50[i] != null && price > p.sma50[i] && p.sma50[i] > p.sma50[i - 5],
+  exit: ({ p, i, price }, pos) => (price <= pos.peak - mult * (p.atr[i] || pos.atr)) || (alsoSma && p.sma50[i] != null && price < p.sma50[i]),
+});
 const STRATS = {
   '20SMA trend-follow (rising)': smaTrend((p) => p.sma20),
-  '50SMA trend-follow (rising)': smaTrend((p) => p.sma50),
+  '50SMA trend-follow (rising) [PROD]': smaTrend((p) => p.sma50),
   '100SMA trend-follow (rising)': smaTrend((p) => p.sma100),
+  'Trail 2.0xATR (from peak)': trailTrend(2, false),
+  'Trail 2.5xATR (from peak)': trailTrend(2.5, false),
+  'Trail 3.0xATR (from peak)': trailTrend(3, false),
+  'Trail 3.5xATR (from peak)': trailTrend(3.5, false),
+  'Trail 4.0xATR (from peak)': trailTrend(4, false),
+  '50SMA-break OR trail 3xATR': trailTrend(3, true),
   'Donchian 40/20 breakout': {
     stopMult: 3,
     entry: ({ p, i, price }) => up(p, i) && price >= rollMax(p.highs, i, 40),
