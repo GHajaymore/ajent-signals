@@ -146,8 +146,10 @@ function heatTile(m, threshold) {
   const buy = m.verdict(threshold) === 'BUY';
   const closed = marketSession(m) === 'closed';
   const up = (m.changePct || 0) >= 0;
+  // Show which ensemble engine fired: a dip (mean-reversion) or a trend entry.
+  const badge = buy ? (m.signal && m.signal.strat === 'trend' ? 'TREND' : 'DIP') : '';
   return `<button class="heat-tile${buy ? ' buy' : ''}${closed ? ' closed' : ''}" style="${heatColor(m.changePct)}" data-nav="#/signal/${m.symbol}" data-heat="${m.symbol}" title="${escapeHtml(m.name)}">
-    <div class="heat-sym">${m.symbol}${buy ? '<span class="heat-badge">BUY</span>' : ''}</div>
+    <div class="heat-sym">${m.symbol}${buy ? `<span class="heat-badge">${badge}</span>` : ''}</div>
     <div class="heat-chg" style="color:${up ? 'var(--buy)' : 'var(--sell)'}">${fmtPct(m.changePct)}</div>
   </button>`;
 }
@@ -284,7 +286,7 @@ export function refresh(container) {
     const realOnly = backendConfigured();
     const sig = state.engine.markets
       .filter((m) => !realOnly || isRealMarket(m))
-      .map((m) => `${m.symbol}:${Math.round((m.changePct || 0) * 20)}:${m.verdict(threshold)}`).join(',');
+      .map((m) => `${m.symbol}:${Math.round((m.changePct || 0) * 20)}:${m.verdict(threshold)}:${(m.signal && m.signal.strat) || ''}`).join(',');
     if (wrap.dataset.heatSig !== sig) { wrap.innerHTML = heatmapHtml(); wrap.dataset.heatSig = sig; }
     return;
   }
