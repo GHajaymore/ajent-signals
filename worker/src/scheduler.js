@@ -53,6 +53,9 @@ export function processPosition({ symbol, meta, sig, live, open, record, now, ri
   if (pos) {
     const price = live ?? sig.price;
     const short = pos.side === 'SHORT';
+    // Track the peak since entry (long-only) so a trend position can ratchet its
+    // trailing stop. Persisted on the record; harmless for mean-reversion (it ignores it).
+    pos.peak = Math.max(pos.peak != null ? pos.peak : pos.entry, price);
     const exit = exitFn(sig, pos, price, now); // exit rule is per the position's strategy
     if (!exit) return 'hold';
     const r = pos.risk || Math.abs(pos.entry - pos.stop) || 1e-9;
@@ -75,7 +78,7 @@ export function processPosition({ symbol, meta, sig, live, open, record, now, ri
     // Size = base risk × global size dial × this engine's adaptive weight (bounded).
     const engineW = (dials && dials.engines && dials.engines[strat] && dials.engines[strat].weight) || 1;
     const riskDollars = Math.round(risk * ((dials && dials.sizeMult) || 1) * engineW);
-    record.open[symbol] = { symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', strat, entry, stop: short ? entry + r : entry - r, target1: short ? entry - r : entry + r, risk: r, riskDollars, conviction: sig.conviction, maxHoldMin: sig.plan.maxHoldMin, exitRule: strat === 'trend' ? 'trendBreak' : 'rsiRecover', exitAbove: sig.plan.exitAbove, openedAt: now };
+    record.open[symbol] = { symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', strat, entry, stop: short ? entry + r : entry - r, target1: short ? entry - r : entry + r, risk: r, riskDollars, conviction: sig.conviction, maxHoldMin: sig.plan.maxHoldMin, exitRule: strat === 'trend' ? 'trailStop' : 'rsiRecover', exitAbove: sig.plan.exitAbove, peak: entry, openedAt: now };
     return 'open';
   }
   return 'none';

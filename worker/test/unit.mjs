@@ -36,10 +36,14 @@ const longPos = { side: 'LONG', stop: 90, openedAt: 0, maxHoldMin: 9e9, exitAbov
 ok(mrShouldExit({ rsi2: 40 }, longPos, 95, 1) === null, 'MR holds when above stop & not recovered');
 ok(mrShouldExit({ rsi2: 70 }, longPos, 95, 1) === 'rsiRecover', 'MR books profit on recovery');
 ok(mrShouldExit({ rsi2: 40 }, longPos, 89, 1) === 'stop', 'MR stops out below the stop');
-const tPos = { side: 'LONG', stop: 90, openedAt: 0, maxHoldMin: 9e9 };
-ok(trendShouldExit({ trendMA: 100 }, tPos, 95, 1) === 'trendBreak', 'trend exits below the follow-MA');
-ok(trendShouldExit({ trendMA: 100 }, tPos, 105, 1) === null, 'trend holds above the follow-MA');
-ok(trendShouldExit({ trendMA: 100 }, tPos, 88, 1) === 'stop', 'trend stops out below the stop');
+// Trend exit = a ratcheting trailing stop at 3×ATR below the peak, never looser than
+// the initial stop (lab-validated, replaced the old 50SMA-break exit — test/trend.mjs).
+const tPos = { side: 'LONG', entry: 100, stop: 90, peak: 120, openedAt: 0, maxHoldMin: 9e9 };
+ok(trendShouldExit({ atr: 5 }, tPos, 110, 1) === null, 'trend holds above the trail (peak 120 − 3×5 = 105)');
+ok(trendShouldExit({ atr: 5 }, tPos, 104, 1) === 'trailStop', 'trend trail-exits when price falls 3×ATR below the peak');
+const tPos2 = { side: 'LONG', entry: 100, stop: 90, peak: 100, openedAt: 0, maxHoldMin: 9e9 };
+ok(trendShouldExit({}, tPos2, 88, 1) === 'stop', 'trend stops at the initial stop when ATR is unavailable');
+ok(trendShouldExit({ atr: 5 }, tPos2, 110, 1) === null, 'trend holds when price is above the trail');
 
 // --- News/event filter -------------------------------------------------------
 ok(highImpactToday('US', new Date('2026-09-04T12:00:00Z')) != null, 'US jobs report flagged (first Friday)');
