@@ -106,8 +106,14 @@ export function render(container) {
 
     <div class="paywall-hero">
       <div class="paywall-crown"><i class="ph-fill ph-crown-simple"></i></div>
-      <div class="paywall-title">Free &amp; Pro</div>
-      <div class="paywall-sub">See the real record first. Then decide.</div>
+      <div class="paywall-title">Beat Ajent, then decide</div>
+      <div class="paywall-sub">Bring your best for 30 days, free. If you can beat it, keep your edge. If you can't, you'll know why it's worth it.</div>
+    </div>
+
+    <div class="pw-challenge">
+      <div class="pw-challenge-h"><i class="ph-fill ph-scales"></i>The challenge</div>
+      <p>Don't take our word for it. On your <b>30-day free trial</b>, take every signal <b>your own way</b> — your entry, stop and target — or build your <b>own strategy</b> with your own indicators, and watch it go head-to-head with Ajent on a live, unedited record.</p>
+      <a href="#/mystrategy" class="pw-challenge-cta">Build your strategy &amp; compete <i class="ph-bold ph-caret-right"></i></a>
     </div>
 
     ${realRecordPanel()}

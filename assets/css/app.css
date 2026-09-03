@@ -84,6 +84,13 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 @keyframes tkScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
 /* Region-pulse switcher — focus the board on your region vs the world */
+/* Paywall "beat us" challenge */
+.pw-challenge { margin-top: 16px; border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--hairline)); border-radius: 16px; padding: 16px 17px; background: radial-gradient(120% 100% at 100% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 60%), var(--surface); }
+.pw-challenge-h { display: flex; align-items: center; gap: 7px; font: 700 11px var(--font-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); margin-bottom: 9px; }
+.pw-challenge p { font-size: 13.2px; line-height: 1.6; color: var(--text-muted); margin: 0; }
+.pw-challenge p b { color: var(--text); }
+.pw-challenge-cta { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; font: 700 13px var(--font-body); color: var(--accent-100); background: linear-gradient(180deg, var(--accent-400), var(--accent)); padding: 9px 15px; border-radius: 10px; text-decoration: none; }
+
 /* Your strategy builder */
 .cs-config { display: flex; flex-direction: column; gap: 2px; }
 .cs-slider { display: grid; grid-template-columns: 1fr 44%; align-items: center; gap: 10px 12px; padding: 9px 0; }
