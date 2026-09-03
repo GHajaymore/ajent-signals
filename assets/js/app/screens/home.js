@@ -155,7 +155,7 @@ function watchingRow(m) {
   const s = m.signal;
   const prox = Math.max(0, Math.min(100, s.proximity || 0));
   const long = s.htfTrend === 'up';
-  const trig = long ? `RSI2 ${s.rsi2} · long fires under 15` : s.htfTrend === 'down' ? `RSI2 ${s.rsi2} · short fires over 85` : `RSI2 ${s.rsi2} · no trend`;
+  const trig = long ? `${prox}% of the way to a buy setup` : s.htfTrend === 'down' ? 'Downtrend — no long setup' : 'No clear trend';
   return `<div class="setup-row" data-nav="#/signal/${m.symbol}" data-sym="${m.symbol}">
     ${symTile(m.symbol, 34)}
     <div class="setup-body">

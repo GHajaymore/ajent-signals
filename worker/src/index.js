@@ -3,7 +3,7 @@
 import { db } from './db.js';
 import { runTick } from './scheduler.js';
 import { MARKETS } from './markets.js';
-import { STRATEGY } from './meta.js';
+import { STRATEGY, publicStrategy } from './meta.js';
 import { addSubscription, removeSubscription, pushToAll } from './push.js';
 import { requirePro } from './auth.js';
 import { registerWebhook, listWebhooks, deleteWebhook, deliverEvents, sampleEvent, EDU_DISCLAIMER } from './webhooks.js';
@@ -232,11 +232,17 @@ export default {
       // The EVOLVED dials (learned globally from all trades) are merged in, so the
       // app shows the current, adapted strategy — not just the frozen defaults.
       const a = blob && blob.adaptive;
-      // Show the ADOPTED dials (what's actually trading until the next weekly
-      // re-tune); `adaptive` also carries the current learned read + next-retune.
-      const adoptedStop = (a && a.adopted && a.adopted.stopMult) ?? STRATEGY.stopAtrMult;
-      const strategy = a ? { ...STRATEGY, stopAtrMult: adoptedStop, exitAbove: a.exitAbove ?? STRATEGY.exitAbove, adaptive: a } : STRATEGY;
-      return json({ updatedAt: (blob && blob.updatedAt) || Date.now(), signals: (blob && blob.signals) || [], strategy, notice: NOTICE });
+      // Send only the GENERALIZED public strategy — the exact indicators/thresholds/
+      // stop (the proprietary recipe) never leave the server. Strip the exit
+      // threshold from each signal's plan too; book-profit/cut is computed
+      // server-side and delivered as an `action` on open positions (/trades).
+      const strategy = publicStrategy(a);
+      const signals = ((blob && blob.signals) || []).map((s) => {
+        if (!s || !s.plan) return s;
+        const { exitAbove, stopMult, sizeMult, ...plan } = s.plan; // drop recipe fields
+        return { ...s, plan };
+      });
+      return json({ updatedAt: (blob && blob.updatedAt) || Date.now(), signals, strategy, notice: NOTICE });
     }
     if (url.pathname === '/trades') {
       try {

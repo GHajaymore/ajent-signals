@@ -21,8 +21,8 @@ function watchMarkets(threshold, q) {
 function watchRow(m) {
   const s = m.signal;
   const prox = Math.max(0, Math.min(100, s.proximity || 0));
-  const trig = s.htfTrend === 'up' ? `RSI2 ${s.rsi2} · long fires under 15`
-    : s.htfTrend === 'down' ? `RSI2 ${s.rsi2} · short fires over 85` : `RSI2 ${s.rsi2}`;
+  const trig = s.htfTrend === 'up' ? `${prox}% of the way to a buy setup`
+    : s.htfTrend === 'down' ? 'Downtrend — no long setup' : 'No clear trend';
   return `<div class="closed-row" data-nav="#/signal/${m.symbol}" data-sym="${m.symbol}" style="cursor:pointer">
     ${symTile(m.symbol, 34)}
     <div class="closed-body">

@@ -25,7 +25,7 @@ function serverReasons(sig, trend) {
     'The mirror of the buy: we go SHORT expecting an over-extended rally to fade back down.',
     'Provisional side — the short is weaker on stock indices (they drift up over time).',
   ];
-  return [`No setup right now — RSI2 at ${r} isn't stretched enough to trade.`, `Trend is ${tl}; waiting for a genuine oversold dip in an uptrend before entering.`];
+  return ['No setup right now — the market isn\'t stretched enough to trade.', `Trend is ${tl}; waiting for a genuine oversold dip in an uptrend before entering.`];
 }
 
 const MARKET_DEFS = [

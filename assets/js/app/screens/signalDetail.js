@@ -56,7 +56,7 @@ function caveatsHtml(market, verdict) {
   const s = market.signal, c = [];
   if (verdict === 'BUY') {
     c.push('This is a bounce bet — if the dip keeps falling, it loses. Profit needs a recovery, not more downside.');
-    if (!(s.plan && s.plan.conviction === 'high')) c.push('Standard tier, not the deepest oversold (RSI2 isn’t below 5) — the per-trade edge is smaller than a high-conviction setup.');
+    if (!(s.plan && s.plan.conviction === 'high')) c.push('Standard tier, not the deepest-oversold tier — the per-trade edge is smaller than a high-conviction setup.');
     if (s.pctB != null && s.pctB >= 0) c.push('Price hasn’t pierced below the lower Bollinger band — a less-stretched setup than the strongest ones.');
   } else if (verdict === 'SELL') {
     c.push('Provisional short — historically the weaker side on stock indices (they drift up over time). The live record is the judge.');
@@ -536,17 +536,17 @@ function actionSuggestion(market, s, verdict) {
       return { icon: 'ph-hand-palm', tone: 'var(--sell)', title: 'Stop loss — cut it', text: `Price has reached your risk level (${fmtPrice(pos.stop, market.decimals)}). The strategy exits to cap the loss.` };
     }
     if (has && rsi >= exitAbove) {
-      return { icon: 'ph-flag-checkered', tone: 'var(--buy)', title: 'Book profit now', text: `${ind} has recovered to ${rtxt} (≥ ${exitAbove}) — the oversold move has reverted to the mean. This is where the strategy takes profit.` };
+      return { icon: 'ph-flag-checkered', tone: 'var(--buy)', title: 'Book profit now', text: 'The oversold move has reverted to the mean — this is where the strategy takes profit.' };
     }
-    return { icon: 'ph-hourglass-medium', tone: 'var(--flat)', title: 'Hold the trade', text: `${ind} is ${rtxt} — the bounce hasn't completed. Hold until ${ind} recovers above ${exitAbove} (book profit) or price hits the ${fmtPrice(pos.stop, market.decimals)} stop (cut the loss).` };
+    return { icon: 'ph-hourglass-medium', tone: 'var(--flat)', title: 'Hold the trade', text: `The bounce hasn't fully reverted to the mean yet. Hold until it does (book profit) or price hits the ${fmtPrice(pos.stop, market.decimals)} stop (cut the loss).` };
   }
   if (verdict === 'BUY') {
-    return { icon: 'ph-arrow-up-right', tone: 'var(--buy)', title: 'Buy the flush', text: `Deeply oversold (${ind} ${rtxt}) in an uptrend — the dip the strategy buys. It books profit when ${ind} recovers above ${exitAbove} and stops out at the risk level below.` };
+    return { icon: 'ph-arrow-up-right', tone: 'var(--buy)', title: 'Buy the flush', text: 'Deeply oversold in an uptrend — the dip the strategy buys. It takes profit as the move reverts to the mean, and stops out at the risk level below.' };
   }
   if (has && rsi >= exitAbove) {
-    return { icon: 'ph-minus-circle', tone: 'var(--flat)', title: 'No setup — already bounced', text: `${ind} is ${rtxt} (≥ ${exitAbove}). The strategy buys oversold flushes, not markets that have already recovered — nothing to do here.` };
+    return { icon: 'ph-minus-circle', tone: 'var(--flat)', title: 'No setup — already bounced', text: 'This market has already recovered from oversold — the strategy buys the flush, not the bounce. Nothing to do here.' };
   }
-  return { icon: 'ph-hourglass-medium', tone: 'var(--flat)', title: 'No setup — waiting', text: `${ind} is ${rtxt} — not stretched enough to buy (entry needs a flush below ${entryBelow} in an uptrend). Watching for a deeper dip.` };
+  return { icon: 'ph-hourglass-medium', tone: 'var(--flat)', title: 'No setup — waiting', text: 'Not stretched enough to buy — the strategy waits for a deeper oversold flush in an uptrend. Watching.' };
 }
 
 function renderSignalTab(market, verdict, color) {
@@ -609,21 +609,21 @@ function renderSignalTab(market, verdict, color) {
       <span>Trade plan</span>
       ${s.plan.conviction === 'high' ? '<span style="display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;letter-spacing:.03em;color:var(--buy);background:var(--buy-dim);padding:4px 9px;border-radius:999px"><i class="ph-fill ph-arrow-fat-lines-up"></i>HIGH CONVICTION</span>' : ''}
     </div>
-    ${s.plan.conviction === 'high' ? `<div class="text-muted" style="font-size:11.5px;line-height:1.5;margin:0 2px 8px">Deepest oversold tier (RSI2&lt;5) — backtested ~2&times; the ordinary setup's per-trade edge.${state.settings.scaleByConviction ? ' Sized 1.5&times; (conviction sizing on).' : ''}</div>` : ''}
+    ${s.plan.conviction === 'high' ? `<div class="text-muted" style="font-size:11.5px;line-height:1.5;margin:0 2px 8px">Deepest-oversold tier — historically ~2&times; the ordinary setup's per-trade edge.${state.settings.scaleByConviction ? ' Sized 1.5&times; (conviction sizing on).' : ''}</div>` : ''}
     ${edgeNote(market.symbol)}
     ${planRow('Suggested entry', fmtPrice(s.plan.entry, market.decimals), 'var(--accent)')}
     ${planRow(stopLabel, fmtPrice(dispStop, market.decimals), 'var(--sell)')}
-    ${planRow('Exit trigger', exitPhrase(s.plan && s.plan.exitAbove), 'var(--buy)')}
+    ${planRow('Exit trigger', 'When it reverts to the mean', 'var(--buy)')}
     ${planRow(`Reference target · ${rrStr}:1`, fmtPrice(dispTarget, market.decimals), 'var(--neutral-500)')}
     ${planRow('Max hold', s.expectedHold, 'var(--neutral-500)')}
     ${planRow('Timeframe', s.timeframe, 'var(--neutral-500)')}
     <div class="text-muted" style="font-size:11.5px;line-height:1.55;margin-top:8px;padding:0 2px">
       This is a <b style="color:var(--text)">mean-reversion</b> trade: it buys the oversold flush and exits when the
-      bounce returns to the mean — <b style="color:var(--text)">RSI2 back above 65</b> — rather than at a fixed target,
-      so winners can run past the 1:1 mark. A hard <b style="color:var(--text)">2× ATR stop</b> caps the downside and a
-      time stop closes stale trades. The reference target is the ~1:1 level for orientation, not a hard exit.
+      <b style="color:var(--text)">move reverts to the mean</b> — rather than at a fixed target, so winners can run past
+      the 1:1 mark. A hard <b style="color:var(--text)">volatility-based stop</b> caps the downside and a time stop
+      closes stale trades. The reference target is the ~1:1 level for orientation, not a hard exit.
     </div>
-    ${isDefaultPlan(planCfg) ? '' : `<div class="text-faint" style="font-size:11px;line-height:1.5;margin-top:8px;padding:0 2px">Your custom stop / reward:risk is applied to this plan. The 24/7 tracked paper record is one shared account and still runs the validated <b>2× ATR</b> stop + RSI2 exit — adjust your plan in <a href="#/settings" style="color:var(--accent-300)">Settings</a>.</div>`}
+    ${isDefaultPlan(planCfg) ? '' : `<div class="text-faint" style="font-size:11px;line-height:1.5;margin-top:8px;padding:0 2px">Your custom stop / reward:risk is applied to this plan. The 24/7 tracked paper record is one shared account and still runs the strategy's own validated stop &amp; exit — adjust your plan in <a href="#/settings" style="color:var(--accent-300)">Settings</a>.</div>`}
     <div style="font-size:11.5px;margin-top:9px;padding:6px 2px 0;border-top:1px solid var(--hairline);display:flex;align-items:center;gap:6px">
       <i class="ph-fill ph-seal-check" style="color:var(--accent-300);font-size:13px"></i>
       <span class="text-muted">Levels set by the <b style="color:var(--text)">${getStrategy().name}</b>${getStrategy().proven ? ' <span style="color:var(--buy)">· proven</span>' : ''}.</span>
@@ -659,20 +659,19 @@ function renderBreakdownTab(market, color) {
   };
 
   const rsi2Row = rsi2 == null ? ''
-    : rsi2 <= 10 ? factor('Fast RSI (RSI-2)', 'bull', `Deeply oversold at ${rsi2} — the mean-reversion buy trigger.`)
-    : rsi2 >= 90 ? factor('Fast RSI (RSI-2)', 'bear', `Overbought at ${rsi2} — the short trigger.`)
-    : factor('Fast RSI (RSI-2)', 'neutral', `${rsi2} — not stretched far enough to trigger a trade.`);
+    : rsi2 <= 10 ? factor('Momentum', 'bull', 'Deeply oversold — the counter-move the strategy buys.')
+    : rsi2 < 35 ? factor('Momentum', 'neutral', 'Leaning oversold, but not stretched far enough yet.')
+    : factor('Momentum', 'neutral', 'Not stretched far enough to trigger a trade.');
 
   const bbRow = pctB == null ? ''
-    : pctB < 0 ? factor('Bollinger bands', 'bull', 'Price has pierced below the lower band — an extreme stretch (marks the strongest setups).')
-    : pctB > 1 ? factor('Bollinger bands', 'bear', 'Price has pierced above the upper band — an extreme stretch (marks the strongest setups).')
-    : pctB < 0.25 ? factor('Bollinger bands', 'neutral', 'Sitting near the lower band.')
-    : pctB > 0.75 ? factor('Bollinger bands', 'neutral', 'Sitting near the upper band.')
-    : factor('Bollinger bands', 'neutral', 'Mid-band — no volatility extreme.');
+    : pctB < 0 ? factor('Volatility stretch', 'bull', 'Price has stretched unusually far below its recent range — an extreme (marks the strongest setups).')
+    : pctB < 0.25 ? factor('Volatility stretch', 'neutral', 'Below its recent average, not yet at an extreme.')
+    : pctB > 0.75 ? factor('Volatility stretch', 'neutral', 'Above its recent average.')
+    : factor('Volatility stretch', 'neutral', 'Within its normal range — no extreme.');
 
-  const trendRow = trend === 'up' ? factor('Trend (200-period)', 'bull', 'Price is above its 200-period average — the longer trend is up.')
-    : trend === 'down' ? factor('Trend (200-period)', 'bear', 'Price is below its 200-period average — the longer trend is down.')
-    : factor('Trend (200-period)', 'neutral', 'No clear longer-term trend.');
+  const trendRow = trend === 'up' ? factor('Long-term trend', 'bull', 'Price is above its long-term average — the bigger trend is up.')
+    : trend === 'down' ? factor('Long-term trend', 'bear', 'Price is below its long-term average — the bigger trend is down.')
+    : factor('Long-term trend', 'neutral', 'No clear longer-term trend.');
 
   return `
   <div class="panel">
@@ -692,7 +691,7 @@ function renderBreakdownTab(market, color) {
   ${caveatsHtml(market, market.verdict(state.settings.threshold))}
 
   <div class="text-muted" style="font-size:11.5px;line-height:1.6;margin-top:8px;padding:0 4px">
-    This is a <b style="color:var(--text)">mean-reversion</b> signal — <b>not</b> a multi-indicator confluence score. It buys a deeply oversold dip (RSI-2 low) in an uptrend; the Bollinger stretch flags the strongest setups and the 200-period trend is the filter. A trade fires only once the setup clears your ${state.settings.threshold}% confidence threshold (adjustable in Settings). Rule-based — no method guarantees a win rate.
+    This is a <b style="color:var(--text)">mean-reversion</b> signal — <b>not</b> a multi-indicator confluence score. It buys a market that has stretched deeply oversold within an uptrend; the most extreme stretches mark the strongest setups. A trade fires only once the setup clears your ${state.settings.threshold}% confidence threshold (adjustable in Settings). Rule-based — no method guarantees a win rate.
   </div>`;
 }
 

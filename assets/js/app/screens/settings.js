@@ -18,7 +18,7 @@ const TRADING_STYLES = [
   { key: 'day', name: 'Day trading', icon: 'ph-sun-horizon', hold: 'Intraday · flat by close', freq: '~5–50/day', status: 'soon',
     note: 'Intraday mean reversion on 15-minute bars, no overnight risk. In development — an earlier version lost money live, so it will ship as a clearly-labelled experiment tracked on a real record, never with advertised returns.' },
   { key: 'swing', name: 'Swing', icon: 'ph-calendar-check', hold: '~1–5 days', freq: '~1–5/week', status: 'live',
-    note: 'The validated strategy running now — daily Connors RSI-2, long-only. Buys deeply oversold dips in an uptrend, holds until RSI2 recovers. This is what auto-trades your paper account.' },
+    note: 'The validated strategy running now — long-only daily mean-reversion. Buys deeply oversold dips in an uptrend and holds until the move reverts to the mean. This is what auto-trades your paper account.' },
   { key: 'position', name: 'Position', icon: 'ph-mountains', hold: 'Weeks–months', freq: 'a few/month', status: 'soon',
     note: 'Longer-hold trend/mean-reversion for multi-week moves. Planned — not yet separately validated, so it will also arrive labelled experimental.' },
 ];
@@ -60,7 +60,7 @@ function tradePlanPanel() {
   const sv = Math.min(r.max, Math.max(r.min, cfg.stopValue));
   return `<div class="panel setting-block">
     <div class="panel-title" style="margin-bottom:4px">Trade-plan profile <span style="font-weight:400;color:var(--text-muted);font-size:12px">· ${activeStyleLabel()}</span></div>
-    <div class="setting-help" style="margin:0 0 12px">Your preferred stop and reward:risk for the plan shown on a signal. The app's own "book profit / stop now" call is driven by the indicators (RSI2); this just frames the levels you'd trade. The 24/7 tracked record uses the validated 2× ATR stop + RSI2 exit.</div>
+    <div class="setting-help" style="margin:0 0 12px">Your preferred stop and reward:risk for the plan shown on a signal. The app's own "book profit / stop now" call is driven by the strategy's indicators; this just frames the levels you'd trade. The 24/7 tracked record uses the strategy's own validated stop and exit.</div>
     <div class="eyebrow" style="margin-bottom:6px">Stop loss</div>
     <div class="seg-toggle" id="stop-mode">
       <button class="seg-opt ${cfg.stopMode === 'atr' ? 'on' : ''}" data-stopmode="atr">ATR ×</button>
@@ -71,7 +71,7 @@ function tradePlanPanel() {
     <div class="eyebrow" style="margin:16px 0 6px">Reward : risk (gain : loss)</div>
     <div class="setting-row-top"><span class="t">Reference target vs the stop</span><span class="v" id="rr-val">${cfg.rr}:1</span></div>
     <input id="rr-range" class="range" type="range" min="0.5" max="3" step="0.25" value="${cfg.rr}">
-    <div class="setting-help" style="margin-top:8px">Lower = smaller targets hit more often; higher = bigger targets, hit less often. The 1:1 mark is a reference — the strategy's real exit is the RSI2 recovery, not a fixed target. Position size is set by your risk-per-trade below.</div>
+    <div class="setting-help" style="margin-top:8px">Lower = smaller targets hit more often; higher = bigger targets, hit less often. The 1:1 mark is a reference — the strategy's real exit is the mean-reversion, not a fixed target. Position size is set by your risk-per-trade below.</div>
   </div>`;
 }
 
@@ -189,7 +189,7 @@ export function render(container) {
       <div class="panel-title" style="margin-bottom:4px">Trading style</div>
       <div class="setting-help" style="margin:0 0 12px">Pick how you like to trade. Only styles we can run honestly on real, validated data are selectable — the rest show why not.</div>
       <div class="style-list">${TRADING_STYLES.map(styleRow).join('')}</div>
-      <div class="setting-help" style="margin-top:12px">You're trading <b style="color:var(--text)">Swing</b> — the only decade-validated style (daily Connors RSI-2, long-only: PF ~1.6, ~74% win). Day trading &amp; Position are in development and will arrive labelled experimental with a real tracked record; Scalping needs a paid sub-minute data feed. <a href="#/methodology">How it works →</a></div>
+      <div class="setting-help" style="margin-top:12px">You're trading <b style="color:var(--text)">Swing</b> — the only decade-validated style (long-only daily mean-reversion). Day trading &amp; Position are in development and will arrive labelled experimental with a real tracked record; Scalping needs a paid sub-minute data feed. <a href="#/methodology">How it works →</a></div>
     </div>
 
     ${tradePlanPanel()}
@@ -222,7 +222,7 @@ export function render(container) {
       ${state.settings.strategyMode !== 'intraday' ? `
       <div class="notif-row" style="padding:12px 0 4px;border-top:1px solid var(--hairline);margin-top:12px">
         <div class="notif-icon" style="background:var(--buy-dim);color:var(--buy)"><i class="ph-bold ph-arrow-fat-lines-up"></i></div>
-        <div class="notif-label" style="flex:1">Scale up on high-conviction<div class="setting-help" style="margin-top:2px">Risk 1.5&times; on the deepest (RSI2&lt;5) setups. Backtested to lift return-per-risk &mdash; but it deepens drawdowns too. Double-edged, so it&rsquo;s off by default.</div></div>
+        <div class="notif-label" style="flex:1">Scale up on high-conviction<div class="setting-help" style="margin-top:2px">Risk 1.5&times; on the deepest-oversold setups. Backtested to lift return-per-risk &mdash; but it deepens drawdowns too. Double-edged, so it&rsquo;s off by default.</div></div>
         <div class="switch ${state.settings.scaleByConviction ? 'on' : ''}" id="conviction-switch"></div>
       </div>` : ''}
     </div>

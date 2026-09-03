@@ -18,4 +18,22 @@ export const STRATEGY = {
   deepBelow: 5,              // deepest / high-conviction tier
   stopAtrMult: 2,            // hard stop = this × ATR (base; the dial adapts within bounds)
   trendSma: 200,             // only trade with price above this SMA (trend filter)
+  // Public, GENERALIZED description — what the strategy does, without the recipe.
+  // The exact indicators/thresholds/stop above are the proprietary edge and are
+  // NEVER sent to clients (see index.js /signals) or shown in the UI copy.
+  approach: 'A momentum mean-reversion strategy: it buys markets stretched oversold within a healthy uptrend and exits as they revert toward the mean, capped by a volatility-based stop. Long-only, and it evolves from its own real record.',
 };
+
+// The public view of the strategy — safe to send to clients. Excludes the exact
+// indicator/threshold/stop dials (the proprietary recipe).
+export function publicStrategy(adaptive) {
+  const s = STRATEGY;
+  const a = adaptive || null;
+  return {
+    key: s.key, name: s.name, label: 'Momentum mean-reversion · daily',
+    approach: s.approach, direction: s.direction, proven: s.proven,
+    adaptive: s.adaptive, version: s.version,
+    // Generalized adaptive state only — no raw dial values.
+    adaptiveState: a ? { learning: !!a.learning, trades: a.trades || 0, winRate: a.winRate ?? null, retunedAt: (a.adopted && a.adopted.at) || null, nextRetune: a.nextRetune || null } : null,
+  };
+}

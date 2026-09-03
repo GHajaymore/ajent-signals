@@ -4,7 +4,7 @@
 const FAQ = [
   {
     q: 'Does this beat the stock market — VOO or QQQ?',
-    a: 'Closer than it used to be. We refined the exit to <b>let winners run</b> — the classic RSI-2 rule of holding until the oversold snaps back, instead of bailing on the first up-day. In recent backtests the strategy has been <b>competitive with buy-and-hold, and on some windows ahead of it</b>, while keeping drawdown to a fraction of the index’s (~5% vs 25–35%). But backtests are hypothetical and depend on the window; in a relentless bull run, simple index funds can still win on raw return. The <b>live paper record is the real judge</b> — watch it, not our backtest.',
+    a: 'Closer than it used to be. We refined the exit to <b>let winners run</b> — holding until the oversold move reverts to the mean, instead of bailing on the first up-day. In recent backtests the strategy has been <b>competitive with buy-and-hold, and on some windows ahead of it</b>, while keeping drawdown to a fraction of the index’s (~5% vs 25–35%). But backtests are hypothetical and depend on the window; in a relentless bull run, simple index funds can still win on raw return. The <b>live paper record is the real judge</b> — watch it, not our backtest.',
   },
   {
     q: 'Then why use this instead of just buying VOO/QQQ?',

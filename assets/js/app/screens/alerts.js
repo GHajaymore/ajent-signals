@@ -21,7 +21,7 @@ function brewingRow(m) {
     <div class="closed-sym">${m.symbol}</div>
     <div class="closed-body">
       <div class="closed-title">${m.name}</div>
-      <div class="closed-sub">${prox}% to a setup${rsi != null ? ` · RSI2 ${Math.round(rsi)}` : ''}</div>
+      <div class="closed-sub">${prox}% of the way to a setup</div>
       <div style="height:5px;border-radius:3px;background:var(--neutral-900);margin-top:6px;overflow:hidden"><div style="height:100%;width:${prox}%;background:linear-gradient(90deg,var(--accent-700),var(--accent-300))"></div></div>
     </div>
   </div>`;

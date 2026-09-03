@@ -26,8 +26,8 @@ export function getStrategy() { return { ...DEFAULT, ...(live || {}) }; }
 // The evolving dials the Ajent Strategy has learned globally (or null before sync).
 export function getAdaptive() { return (live && live.adaptive) || null; }
 
-// Handy pre-formatted phrases so copy stays in sync too. `exitAbove` can be
-// overridden per-signal (plan.exitAbove) if a market ever differs.
-export function entryPhrase() { const s = getStrategy(); return `${s.indicator} below ${s.entryBelow}`; }
-export function exitPhrase(exitAbove) { const s = getStrategy(); return `${s.indicator} recovers above ${exitAbove ?? s.exitAbove}`; }
-export function stopPhrase() { const s = getStrategy(); return `${s.stopAtrMult}× ATR`; }
+// GENERALIZED phrases — describe the behaviour, never the proprietary recipe
+// (no indicator names, thresholds or stop multiples in user-facing copy).
+export function entryPhrase() { return 'deeply oversold in an uptrend'; }
+export function exitPhrase() { return 'reverts to the mean'; }
+export function stopPhrase() { return 'volatility-based stop'; }

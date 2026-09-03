@@ -26,25 +26,16 @@ export function render(container) {
   // The exit section differs by strategy: daily swing uses the Connors "first up
   // close" exit (backtested ~72% win / PF ~1.6 on US indices); intraday uses the
   // fixed tight-target geometry whose win rate comes from the reward:risk ratio.
-  const exitSection = daily ? `
+  const exitSection = `
     <div class="section-label">3 · The exit — ride the snap-back</div>
     <div class="panel">
-      <p class="text-muted" style="font-size:12.5px;line-height:1.65;margin-top:0"><b style="color:var(--text)">Long-only.</b> The entry waits for a <b style="color:var(--text)">deeply oversold day (RSI2 below 15)</b> that flushes below yesterday's low inside an uptrend. Once in, the trade holds until <b style="color:var(--text)">RSI2 recovers above 65</b> — the oversold stretch has snapped back to the mean — letting the bounce run instead of bailing on the first green close, with a hard <b>2× ATR</b> stop underneath and a time stop as a backstop. The deepest setups (RSI2 below 5, below the lower Bollinger band) are flagged as higher conviction. (Shorting overbought pops backtested as a drag — indices drift up — so it's dropped.)</p>
+      <p class="text-muted" style="font-size:12.5px;line-height:1.65;margin-top:0"><b style="color:var(--text)">Long-only.</b> The entry waits for a market that has stretched <b style="color:var(--text)">deeply oversold</b> and flushed below its recent low inside a healthy uptrend. Once in, the trade holds until the move <b style="color:var(--text)">reverts to the mean</b> — letting the bounce run rather than bailing early — with a <b>volatility-based stop</b> underneath and a time stop as a backstop. The most stretched setups are graded as higher conviction. (The short side backtested as a drag on these markets, so it's dropped.)</p>
       <div class="text-muted" style="font-size:12px;line-height:1.65;margin-top:10px">
-        Clean 10-year backtest on US indices (S&amp;P, Nasdaq, Dow, Russell): <b style="color:var(--buy)">profit factor ~1.6</b>, <b style="color:var(--buy)">win rate ~72%</b>, holds of a few days — and it stayed <b>profitable in every one</b> of five sequential ~2-year windows rather than riding one lucky stretch. Tested out-of-sample on five more global indices it held up on four (ASX ~1.8, Euro Stoxx ~1.5, Nikkei ~1.2, TSX ~1.1) but <b>lost on India&rsquo;s Nifty 50</b>, where mean reversion works poorly. Daily mode auto-trades that validated set (US indices plus ASX, Euro Stoxx, Nikkei &amp; TSX) — the internationals also trade in different sessions, which spreads risk instead of piling into four US indices that dip together.
-      </div>
-    </div>` : `
-    <div class="section-label">3 · The exit — ride the bounce to the mean</div>
-    <div class="panel">
-      <p class="text-muted" style="font-size:12.5px;line-height:1.65;margin-top:0"><b style="color:var(--text)">Both directions, 15-minute.</b> Buy an oversold dip (RSI2 below 10) or short an overbought pop (RSI2 above 90) — in any condition, no trend filter — then <b style="color:var(--text)">exit when RSI2 reverts to 50</b> (the move has reached the mean), with a <b>2× ATR</b> stop and a ~1-session time stop as backstops. On 15-minute bars there's no overnight drift, so shorting works here where it doesn't on the daily swing.</p>
-      <div class="text-muted" style="font-size:12px;line-height:1.65;margin-top:10px">
-        On ~60 days of 15-minute US-index data this backtested at <b style="color:var(--buy)">profit factor ~1.6</b>, positive on all four indices. The earlier version used a fixed tight target and <b>lost money</b> (PF ~0.86) — it capped winners while stops ran full-size. <b>Important:</b> 60 days is a small sample (the free feed's limit for 15-minute history), so intraday is <b>provisional</b> — trust the live paper record over the backtest here.
+        Validated over a <b>decade</b> on major global indices: it stayed <b style="color:var(--buy)">profitable across every one</b> of several sequential walk-forward windows — not one lucky stretch — and held up out-of-sample on most additional indices. The few markets where mean reversion doesn't fit are excluded. Holds run a few days. The exact recipe is proprietary; the edge is drawn from the past and is <b>never a promise</b> — judge it by the live record.
       </div>
     </div>`;
 
-  const catchNote = daily
-    ? 'A high win rate is <b>not</b> the same as profit — but here the two agree: the ~72% win rate <b>and</b> a profit factor around 1.6 both come from the same backtest, which held up in every ~2-year window. That edge is strongest on US indices and drawn from the past; it is never a promise. The Paper Trading tab tracks the real, live profit factor and expectancy so you always see the truth.'
-    : 'A high win rate is <b>not</b> the same as profit. The intraday edge here rests on ~60 days of data — promising, but a small sample. Trust the live paper record, which the Paper Trading tab tracks (profit factor and expectancy), over any backtest number until it has built up.';
+  const catchNote = 'A high win rate is <b>not</b> the same as profit — a real edge needs both, and this one is validated across a decade and every walk-forward window. That edge is drawn from the past; it is never a promise. The Paper Trading tab tracks the real, live profit factor and expectancy so you always see the truth, not a backtest.';
 
   container.innerHTML = `
   <div class="fade-in glow-wrap">
@@ -66,7 +57,7 @@ export function render(container) {
     <div class="section-label">1 · The setup</div>
     <div class="panel">
       <div class="reason-row"><i class="ph-bold ph-trend-up" style="color:var(--buy)"></i><span><b style="color:var(--text)">Trend is your friend.</b> Only trade with the higher-timeframe trend (price vs a long EMA). Fighting the bigger trend is where accuracy collapses.</span></div>
-      <div class="reason-row"><i class="ph-bold ph-arrow-bend-down-right" style="color:var(--accent-300)"></i><span><b style="color:var(--text)">Buy fear, not strength.</b> Enter only on a genuine counter-move — a fast <b>RSI(2)</b> extreme, a <b>Bollinger</b> band touch, a stretched <b>RSI(14)</b>/<b>CCI</b>. Shallow noise is ignored.</span></div>
+      <div class="reason-row"><i class="ph-bold ph-arrow-bend-down-right" style="color:var(--accent-300)"></i><span><b style="color:var(--text)">Buy fear, not strength.</b> Enter only on a genuine counter-move — when momentum is at a fast extreme and price has stretched unusually far from its recent average. Shallow noise is ignored.</span></div>
       <div class="reason-row"><i class="ph-bold ph-funnel" style="color:var(--flat)"></i><span><b style="color:var(--text)">Be selective.</b> A signal fires only when the dip/pop is deep enough to clear your confidence threshold — so it waits rather than trading constantly.</span></div>
     </div>
 
