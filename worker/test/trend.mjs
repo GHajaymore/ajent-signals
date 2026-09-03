@@ -5,7 +5,7 @@
 // that fires on DIFFERENT days than mean reversion (real diversification).
 //   node test/trend.mjs
 import { DATA } from './bt.mjs';
-import { sma, atr } from '../src/indicators.js';
+import { sma, atr, stdev } from '../src/indicators.js';
 
 const START = 25000, RISK = 250, COST = 6;
 const YEAR = 365.25 * 24 * 3600 * 1000;
@@ -16,7 +16,11 @@ const PRE = {};
 for (const sym of Object.keys(DATA)) {
   const c = DATA[sym];
   const closes = c.map((x) => x.c), highs = c.map((x) => x.h), lows = c.map((x) => x.l);
-  PRE[sym] = { c, closes, highs, lows, atr: atr(c, 14), sma200: sma(closes, 200), sma100: sma(closes, 100), sma50: sma(closes, 50), sma20: sma(closes, 20) };
+  const sd20 = stdev(closes, 20), s20 = sma(closes, 20);
+  const upperBB = s20.map((v, i) => (v == null || sd20[i] == null ? null : v + 2 * sd20[i]));
+  const lowerBB = s20.map((v, i) => (v == null || sd20[i] == null ? null : v - 2 * sd20[i]));
+  const bw = s20.map((v, i) => (v == null || sd20[i] == null || v === 0 ? null : (4 * sd20[i]) / v)); // band width %
+  PRE[sym] = { c, closes, highs, lows, atr: atr(c, 14), sma200: sma(closes, 200), sma100: sma(closes, 100), sma50: sma(closes, 50), sma20: s20, upperBB, lowerBB, bw };
 }
 const rollMax = (a, i, n) => { let m = -Infinity; for (let k = Math.max(0, i - n); k < i; k++) m = Math.max(m, a[k]); return m; };
 const rollMin = (a, i, n) => { let m = Infinity; for (let k = Math.max(0, i - n); k < i; k++) m = Math.min(m, a[k]); return m; };
@@ -80,6 +84,22 @@ const STRATS = {
     stopMult: 3,
     entry: ({ p, i, price }) => up(p, i) && price >= rollMax(p.highs, i, 40),
     exit: ({ p, i, price }) => price <= rollMin(p.lows, i, 20),
+  },
+  // --- third-edge candidates (orthogonal to dip-buying & MA trend-follow) ---
+  'Bollinger squeeze breakout': {
+    stopMult: 3,
+    entry: ({ p, i, price }) => {
+      if (!up(p, i) || p.upperBB[i] == null || p.bw[i] == null) return false;
+      const minBW = rollMin(p.bw, i, 60);
+      return minBW != null && p.bw[i] <= minBW * 1.15 && price >= p.upperBB[i]; // break out of a volatility squeeze
+    },
+    exit: ({ price }, pos) => price <= pos.peak - 3 * pos.atr,
+  },
+  'Pullback to 20MA in uptrend': {
+    stopMult: 2.5,
+    entry: ({ p, i, price }) => up(p, i) && p.sma50[i] != null && p.sma50[i] > p.sma50[i - 5]
+      && p.sma20[i] != null && p.c[i - 1] && p.c[i - 1].l < p.sma20[i - 1] && price > p.sma20[i], // dipped to the 20MA, resumed
+    exit: ({ p, i, price }) => p.sma50[i] != null && price < p.sma50[i],
   },
 };
 
