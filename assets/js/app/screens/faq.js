@@ -20,7 +20,7 @@ const FAQ = [
   },
   {
     q: 'Is the data real-time?',
-    a: 'It’s <b>real but delayed ~15–25 minutes</b> on the free data feed, and labelled “delayed” so you always know. Delayed means <i>real, just late</i> — not fabricated. A licensed real-time feed would remove the lag.',
+    a: 'It depends on the market, and every price is labelled so you always know. <b>Crypto</b> is real-time. <b>US index futures</b> (ES/NQ/YM/RTY) show a <b>near-real-time estimate</b> derived from their live tracking ETF (SPY/QQQ/DIA/IWM) — labelled “~RT · SPY” — because the free futures feed itself runs ~15 min behind. Other indices are <b>real but delayed ~15–25 minutes</b>, labelled “delayed”. Delayed means <i>real, just late</i> — never fabricated. Signals compute on daily bars, so the small lag doesn’t change which setups fire.',
   },
   {
     q: 'Are the results net of fees?',
