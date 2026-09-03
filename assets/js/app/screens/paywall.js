@@ -47,7 +47,7 @@ function realRecordPanel() {
 // OFF for the free early-access launch — everything below is unlocked for all
 // users. When subscriptions go live, gate the PRO items behind isPro().
 const FREE_FEATURES = [
-  { icon: 'ph-swap', text: 'Both strategies — Active (long &amp; short) &amp; Proven (daily)' },
+  { icon: 'ph-seal-check', text: 'The full <b>Ajent Pulse</b> strategy — the same signals as Pro' },
   { icon: 'ph-target', text: 'Auto-trade <b>one</b> market at a time' },
   { icon: 'ph-notebook', text: 'The full, honest paper-trading record' },
   { icon: 'ph-book-open-text', text: 'In-app signals, breakdown &amp; methodology' },
@@ -112,7 +112,12 @@ export function render(container) {
 
     ${realRecordPanel()}
 
-    <div style="background:var(--buy-dim);border:1px solid color-mix(in srgb,var(--buy) 30%,transparent);border-radius:12px;padding:11px 14px;margin-top:16px;font-size:12.5px;line-height:1.5;color:var(--buy)">
+    <div style="display:flex;gap:10px;align-items:flex-start;background:var(--neutral-900);border:1px solid var(--hairline);border-radius:12px;padding:11px 14px;margin-top:16px">
+      <i class="ph-fill ph-seal-check" style="color:var(--accent-300);font-size:18px;flex:none;margin-top:1px"></i>
+      <div style="font-size:12.5px;line-height:1.5;color:var(--text-muted)"><b style="color:var(--text)">Same strategy on every plan.</b> Free and Pro both trade the proven <b style="color:var(--text)">Ajent Pulse</b> strategy — the identical signals. Pro only adds <b style="color:var(--text)">access</b>: more markets, real-time (vs delayed) data, and alerts. It is never a “better” or different strategy.</div>
+    </div>
+
+    <div style="background:var(--buy-dim);border:1px solid color-mix(in srgb,var(--buy) 30%,transparent);border-radius:12px;padding:11px 14px;margin-top:12px;font-size:12.5px;line-height:1.5;color:var(--buy)">
       ${canBuy
         ? '<b>Free stays free.</b> <span style="color:var(--text)">Pro adds the extras below — no card for Free, ever.</span>'
         : '<b>Pro isn’t open yet.</b> <span style="color:var(--text)">Free is fully usable now (one market at a time). Join the waitlist and we’ll email you the moment Pro launches — pricing below is a preview.</span>'}

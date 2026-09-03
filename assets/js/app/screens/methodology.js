@@ -60,7 +60,7 @@ export function render(container) {
     <div class="panel" style="text-align:center;padding:20px 16px">
       <i class="ph-fill ph-chart-bar" style="font-size:30px;color:var(--buy)"></i>
       <div style="font:800 20px var(--font-heading);margin-top:8px">Mean reversion, in the direction of the trend</div>
-      <p class="text-muted" style="font-size:13px;line-height:1.65;margin-top:8px">Ajent Pulse doesn't chase breakouts. It waits for price to stretch <b style="color:var(--text)">against</b> a healthy uptrend — a deep oversold dip — then bets it snaps back. ${daily ? 'The daily swing is <b style="color:var(--text)">long-only</b> — buy the dip in an uptrend, stand aside otherwise.' : 'Active mode trades <b style="color:var(--text)">both ways</b> — buy oversold dips and short overbought pops.'}</p>
+      <p class="text-muted" style="font-size:13px;line-height:1.65;margin-top:8px">Ajent Pulse doesn't chase breakouts. It waits for price to stretch <b style="color:var(--text)">against</b> a healthy uptrend — a deep oversold dip — then bets it snaps back. The daily swing is <b style="color:var(--text)">long-only</b> — buy the dip in an uptrend, stand aside otherwise.</p>
     </div>
 
     <div class="section-label">1 · The setup</div>
