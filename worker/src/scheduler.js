@@ -93,6 +93,7 @@ export async function runTick(env, store) {
     closed: (stored && stored.closed) || [],
     lastClose: (stored && stored.lastClose) || {},
     migrated: !!(stored && stored.migrated),
+    adopted: (stored && stored.adopted) || null, // last-adopted dials (weekly cadence)
   };
   // One-time migration from the old per-key layout to this blob, attempted at most
   // once (the `migrated` flag is then persisted) so we never pin the KV list quota.
@@ -102,9 +103,20 @@ export async function runTick(env, store) {
     } catch (e) { /* list quota may be spent today; the record starts fresh */ }
     record.migrated = true;
   }
-  // The evolving Ajent Strategy: ONE set of dials, learned globally from the whole
-  // pooled record, applied uniformly to every market this tick.
-  const dials = computeAdaptive(record, STRATEGY);
+  // The evolving Ajent Strategy learns ONE set of dials globally from the whole
+  // pooled record. It ADOPTS a new set on a fixed CADENCE (weekly) rather than
+  // every tick — so it adjusts on accumulated evidence, not daily noise — and only
+  // within hard bounds (stop 1.5-3× ATR, size 0.6-1.4×) after a real sample (20+
+  // trades). Automatic (no human bottleneck) but disciplined. `learned` is the
+  // current read (reported); `record.adopted` is what actually trades until the
+  // next re-tune. The daily report shows both.
+  const RETUNE_MS = 7 * 86400000; // adjust the strategy at most weekly
+  const learned = computeAdaptive(record, STRATEGY);
+  const nowMs = Date.now();
+  if (!record.adopted || (nowMs - (record.adopted.at || 0)) > RETUNE_MS) {
+    record.adopted = { stopMult: learned.stopMult, sizeMult: learned.sizeMult, at: nowMs, fromTrades: learned.trades };
+  }
+  const dials = { stopMult: record.adopted.stopMult, sizeMult: record.adopted.sizeMult };
   // Per-market signal timeline (bounded rolling log). Read once, written once only
   // if something changed this tick.
   const histBlob = (await store.get('HISTORY', 'ALL')) || {};
@@ -144,7 +156,7 @@ export async function runTick(env, store) {
         histChanged = true;
       }
       bySym[symbol] = { symbol, name: meta.name, updatedAt: now, ...sig, live, liveTime, prevClose, history };
-      const res = processPosition({ symbol, meta, sig, live, open: isOpen(meta), record, now, risk, cost, dials });
+      const res = processPosition({ symbol, meta, sig, live, open: isOpen(meta) && !meta.noTrade, record, now, risk, cost, dials });
       if (res === 'open') {
         events.push({ type: 'position.open', event: 'open', symbol, name: meta.name, price: live ?? sig.price, strategy: strategyLabel, plan: sig.plan, signal: sig, at: now });
       } else if (typeof res === 'string' && res.startsWith('exit:')) {
@@ -154,10 +166,10 @@ export async function runTick(env, store) {
   }
   // ONE write for all markets' signals (was one-per-market). Cuts KV writes ~8x
   // so the Worker fits Cloudflare's free tier alongside the account's other apps.
-  await store.put({ pk: 'SIGNALS', sk: 'ALL', updatedAt: Date.now(), signals: Object.values(bySym), adaptive: dials });
+  await store.put({ pk: 'SIGNALS', sk: 'ALL', updatedAt: Date.now(), signals: Object.values(bySym), adaptive: { ...learned, adopted: record.adopted, nextRetune: (record.adopted.at || nowMs) + RETUNE_MS } });
   // One batched write for the whole paper record (was one put/del per position +
   // TRADE + LASTCLOSE keys). /trades now reads this single blob via get — no list.
-  await store.put({ pk: 'RECORD', sk: 'ALL', updatedAt: Date.now(), open: record.open, closed: record.closed, lastClose: record.lastClose, migrated: record.migrated });
+  await store.put({ pk: 'RECORD', sk: 'ALL', updatedAt: Date.now(), open: record.open, closed: record.closed, lastClose: record.lastClose, migrated: record.migrated, adopted: record.adopted });
   if (histChanged) await store.put({ pk: 'HISTORY', sk: 'ALL', updatedAt: Date.now(), hist });
   // Fan out the fresh events to registered Pro webhooks (best-effort).
   try { await deliverEvents(store, events); } catch (e) { /* delivery never blocks trading */ }

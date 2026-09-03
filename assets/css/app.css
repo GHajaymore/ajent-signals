@@ -353,6 +353,7 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .sc-dials { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
 .sc-dial { font: 700 11px var(--font-heading); color: var(--accent-100); background: var(--neutral-900); border: 1px solid var(--hairline); padding: 5px 10px; border-radius: 8px; font-variant-numeric: tabular-nums; }
 .sc-dial.learning { color: var(--flat); }
+.sc-dial.pending { color: var(--accent-200); border-color: color-mix(in srgb, var(--accent) 40%, var(--hairline)); }
 
 /* ── Modern Home ───────────────────────────────────────────────── */
 .home-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }

@@ -16,6 +16,6 @@ export const STRATEGY = {
   entryBelow: 15,            // enter when the indicator is below this (oversold flush)
   exitAbove: 65,             // book profit when it recovers above this (mean reached)
   deepBelow: 5,              // deepest / high-conviction tier
-  stopAtrMult: 2,            // hard stop = this × ATR
+  stopAtrMult: 2,            // hard stop = this × ATR (base; the dial adapts within bounds)
   trendSma: 200,             // only trade with price above this SMA (trend filter)
 };

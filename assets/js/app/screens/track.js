@@ -326,9 +326,11 @@ function honestBanner() {
 function strategyCard() {
   const s = getStrategy();
   const a = getAdaptive();
+  const ad = (a && a.adopted) || { stopMult: s.stopAtrMult, sizeMult: 1 };
   const note = a ? a.note : 'Gathering the record before the dials adapt.';
-  const chips = a && !a.learning
-    ? `<span class="sc-dial">stop ${(+a.stopMult || s.stopAtrMult).toFixed(1)}× ATR</span><span class="sc-dial">size ${Math.round((a.sizeMult || 1) * 100)}%</span><span class="sc-dial">exit ${s.indicator} ≥ ${s.exitAbove}</span>`
+  const learning = a ? a.learning : true;
+  const chips = a && !learning
+    ? `<span class="sc-dial">stop ${(+ad.stopMult).toFixed(1)}× ATR</span><span class="sc-dial">size ${Math.round((ad.sizeMult || 1) * 100)}%</span><span class="sc-dial">exit ${s.indicator} ≥ ${s.exitAbove}</span>`
     : `<span class="sc-dial learning">${a ? `learning · ${a.trades}/20 trades` : 'learning'}</span>`;
   return `<div class="panel" style="padding:13px 15px;margin-bottom:12px">
     <div style="display:flex;align-items:center;gap:8px">
@@ -337,7 +339,7 @@ function strategyCard() {
       ${s.proven ? '<span style="font-size:9.5px;font-weight:700;color:#0b2b20;background:var(--buy);padding:2px 6px;border-radius:5px">PROVEN</span>' : ''}
       <span style="font-size:9.5px;font-weight:700;color:var(--accent-100);background:var(--accent-800);padding:2px 6px;border-radius:5px">ADAPTIVE</span>
     </div>
-    <div class="text-muted" style="font-size:12px;line-height:1.5;margin-top:7px">One proven recipe, applied across every market; its dials evolve globally from all trades. ${note}</div>
+    <div class="text-muted" style="font-size:12px;line-height:1.5;margin-top:7px">One proven recipe, applied across every market. It re-tunes its dials on a set cadence (about weekly) from all trades pooled — automatically, within hard safety bounds. ${note}</div>
     <div class="sc-dials">${chips}</div>
   </div>`;
 }

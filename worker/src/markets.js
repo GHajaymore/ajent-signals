@@ -7,7 +7,10 @@ export const MARKETS = {
   NQ: { yahoo: 'NQ=F', td: 'NDX', country: 'US', futures: true, name: 'E-mini Nasdaq-100' },
   YM: { yahoo: 'YM=F', td: 'DJI', country: 'US', futures: true, name: 'E-mini Dow' },
   RTY: { yahoo: 'RTY=F', td: 'RUT', country: 'US', futures: true, name: 'E-mini Russell 2000' },
-  XJO: { yahoo: '^AXJO', country: 'AU', name: 'ASX 200' },
+  // ASX 200: the robustness sweep found the recipe does NOT fit it (PF ~0.75, a
+  // net loser over ~2y), so it's excluded from auto-trading — its signal still
+  // shows, but it's not opened into the tracked record. (2026-09-02, sweep.mjs.)
+  XJO: { yahoo: '^AXJO', country: 'AU', name: 'ASX 200', noTrade: true },
   SX5E: { yahoo: '^STOXX50E', country: 'EU', name: 'Euro Stoxx 50' },
   N225: { yahoo: '^N225', country: 'JP', name: 'Nikkei 225' },
   TSX: { yahoo: '^GSPTSE', country: 'CA', name: 'S&P/TSX Composite' },

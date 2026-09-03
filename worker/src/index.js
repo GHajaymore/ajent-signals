@@ -232,7 +232,10 @@ export default {
       // The EVOLVED dials (learned globally from all trades) are merged in, so the
       // app shows the current, adapted strategy — not just the frozen defaults.
       const a = blob && blob.adaptive;
-      const strategy = a ? { ...STRATEGY, stopAtrMult: a.stopMult ?? STRATEGY.stopAtrMult, exitAbove: a.exitAbove ?? STRATEGY.exitAbove, adaptive: a } : STRATEGY;
+      // Show the ADOPTED dials (what's actually trading until the next weekly
+      // re-tune); `adaptive` also carries the current learned read + next-retune.
+      const adoptedStop = (a && a.adopted && a.adopted.stopMult) ?? STRATEGY.stopAtrMult;
+      const strategy = a ? { ...STRATEGY, stopAtrMult: adoptedStop, exitAbove: a.exitAbove ?? STRATEGY.exitAbove, adaptive: a } : STRATEGY;
       return json({ updatedAt: (blob && blob.updatedAt) || Date.now(), signals: (blob && blob.signals) || [], strategy, notice: NOTICE });
     }
     if (url.pathname === '/trades') {

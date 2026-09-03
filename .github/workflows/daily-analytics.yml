@@ -1,0 +1,28 @@
+name: Daily analytics
+
+# Independent, READ-ONLY report on the Ajent Strategy. It only reads the deployed
+# worker (live paper record + adaptive state) and writes a report to the run
+# summary + an artifact. It changes nothing and cannot interfere with live trading.
+on:
+  schedule:
+    - cron: '30 22 * * *'   # 22:30 UTC daily (after the US close)
+  workflow_dispatch:         # or run it on demand
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build the daily report
+        run: |
+          node analytics/daily-report.mjs | tee report.md
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ajent-daily-report
+          path: report.md
