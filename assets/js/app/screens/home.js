@@ -190,7 +190,7 @@ function topSetupsHtml(engine, threshold) {
       </div>`;
     }
     return `<div class="card" style="padding:22px 16px;text-align:center">
-      <div class="text-muted" style="font-size:12.5px;line-height:1.6">No live setups right now — Ajent is waiting for a genuine oversold dip or overbought pop on a market with a live feed. Most of the time the honest answer is &ldquo;no trade&rdquo;; a setup appears here the moment one fires.</div>
+      <div class="text-muted" style="font-size:12.5px;line-height:1.6">No live setups right now — Ajent is waiting for a genuine oversold dip in an uptrend on a market with a live feed. Most of the time the honest answer is &ldquo;no trade&rdquo;; a setup appears here the moment one fires.</div>
     </div>`;
   }
   return `<div class="card" style="padding:2px 12px">${setups.map((x) => setupRow(x.m, x.v)).join('')}</div>`;

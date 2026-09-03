@@ -1,4 +1,4 @@
-import { state, saveSettings, perTradeRisk } from '../state.js';
+import { state, saveSettings, perTradeRisk, planConfigFor, setPlanConfig, activeStyleLabel } from '../state.js';
 import { fmtMoney } from '../format.js';
 import { resetPaperTrades } from '../paperTrading.js';
 import { wireSignalExport, signalExportHtml } from './signalExport.js';
@@ -44,6 +44,35 @@ function styleRow(s) {
     </div>
     ${selectable ? `<span class="style-check">${active ? '<i class="ph-bold ph-check-circle"></i>' : ''}</span>` : '<i class="ph-bold ph-lock-simple style-lock"></i>'}
   </button>`;
+}
+
+// Trade-plan profile — the user's preferred stop distance and reward:risk for the
+// SUGGESTED plan shown on a signal. The app's own book-profit / stop suggestion is
+// indicator-driven (RSI2), separate from this; the tracked record uses 2× ATR.
+const STOP_RANGE = { atr: { min: 1, max: 4, step: 0.5, unit: '× ATR', dflt: 2 }, pct: { min: 0.25, max: 5, step: 0.25, unit: '%', dflt: 1.5 } };
+function stopValLabel(cfg) {
+  const r = STOP_RANGE[cfg.stopMode] || STOP_RANGE.atr;
+  return cfg.stopMode === 'pct' ? `${cfg.stopValue}%` : `${cfg.stopValue}× ATR`;
+}
+function tradePlanPanel() {
+  const cfg = planConfigFor();
+  const r = STOP_RANGE[cfg.stopMode] || STOP_RANGE.atr;
+  const sv = Math.min(r.max, Math.max(r.min, cfg.stopValue));
+  return `<div class="panel setting-block">
+    <div class="panel-title" style="margin-bottom:4px">Trade-plan profile <span style="font-weight:400;color:var(--text-muted);font-size:12px">· ${activeStyleLabel()}</span></div>
+    <div class="setting-help" style="margin:0 0 12px">Your preferred stop and reward:risk for the plan shown on a signal. The app's own "book profit / stop now" call is driven by the indicators (RSI2); this just frames the levels you'd trade. The 24/7 tracked record uses the validated 2× ATR stop + RSI2 exit.</div>
+    <div class="eyebrow" style="margin-bottom:6px">Stop loss</div>
+    <div class="seg-toggle" id="stop-mode">
+      <button class="seg-opt ${cfg.stopMode === 'atr' ? 'on' : ''}" data-stopmode="atr">ATR ×</button>
+      <button class="seg-opt ${cfg.stopMode === 'pct' ? 'on' : ''}" data-stopmode="pct">Percent</button>
+    </div>
+    <div class="setting-row-top" style="margin-top:12px"><span class="t">Stop distance</span><span class="v" id="stop-val">${stopValLabel(cfg)}</span></div>
+    <input id="stop-range" class="range" type="range" min="${r.min}" max="${r.max}" step="${r.step}" value="${sv}">
+    <div class="eyebrow" style="margin:16px 0 6px">Reward : risk (gain : loss)</div>
+    <div class="setting-row-top"><span class="t">Reference target vs the stop</span><span class="v" id="rr-val">${cfg.rr}:1</span></div>
+    <input id="rr-range" class="range" type="range" min="0.5" max="3" step="0.25" value="${cfg.rr}">
+    <div class="setting-help" style="margin-top:8px">Lower = smaller targets hit more often; higher = bigger targets, hit less often. The 1:1 mark is a reference — the strategy's real exit is the RSI2 recovery, not a fixed target. Position size is set by your risk-per-trade below.</div>
+  </div>`;
 }
 
 // Push signal alerts — a Pro/trial perk. Get a notification when a BUY/SELL fires,
@@ -163,6 +192,8 @@ export function render(container) {
       <div class="setting-help" style="margin-top:12px">You're trading <b style="color:var(--text)">Swing</b> — the only decade-validated style (daily Connors RSI-2, long-only: PF ~1.6, ~74% win). Day trading &amp; Position are in development and will arrive labelled experimental with a real tracked record; Scalping needs a paid sub-minute data feed. <a href="#/methodology">How it works →</a></div>
     </div>
 
+    ${tradePlanPanel()}
+
     <div class="panel setting-block">
       <div class="setting-row-top"><span class="t">Signal confidence threshold</span><span class="v" id="threshold-val">${threshold}%</span></div>
       <input id="threshold-range" class="range" type="range" min="60" max="90" step="1" value="${threshold}">
@@ -281,6 +312,28 @@ export function render(container) {
       // re-wire the freshly-rendered rows
       render(container);
     });
+  });
+
+  // Trade-plan profile: stop mode / distance and reward:risk.
+  const activeStyleKey = () => state.settings.tradingStyle || 'swing';
+  container.querySelectorAll('#stop-mode .seg-opt').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.stopmode;
+      const cfg = planConfigFor();
+      if (cfg.stopMode === mode) return;
+      setPlanConfig(activeStyleKey(), { stopMode: mode, stopValue: (STOP_RANGE[mode] || STOP_RANGE.atr).dflt });
+      render(container); // re-render so the slider range/labels match the new mode
+    });
+  });
+  const stopRange = document.getElementById('stop-range');
+  if (stopRange) stopRange.addEventListener('input', () => {
+    setPlanConfig(activeStyleKey(), { stopValue: Number(stopRange.value) });
+    document.getElementById('stop-val').textContent = stopValLabel(planConfigFor());
+  });
+  const rrRange = document.getElementById('rr-range');
+  if (rrRange) rrRange.addEventListener('input', () => {
+    setPlanConfig(activeStyleKey(), { rr: Number(rrRange.value) });
+    document.getElementById('rr-val').textContent = `${rrRange.value}:1`;
   });
 
   const thresholdRange = document.getElementById('threshold-range');

@@ -80,6 +80,13 @@ const defaultSettings = {
   // 'scalping' needs a paid sub-minute feed — the Settings picker shows each one's
   // real status. Non-'swing' values fall back to swing for the actual engine.
   tradingStyle: 'swing',
+  // Per-strategy SUGGESTED trade-plan config. stopMode: 'atr' (× volatility unit,
+  // the validated default), 'pct' (% of entry) or 'usd' (fixed price distance);
+  // stopValue is its magnitude. rr = reward:risk (gain:loss) ratio → the reference
+  // target sits rr × the stop distance away (1 = 1:1). This personalises the plan
+  // shown on a signal; the 24/7 tracked paper record is one shared account and
+  // always runs the strategy's validated 2× ATR stop + RSI2 exit.
+  planByStyle: { swing: { stopMode: 'atr', stopValue: 2, rr: 1 } },
   // Default auto-trade set matches the default (daily) mode's validated markets.
   paperMarkets: [...DAILY_AUTOTRADE_MARKETS],
   threshold: 75,
@@ -196,4 +203,38 @@ export function completeOnboarding() {
 
 export function saveSettings() {
   localStorage.setItem(LS_SETTINGS, JSON.stringify(state.settings));
+}
+
+// --- Per-strategy trade-plan config (stop + reward:risk) --------------------
+export const DEFAULT_PLAN = { stopMode: 'atr', stopValue: 2, rr: 1 };
+export function planConfigFor(style) {
+  const s = state.settings.planByStyle && state.settings.planByStyle[style || state.settings.tradingStyle || 'swing'];
+  return { ...DEFAULT_PLAN, ...(s || {}) };
+}
+export function setPlanConfig(style, patch) {
+  state.settings.planByStyle = state.settings.planByStyle || {};
+  state.settings.planByStyle[style] = { ...planConfigFor(style), ...patch };
+  saveSettings();
+}
+export function isDefaultPlan(cfg) {
+  return cfg.stopMode === 'atr' && Number(cfg.stopValue) === 2 && Number(cfg.rr) === 1;
+}
+export function activeStyleLabel() {
+  return ({ swing: 'Swing', day: 'Day', scalping: 'Scalping', position: 'Position' })[state.settings.tradingStyle] || 'Swing';
+}
+// Stop price from the config. `serverStop` is the strategy's own 2× ATR stop, so
+// atr mode can recover the ATR unit. `long` = long trade.
+export function planStopPrice(entry, serverStop, long, cfg) {
+  const c = { ...DEFAULT_PLAN, ...cfg };
+  if (c.stopMode === 'pct') { const d = entry * (Number(c.stopValue) || 0) / 100; return long ? entry - d : entry + d; }
+  if (c.stopMode === 'usd') { const d = Number(c.stopValue) || 0; return long ? entry - d : entry + d; }
+  const atr = (Math.abs(entry - serverStop) / 2) || (entry * 0.004);
+  const d = atr * (Number(c.stopValue) || 2);
+  return long ? entry - d : entry + d;
+}
+// Reference target = rr × the stop distance from entry.
+export function planTargetPrice(entry, stop, long, cfg) {
+  const rr = Number(({ ...DEFAULT_PLAN, ...cfg }).rr) || 1;
+  const risk = Math.abs(entry - stop);
+  return long ? entry + rr * risk : entry - rr * risk;
 }

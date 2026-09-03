@@ -1,4 +1,4 @@
-import { state, saveSettings, toggleWatchlist, isInWatchlist, getEnabledPaperMarkets, dailyEdge } from '../state.js';
+import { state, saveSettings, toggleWatchlist, isInWatchlist, getEnabledPaperMarkets, dailyEdge, planConfigFor, planStopPrice, planTargetPrice, isDefaultPlan } from '../state.js';
 import { getClosedTrades } from '../paperTrading.js';
 
 // Honest per-market note about the DAILY strategy's backtested edge on this
@@ -501,8 +501,48 @@ function chartSvg(market, color, chartH) {
   return priceChartSvg(series, color, { levels, decimals: market.decimals, markers, h: chartH, times });
 }
 
+// Indicator-driven "what to do now": the app reading the live indicators (RSI2,
+// the stop level) and suggesting book-profit / cut / hold / enter — the strategy's
+// real exit logic, not the user's profile. Honest: every call is a real indicator
+// state (RSI2 ≥ 65 = mean reached = take profit; price at the risk level = stop).
+function actionSuggestion(market, s, verdict) {
+  const rsi = s.rsi2;
+  const has = typeof rsi === 'number';
+  const rtxt = has ? Math.round(rsi) : '—';
+  const price = market.price ?? s.price;
+  const pos = getOpenPositions().find((p) => p.symbol === market.symbol);
+  if (pos) {
+    const long = (pos.side || 'LONG') === 'LONG';
+    if (price != null && (long ? price <= pos.stop : price >= pos.stop)) {
+      return { icon: 'ph-hand-palm', tone: 'var(--sell)', title: 'Stop loss — cut it', text: `Price has reached your risk level (${fmtPrice(pos.stop, market.decimals)}). The strategy exits to cap the loss.` };
+    }
+    if (has && rsi >= 65) {
+      return { icon: 'ph-flag-checkered', tone: 'var(--buy)', title: 'Book profit now', text: `RSI2 has recovered to ${rtxt} (≥ 65) — the oversold bounce has reverted to the mean. This is where the strategy takes profit.` };
+    }
+    return { icon: 'ph-hourglass-medium', tone: 'var(--flat)', title: 'Hold the trade', text: `RSI2 is ${rtxt} — the bounce hasn't completed. Hold until RSI2 recovers above 65 (book profit) or price hits the ${fmtPrice(pos.stop, market.decimals)} stop (cut the loss).` };
+  }
+  if (verdict === 'BUY') {
+    return { icon: 'ph-arrow-up-right', tone: 'var(--buy)', title: 'Buy the flush', text: `Deeply oversold (RSI2 ${rtxt}) in an uptrend — the dip the strategy buys. It books profit when RSI2 recovers above 65 and stops out at the risk level below.` };
+  }
+  if (has && rsi >= 65) {
+    return { icon: 'ph-minus-circle', tone: 'var(--flat)', title: 'No setup — already bounced', text: `RSI2 is ${rtxt} (≥ 65). The strategy buys oversold flushes, not markets that have already recovered — nothing to do here.` };
+  }
+  return { icon: 'ph-hourglass-medium', tone: 'var(--flat)', title: 'No setup — waiting', text: `RSI2 is ${rtxt} — not stretched enough to buy (entry needs a flush below 15 in an uptrend). Watching for a deeper dip.` };
+}
+
 function renderSignalTab(market, verdict, color) {
   const s = market.signal;
+  // Stop + reference target in the plan honour the user's per-strategy profile
+  // (stop distance and reward:risk). The tracked record still uses 2× ATR + RSI2.
+  const planCfg = planConfigFor();
+  const planLong = verdict !== 'SELL';
+  const planEntry = s.plan ? s.plan.entry : 0;
+  const dispStop = s.plan ? planStopPrice(planEntry, s.plan.stop, planLong, planCfg) : 0;
+  const dispTarget = s.plan ? planTargetPrice(planEntry, dispStop, planLong, planCfg) : 0;
+  const rrStr = (Number(planCfg.rr) || 1).toFixed(planCfg.rr % 1 ? 1 : 0);
+  const stopLabel = planCfg.stopMode === 'pct' ? `Stop loss · ${planCfg.stopValue}%`
+    : planCfg.stopMode === 'usd' ? `Stop loss · ${planCfg.stopValue} pts`
+    : `Stop loss · ${planCfg.stopValue}× ATR`;
   const subline = (verdict === 'NO_TRADE' ? 'Waiting for a high-probability setup' : (verdict === 'BUY' ? 'Long setup confirmed' : 'Short setup confirmed'))
     + (s.provisional ? ' · <span style="color:var(--accent-200)">provisional (short side unproven)</span>' : '');
   const status = autoTradeStatus(market, verdict);
@@ -518,6 +558,16 @@ function renderSignalTab(market, verdict, color) {
     ${confidenceRing(s.confidence, color)}
   </div>
   ${statusHtml}
+
+  ${(() => { const g = actionSuggestion(market, s, verdict); return `
+  <div class="panel" style="border-left:3px solid ${g.tone};padding:13px 15px">
+    <div style="display:flex;align-items:center;gap:9px">
+      <i class="ph-fill ${g.icon}" style="color:${g.tone};font-size:19px"></i>
+      <div style="font:700 14px var(--font-heading)">${g.title}</div>
+      <span class="text-faint" style="font-size:10px;margin-left:auto;text-transform:uppercase;letter-spacing:.05em">Indicator signal</span>
+    </div>
+    <div class="text-muted" style="font-size:12.5px;line-height:1.55;margin-top:7px">${g.text}</div>
+  </div>`; })()}
 
   <div class="stat3-row">
     <div class="stat3-cell"><div class="k">Trend</div><div class="v" style="color:${s.trend === 'Bullish' ? 'var(--buy)' : s.trend === 'Bearish' ? 'var(--sell)' : 'var(--flat)'}">${s.trend}</div></div>
@@ -543,17 +593,22 @@ function renderSignalTab(market, verdict, color) {
     ${s.plan.conviction === 'high' ? `<div class="text-muted" style="font-size:11.5px;line-height:1.5;margin:0 2px 8px">Deepest oversold tier (RSI2&lt;5) — backtested ~2&times; the ordinary setup's per-trade edge.${state.settings.scaleByConviction ? ' Sized 1.5&times; (conviction sizing on).' : ''}</div>` : ''}
     ${edgeNote(market.symbol)}
     ${planRow('Suggested entry', fmtPrice(s.plan.entry, market.decimals), 'var(--accent)')}
-    ${planRow('Stop loss', fmtPrice(s.plan.stop, market.decimals), 'var(--sell)')}
-    ${planRow('Trailing stop', `${s.plan.trailingStopPts.toFixed(2)} pts`, 'var(--neutral-500)')}
-    ${planRow('Target 1', fmtPrice(s.plan.target1, market.decimals), 'var(--buy)')}
-    ${planRow('Target 2', fmtPrice(s.plan.target2, market.decimals), 'var(--buy)')}
-    ${planRow('Target 3', fmtPrice(s.plan.target3, market.decimals), 'var(--buy)')}
-    ${planRow('Reward : Risk', `${s.plan.riskReward.toFixed(1)} : 1`, 'var(--accent-200)')}
+    ${planRow(stopLabel, fmtPrice(dispStop, market.decimals), 'var(--sell)')}
+    ${planRow('Exit trigger', 'RSI2 recovers above 65', 'var(--buy)')}
+    ${planRow(`Reference target · ${rrStr}:1`, fmtPrice(dispTarget, market.decimals), 'var(--neutral-500)')}
+    ${planRow('Max hold', s.expectedHold, 'var(--neutral-500)')}
     ${planRow('Timeframe', s.timeframe, 'var(--neutral-500)')}
     <div class="text-muted" style="font-size:11.5px;line-height:1.55;margin-top:8px;padding:0 2px">
-      <b style="color:var(--text)">Reward : Risk</b> compares the distance to the first target versus the stop —
-      here you risk 1 unit to the stop to aim for ${s.plan.riskReward.toFixed(1)} at Target 1. Higher is better; anything
-      above 1 : 1 means the target is further away than the stop.
+      This is a <b style="color:var(--text)">mean-reversion</b> trade: it buys the oversold flush and exits when the
+      bounce returns to the mean — <b style="color:var(--text)">RSI2 back above 65</b> — rather than at a fixed target,
+      so winners can run past the 1:1 mark. A hard <b style="color:var(--text)">2× ATR stop</b> caps the downside and a
+      time stop closes stale trades. The reference target is the ~1:1 level for orientation, not a hard exit.
+    </div>
+    ${isDefaultPlan(planCfg) ? '' : `<div class="text-faint" style="font-size:11px;line-height:1.5;margin-top:8px;padding:0 2px">Your custom stop / reward:risk is applied to this plan. The 24/7 tracked paper record is one shared account and still runs the validated <b>2× ATR</b> stop + RSI2 exit — adjust your plan in <a href="#/settings" style="color:var(--accent-300)">Settings</a>.</div>`}
+    <div style="font-size:11.5px;margin-top:9px;padding:6px 2px 0;border-top:1px solid var(--hairline);display:flex;align-items:center;gap:6px">
+      <i class="ph-fill ph-calendar-check" style="color:var(--accent-300);font-size:13px"></i>
+      <span class="text-muted">These levels come straight from your active <b style="color:var(--text)">Swing</b> strategy.</span>
+      <a href="#/methodology" style="color:var(--accent-300);margin-left:auto;white-space:nowrap">How it works &rsaquo;</a>
     </div>
   </div>`}
 
