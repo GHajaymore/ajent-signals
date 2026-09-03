@@ -15,8 +15,34 @@ export const ADAPT = {
   decay: 0.97,        // per-trade recency decay (recent outcomes weigh more)
   size: { min: 0.6, max: 1.4 },
   stop: { min: 1.5, max: 3.0 },
+  engineMin: 12,              // per-engine trades before its weight moves
+  engineWeight: { min: 0.5, max: 1.5 },
 };
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+
+// Per-ENGINE size weight, learned from each engine's own record (recency-weighted
+// expectancy), bounded and gated on a per-engine sample. So the ensemble leans
+// toward whichever engine is actually working — but can't zero one out or overfit.
+export function perEngineWeights(closed) {
+  const groups = {};
+  for (const c of closed) { const k = c.strat || 'mr'; (groups[k] = groups[k] || []).push(c); }
+  const out = {};
+  for (const k of ['mr', 'trend']) {
+    const list = groups[k] || [];
+    let w = 1, wTot = 0, wWins = 0, sumPnl = 0;
+    for (const c of list) { wTot += w; if ((c.pnl || 0) > 0) wWins += w; sumPnl += c.pnl || 0; w *= ADAPT.decay; }
+    const winRate = wTot > 0 ? wWins / wTot : 0;
+    const expR = list.length ? (sumPnl / list.length) / 250 : 0;
+    let weight = 1, learning = true;
+    if (list.length >= ADAPT.engineMin) {
+      learning = false;
+      const kk = clamp((list.length - ADAPT.engineMin) / (ADAPT.rampTrades - ADAPT.engineMin), 0, 1);
+      weight = clamp(1 + kk * clamp(expR, -0.6, 0.6), ADAPT.engineWeight.min, ADAPT.engineWeight.max);
+    }
+    out[k] = { weight: +weight.toFixed(2), trades: list.length, winRate: Math.round(winRate * 100), pnl: Math.round(sumPnl), learning };
+  }
+  return out;
+}
 
 // Global dials + health from the whole record (all markets pooled, newest-first).
 // `base` = proven defaults ({ stopAtrMult, exitAbove }). Returns one set of dials
@@ -54,6 +80,7 @@ export function computeAdaptive(record, base) {
     learning,
     sizeMult: +sizeMult.toFixed(2),
     stopMult: +stopMult.toFixed(2),
+    engines: perEngineWeights(closed), // per-engine size weights (ensemble)
     exitAbove: baseExit, // exit dial reserved for a future, higher-data pass
     // human note surfaced in the app
     note: learning

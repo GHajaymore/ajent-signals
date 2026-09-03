@@ -66,7 +66,9 @@ try {
     const net = list.reduce((a, c) => a + (c.pnl || 0), 0);
     const gwn = list.filter((c) => c.pnl > 0).reduce((a, c) => a + c.pnl, 0);
     const gln = Math.abs(list.filter((c) => c.pnl < 0).reduce((a, c) => a + c.pnl, 0));
-    p(`- **${engines[k]}:** ${money(net)} over ${list.length} trade${list.length === 1 ? '' : 's'} · ${w + l ? Math.round((w / (w + l)) * 100) : 0}% win · PF ${gln ? (gwn / gln).toFixed(2) : '∞'}`);
+    const ew = a && a.engines && a.engines[k];
+    const wStr = ew ? (ew.learning ? ` · weight 1.0× (learning ${ew.trades}/12)` : ` · weight ${(+ew.weight).toFixed(2)}×`) : '';
+    p(`- **${engines[k]}:** ${money(net)} over ${list.length} trade${list.length === 1 ? '' : 's'} · ${w + l ? Math.round((w / (w + l)) * 100) : 0}% win · PF ${gln ? (gwn / gln).toFixed(2) : '∞'}${wStr}`);
   }
   p();
   p('## Ajent Pulse (evolving)');

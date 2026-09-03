@@ -72,7 +72,9 @@ export function processPosition({ symbol, meta, sig, live, open, record, now, ri
     const short = sig.verdict === 'SELL';
     const entry = live ?? sig.plan.entry;
     const r = sig.plan.risk || Math.abs(sig.plan.entry - sig.plan.stop);
-    const riskDollars = Math.round(risk * ((dials && dials.sizeMult) || 1));
+    // Size = base risk × global size dial × this engine's adaptive weight (bounded).
+    const engineW = (dials && dials.engines && dials.engines[strat] && dials.engines[strat].weight) || 1;
+    const riskDollars = Math.round(risk * ((dials && dials.sizeMult) || 1) * engineW);
     record.open[symbol] = { symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', strat, entry, stop: short ? entry + r : entry - r, target1: short ? entry - r : entry + r, risk: r, riskDollars, conviction: sig.conviction, maxHoldMin: sig.plan.maxHoldMin, exitRule: strat === 'trend' ? 'trendBreak' : 'rsiRecover', exitAbove: sig.plan.exitAbove, openedAt: now };
     return 'open';
   }
@@ -118,9 +120,9 @@ export async function runTick(env, store) {
   const learned = computeAdaptive(record, STRATEGY);
   const nowMs = Date.now();
   if (!record.adopted || (nowMs - (record.adopted.at || 0)) > RETUNE_MS) {
-    record.adopted = { stopMult: learned.stopMult, sizeMult: learned.sizeMult, at: nowMs, fromTrades: learned.trades };
+    record.adopted = { stopMult: learned.stopMult, sizeMult: learned.sizeMult, engines: learned.engines, at: nowMs, fromTrades: learned.trades };
   }
-  const dials = { stopMult: record.adopted.stopMult, sizeMult: record.adopted.sizeMult };
+  const dials = { stopMult: record.adopted.stopMult, sizeMult: record.adopted.sizeMult, engines: record.adopted.engines || null };
   // Per-market signal timeline (bounded rolling log). Read once, written once only
   // if something changed this tick.
   const histBlob = (await store.get('HISTORY', 'ALL')) || {};
