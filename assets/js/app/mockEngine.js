@@ -223,7 +223,7 @@ class MarketModel {
   // only refreshes the DISPLAYED price + timestamp so the quote ticks live and
   // reads "live" instead of "delayed", and keeps the aligned chart history in
   // step (replaces today's bar, never grows the daily series with intraday noise).
-  applyServerPriceOverlay(price, prevClose, quoteTime) {
+  applyServerPriceOverlay(price, prevClose, quoteTime, proxy) {
     if (typeof price !== 'number' || !(price > 0)) return;
     if (typeof prevClose === 'number' && prevClose > 0) this.openPrice = prevClose;
     this.changePct = ((price - this.openPrice) / this.openPrice) * 100;
@@ -235,6 +235,11 @@ class MarketModel {
       }
     }
     this.liveSource = 'live';
+    // The futures print is delayed, so its near-real-time price is ESTIMATED from
+    // its tracking ETF's live move (e.g. SPY for ES). Recorded so the UI labels it
+    // "~RT · SPY" instead of implying it's the exact futures quote. null for crypto.
+    this.proxySource = proxy || null;
+    this.proxyAt = proxy ? Date.now() : null; // when the proxy estimate last landed
     this.lastLiveAt = Date.now();
     this.quoteTime = quoteTime || Math.floor(Date.now() / 1000);
   }
@@ -272,12 +277,21 @@ class MarketModel {
       this.history = sig.history.map((h) => h.c).slice(-96);
       this.historyTimes = sig.history.map((h) => (h.t < 1e12 ? h.t * 1000 : h.t)).slice(-96);
     }
+    // A recent ETF-proxy overlay is FRESHER than this (delayed) futures signal, so
+    // don't clobber the live price/quoteTime with the stale one — just refresh the
+    // verdict/plan below. Otherwise the display would flicker delayed↔live between
+    // the /signals and /live polls. When no fresh proxy exists, the signal owns the
+    // price and we clear the proxy flag so the label reads honestly.
+    const proxyFresh = this.proxySource && this.proxyAt && (Date.now() - this.proxyAt < 30000);
     const px = typeof sig.live === 'number' ? sig.live : (typeof sig.price === 'number' ? sig.price : this.price);
-    if (typeof px === 'number' && px > 0) {
-      this.changePct = ((px - this.openPrice) / this.openPrice) * 100;
-      this.price = px;
-      if (this.history[this.history.length - 1] !== px) { this.history.push(px); if (this.historyTimes) this.historyTimes.push(Date.now()); }
-      if (this.history.length > 96) { this.history.shift(); if (this.historyTimes) this.historyTimes.shift(); }
+    if (!proxyFresh) {
+      if (typeof px === 'number' && px > 0) {
+        this.changePct = ((px - this.openPrice) / this.openPrice) * 100;
+        this.price = px;
+        if (this.history[this.history.length - 1] !== px) { this.history.push(px); if (this.historyTimes) this.historyTimes.push(Date.now()); }
+        if (this.history.length > 96) { this.history.shift(); if (this.historyTimes) this.historyTimes.shift(); }
+      }
+      this.proxySource = null;
     }
     this.liveSource = 'live';
     this.signalIsReal = true; // real backend analysis — never tag it SIM
@@ -286,12 +300,14 @@ class MarketModel {
     // (sig.liveTime) so `now - quoteTime` is the true feed delay — for free CME
     // futures that's ~10-15m, for crypto it's ~0 (reads "live"). Only if the server
     // didn't provide it do we fall back to a conservative estimate (15m floor for
-    // delayed feeds; updatedAt for crypto).
-    this.quoteTime = (typeof sig.liveTime === 'number' && sig.liveTime > 0)
-      ? Math.floor(sig.liveTime / 1000)
-      : (this.category === 'Crypto'
-        ? Math.floor((sig.updatedAt || Date.now()) / 1000)
-        : Math.floor(((sig.updatedAt || Date.now()) - 15 * 60 * 1000) / 1000));
+    // delayed feeds; updatedAt for crypto). Skipped while a fresh proxy owns the price.
+    if (!proxyFresh) {
+      this.quoteTime = (typeof sig.liveTime === 'number' && sig.liveTime > 0)
+        ? Math.floor(sig.liveTime / 1000)
+        : (this.category === 'Crypto'
+          ? Math.floor((sig.updatedAt || Date.now()) / 1000)
+          : Math.floor(((sig.updatedAt || Date.now()) - 15 * 60 * 1000) / 1000));
+    }
     const dir = sig.direction || (sig.verdict === 'BUY' ? 1 : sig.verdict === 'SELL' ? -1 : 0);
     const trend = sig.htfTrend === 'up' ? 'Bullish' : sig.htfTrend === 'down' ? 'Bearish' : 'Neutral';
     const volLevel = this.atrPct >= 0.02 ? 'High' : this.atrPct >= 0.01 ? 'Medium' : 'Low';

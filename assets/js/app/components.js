@@ -105,16 +105,18 @@ export function liveTag(market) {
   const live = market.isLiveFresh;
   const delayed = live && age != null && age > 180;
   const mins = age != null ? Math.max(1, Math.round(age / 60)) : 0;
+  // The delayed future's near-real-time price is estimated from its tracking ETF.
+  const px = market.proxySource ? ` · ~real-time via ${market.proxySource}` : '';
 
   if (sess === 'closed') return `${dot(false)}Market closed`;
   if (sess === 'open') {
     if (delayed) return `${dot(false)}Market open · delayed ~${mins}m`;
-    if (live) return `${dot(true)}Market open`;
+    if (live) return `${dot(true)}Market open${px}`;
     return `${dot(false)}Market open · connecting…`;
   }
   // Untracked exchange (unknown session) — fall back to raw feed freshness.
   if (delayed) return `${dot(false)}Delayed ~${mins}m`;
-  if (live) return `${dot(true)}Live`;
+  if (live) return `${dot(true)}${market.proxySource ? `~Real-time via ${market.proxySource}` : 'Live'}`;
   return `${dot(false)}No live data`;
 }
 

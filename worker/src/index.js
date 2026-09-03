@@ -84,17 +84,57 @@ export default {
     }
 
     if (url.pathname === '/live') {
-      const MAP = { BTC: 'BTC-USD', ETH: 'ETH-USD' };
+      // Crypto trades 24/7 with no exchange delay — Yahoo serves it real-time.
+      const CRYPTO = { BTC: 'BTC-USD', ETH: 'ETH-USD' };
+      // US index futures: the free futures feed is ~15 min delayed, but the tracking
+      // ETF (SPY≈ES, QQQ≈NQ, DIA≈YM, IWM≈RTY) quotes fresher. We apply the ETF's
+      // real-time % move to the future's OWN settled prior close for a near-real-time
+      // ESTIMATE — labelled as a proxy, never presented as the exact futures print.
+      const PROXY = { ES: 'SPY', NQ: 'QQQ', YM: 'DIA', RTY: 'IWM' };
+      const FUT = { ES: 'ES=F', NQ: 'NQ=F', YM: 'YM=F', RTY: 'RTY=F' };
       const quotes = {};
-      await Promise.all(Object.entries(MAP).map(async ([sym, y]) => {
+
+      const yq = async (sym) => {
         try {
-          const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${y}`, { headers: { 'User-Agent': 'ajent-signals-worker/1.0' }, cf: { cacheTtl: 10, cacheEverything: true } });
+          const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}`, { headers: { 'User-Agent': 'ajent-signals-worker/1.0' }, cf: { cacheTtl: 8, cacheEverything: true } });
           const meta = (await r.json())?.chart?.result?.[0]?.meta;
           if (meta && typeof meta.regularMarketPrice === 'number') {
-            quotes[sym] = { price: meta.regularMarketPrice, prevClose: meta.chartPreviousClose ?? meta.previousClose ?? null, at: meta.regularMarketTime ? meta.regularMarketTime * 1000 : Date.now() };
+            return { price: meta.regularMarketPrice, prevClose: meta.chartPreviousClose ?? meta.previousClose ?? null, at: meta.regularMarketTime ? meta.regularMarketTime * 1000 : Date.now() };
           }
-        } catch (e) { /* skip this symbol */ }
-      }));
+        } catch (e) { /* skip */ }
+        return null;
+      };
+      // Real-time ETF quote: guaranteed real-time via Finnhub if FINNHUB_KEY is set,
+      // otherwise Yahoo (which serves US ETFs fresher than delayed CME futures).
+      const etfQuote = async (etf) => {
+        if (env.FINNHUB_KEY) {
+          try {
+            const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=${etf}&token=${env.FINNHUB_KEY}`, { cf: { cacheTtl: 8, cacheEverything: true } });
+            const j = await r.json();
+            if (j && typeof j.c === 'number' && j.c > 0 && typeof j.pc === 'number' && j.pc > 0) {
+              return { price: j.c, prevClose: j.pc, at: j.t ? j.t * 1000 : Date.now() };
+            }
+          } catch (e) { /* fall through to Yahoo */ }
+        }
+        return yq(etf);
+      };
+
+      await Promise.all([
+        ...Object.entries(CRYPTO).map(async ([sym, y]) => {
+          const q = await yq(y);
+          if (q) quotes[sym] = { price: q.price, prevClose: q.prevClose, at: q.at };
+        }),
+        ...Object.entries(PROXY).map(async ([sym, etf]) => {
+          const [etfQ, futQ] = await Promise.all([etfQuote(etf), yq(FUT[sym])]);
+          if (!etfQ || !futQ || !(etfQ.prevClose > 0) || !(futQ.prevClose > 0)) return;
+          // Only override when the proxy is genuinely FRESHER than the delayed
+          // future (>1 min) — otherwise it adds nothing; leave the future delayed.
+          if (!(etfQ.at > futQ.at + 60000)) return;
+          const pct = (etfQ.price - etfQ.prevClose) / etfQ.prevClose;
+          const est = futQ.prevClose * (1 + pct);
+          quotes[sym] = { price: +est.toFixed(2), prevClose: futQ.prevClose, at: etfQ.at, proxy: etf, pct: +(pct * 100).toFixed(2) };
+        }),
+      ]);
       return json({ quotes, at: Date.now() });
     }
 

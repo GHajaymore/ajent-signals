@@ -313,14 +313,16 @@ function marketStatus(m) {
   if (sess === 'closed') return { label: `${tag} · closed`, color: 'var(--text-muted)', pulse: false };
   const age = m.quoteAgeSec;
   const delayed = m.isLiveFresh && age != null && age > 180;
+  // When the fresh price is an ETF-proxy estimate (e.g. SPY for delayed ES), say so.
+  const px = m.proxySource ? ` · ~RT ${m.proxySource}` : '';
   if (sess === 'open') {
     if (delayed) return { label: `${tag} open · delayed ~${Math.max(1, Math.round(age / 60))}m`, color: '#f5b35a', pulse: false };
-    if (m.isLiveFresh) return { label: `${tag} · open`, color: 'var(--buy)', pulse: true };
+    if (m.isLiveFresh) return { label: `${tag} · open${px}`, color: 'var(--buy)', pulse: true };
     return { label: `${tag} · open`, color: 'var(--text-muted)', pulse: false };
   }
   // Untracked exchange — fall back to feed freshness.
   if (delayed) return { label: `${tag} · delayed ~${Math.max(1, Math.round(age / 60))}m`, color: '#f5b35a', pulse: false };
-  if (m.isLiveFresh) return { label: `${tag} · live`, color: 'var(--buy)', pulse: true };
+  if (m.isLiveFresh) return { label: `${tag} · ${m.proxySource ? `~RT ${m.proxySource}` : 'live'}`, color: 'var(--buy)', pulse: true };
   return { label: `${tag} · no data`, color: 'var(--text-muted)', pulse: false };
 }
 // The market the header status describes: the user's local/primary market (from
