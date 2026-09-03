@@ -162,32 +162,67 @@ function fmtHoldMin(min) {
   return `${(min / 60).toFixed(1)} hrs`;
 }
 
-// Realized P&L grouped by the (local) day each trade closed — the day-by-day trend.
-function dailyPnlHtml(closed) {
-  if (!closed || closed.length < 2) return '';
-  const byDay = new Map();
-  for (const c of closed) {
-    const key = new Date(c.closedAt || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    byDay.set(key, (byDay.get(key) || 0) + tradePnl(c));
+// --- Selectable Profit & Loss (Daily / Monthly / Quarterly / YTD / Custom) ---
+let pnlPeriod = 'monthly';
+let pnlFrom = '', pnlTo = '';
+function bucketOf(ts, grp) {
+  const d = new Date(ts);
+  if (grp === 'daily') return { key: d.toDateString(), label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), sort: new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() };
+  if (grp === 'quarterly') { const q = Math.floor(d.getMonth() / 3) + 1; return { key: `${d.getFullYear()}Q${q}`, label: `Q${q} '${String(d.getFullYear()).slice(2)}`, sort: new Date(d.getFullYear(), (q - 1) * 3, 1).getTime() }; }
+  return { key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }), sort: new Date(d.getFullYear(), d.getMonth(), 1).getTime() };
+}
+// Group realized P&L into buckets for the chosen period. Real closed trades only.
+function pnlBuckets(closed, period, from, to) {
+  let items = closed.map((c) => ({ t: c.closedAt || Date.now(), v: tradePnl(c) }));
+  if (period === 'ytd') { const y = new Date().getFullYear(); items = items.filter((x) => new Date(x.t).getFullYear() === y); }
+  if (period === 'custom') {
+    const f = from ? new Date(`${from}T00:00:00`).getTime() : -Infinity;
+    const t = to ? new Date(`${to}T23:59:59`).getTime() : Infinity;
+    items = items.filter((x) => x.t >= f && x.t <= t);
   }
-  // closed is newest-first, so take the newest 14 days then flip to chronological.
-  const days = [...byDay.entries()].slice(0, 14).reverse();
-  if (days.length < 2) return '';
-  const maxAbs = Math.max(...days.map(([, v]) => Math.abs(v)), 1);
-  return `
-    <div class="panel">
-      <div style="display:flex;justify-content:space-between;align-items:baseline">
-        <div class="panel-title" style="margin-bottom:0">Daily P&amp;L</div>
-        <span class="text-muted" style="font-size:12px">last ${days.length} days traded</span>
+  const grp = period === 'ytd' ? 'monthly' : period === 'custom' ? 'daily' : period;
+  const map = new Map();
+  for (const x of items) { const b = bucketOf(x.t, grp); const e = map.get(b.key) || { value: 0, sort: b.sort, label: b.label }; e.value += x.v; map.set(b.key, e); }
+  const cap = grp === 'daily' ? 14 : grp === 'monthly' ? 12 : 8;
+  const bars = [...map.values()].sort((a, b) => a.sort - b.sort).slice(-cap);
+  return { bars, total: items.reduce((s, x) => s + x.v, 0), count: items.length };
+}
+function pnlPanel(closed) {
+  const periods = [['daily', 'Daily'], ['monthly', 'Monthly'], ['quarterly', 'Quarterly'], ['ytd', 'YTD'], ['custom', 'Custom']];
+  const { bars, total, count } = pnlBuckets(closed, pnlPeriod, pnlFrom, pnlTo);
+  const maxAbs = Math.max(...bars.map((b) => Math.abs(b.value)), 1);
+  const col = total >= 0 ? 'var(--buy)' : 'var(--sell)';
+  return `<div class="panel" id="pnl-panel">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+        <div class="panel-title" style="margin-bottom:0">Profit &amp; loss</div>
+        <div style="text-align:right;white-space:nowrap"><span style="font:800 17px var(--font-heading);color:${col}">${money(total)}</span> <span class="text-muted" style="font-size:11px">· ${count} trade${count === 1 ? '' : 's'}</span></div>
       </div>
-      <div class="bar-chart">
-        ${days.map(([label, value]) => {
-          const color = value >= 0 ? 'var(--buy)' : 'var(--sell)';
-          const h = Math.max(6, (Math.abs(value) / maxAbs) * 100);
-          return `<div class="bar-col"><span class="bv" style="color:${color}">${money(value)}</span><div class="b" style="height:${h}%;background:${color}"></div><span class="bl">${label}</span></div>`;
-        }).join('')}
-      </div>
+      <div class="pnl-periods" id="pnl-period">${periods.map(([id, label]) => `<button class="pchip ${pnlPeriod === id ? 'on' : ''}" data-period="${id}">${label}</button>`).join('')}</div>
+      ${pnlPeriod === 'custom' ? `<div class="pnl-custom"><input type="date" id="pnl-from" class="date-input" value="${pnlFrom}"><span class="text-muted" style="font-size:12px">to</span><input type="date" id="pnl-to" class="date-input" value="${pnlTo}"></div>` : ''}
+      ${bars.length ? `<div class="bar-chart">${bars.map((b) => {
+        const c = b.value >= 0 ? 'var(--buy)' : 'var(--sell)';
+        const h = Math.max(6, (Math.abs(b.value) / maxAbs) * 100);
+        return `<div class="bar-col"><span class="bv" style="color:${c}">${money(b.value)}</span><div class="b" style="height:${h}%;background:${c}"></div><span class="bl">${b.label}</span></div>`;
+      }).join('')}</div>` : `<div class="text-muted" style="font-size:12.5px;padding:18px 2px;text-align:center">No closed trades in this period.</div>`}
     </div>`;
+}
+function wirePnl(container) {
+  const rebuild = () => {
+    const closed = getClosedTrades();
+    const panel = container.querySelector('#pnl-panel');
+    if (!panel) return;
+    const tmp = document.createElement('div');
+    tmp.innerHTML = pnlPanel(closed);
+    panel.replaceWith(tmp.firstElementChild);
+    wirePnl(container);
+  };
+  container.querySelectorAll('#pnl-period .pchip').forEach((chip) => {
+    chip.addEventListener('click', () => { if (pnlPeriod === chip.dataset.period) return; pnlPeriod = chip.dataset.period; rebuild(); });
+  });
+  const from = container.querySelector('#pnl-from');
+  const to = container.querySelector('#pnl-to');
+  if (from) from.addEventListener('change', () => { pnlFrom = from.value; rebuild(); });
+  if (to) to.addEventListener('change', () => { pnlTo = to.value; rebuild(); });
 }
 
 // Group real closed trades by market → net P&L, win rate, count. Sorted best→worst.
@@ -451,7 +486,6 @@ export function render(container) {
   if (!perf) { container.innerHTML = emptyState(); wireSelector(container); return; }
 
   const closed = getClosedTrades();
-  const maxAbs = Math.max(...perf.monthlyPnl.map((m) => Math.abs(m.value)), 1);
   const pnlColor = perf.totalPnl >= 0 ? 'var(--buy)' : 'var(--sell)';
   const up = perf.totalPnl >= 0;
   const pfStr = perf.profitFactor === Infinity ? '∞' : perf.profitFactor.toFixed(2);
@@ -483,25 +517,7 @@ export function render(container) {
       <div class="stat-card"><div class="stat-label">Max drawdown</div><div class="stat-value" style="color:var(--sell)">${money(perf.maxDrawdown)}</div><div class="stat-sub">peak-to-trough</div></div>
     </div>
 
-    ${dailyPnlHtml(closed)}
-
-    <div class="panel">
-      <div style="display:flex;justify-content:space-between;align-items:baseline">
-        <div class="panel-title" style="margin-bottom:0">Monthly profit &amp; loss</div>
-        <span class="text-muted" style="font-size:12px">virtual $</span>
-      </div>
-      <div class="bar-chart">
-        ${perf.monthlyPnl.map((m) => {
-          const color = m.value >= 0 ? 'var(--buy)' : 'var(--sell)';
-          const h = Math.max(6, (Math.abs(m.value) / maxAbs) * 100);
-          return `<div class="bar-col">
-            <span class="bv" style="color:${color}">${money(m.value)}</span>
-            <div class="b" style="height:${h}%;background:${color}"></div>
-            <span class="bl">${m.label}</span>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>
+    ${pnlPanel(closed)}
 
     <div id="open-wrap" data-sig="${openSig()}">${openList()}</div>
 
@@ -535,6 +551,7 @@ export function render(container) {
   </div>`;
 
   wireSelector(container);
+  wirePnl(container);
 
   const exportBtn = container.querySelector('#export-csv');
   if (exportBtn) exportBtn.addEventListener('click', () => {

@@ -341,6 +341,14 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .call-pill.cut { color: #fff; background: var(--sell, #ff5c7c); }
 .call-pill.hold { color: var(--flat, #e2b660); background: color-mix(in srgb, var(--flat, #e2b660) 18%, transparent); }
 
+/* Selectable P&L period chips */
+.pnl-periods { display: flex; gap: 6px; margin: 12px 0 4px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.pnl-periods::-webkit-scrollbar { display: none; }
+.pchip { flex: none; border: 1px solid var(--hairline); background: var(--neutral-900); color: var(--text-muted); font: 600 12px var(--font-heading); padding: 6px 12px; border-radius: 16px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+.pchip.on { background: var(--accent-800); color: var(--accent-100); border-color: transparent; }
+.pnl-custom { display: flex; align-items: center; gap: 8px; margin: 10px 0 2px; }
+.date-input { background: var(--neutral-900); border: 1px solid var(--hairline); color: var(--text); font: 600 12.5px var(--font-heading); padding: 7px 10px; border-radius: 9px; color-scheme: dark; }
+
 /* ── Modern Home ───────────────────────────────────────────────── */
 .home-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
 .home-brand { display: flex; align-items: center; gap: 11px; }
