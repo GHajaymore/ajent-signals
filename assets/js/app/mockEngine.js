@@ -11,21 +11,21 @@ function currentTimeframe() {
   catch (e) { return '1D'; }
 }
 
-// Honest, human reasons derived from the real server signal drivers (RSI2 + trend).
+// Honest, human reasons — describe WHAT the signal is, not the proprietary recipe
+// (no indicator names or thresholds).
 function serverReasons(sig, trend) {
-  const r = Math.round(sig.rsi2 ?? 50);
   const tl = trend.toLowerCase();
+  if (sig.verdict === 'BUY' && sig.strat === 'trend') return [
+    `Trend continuation inside a ${tl} uptrend — the market is trending up with momentum.`,
+    'This is a <b>ride-the-trend</b> trade: we go LONG expecting the up-move to continue.',
+    'It rides the trend and closes when the trend breaks, or on its stop.',
+  ];
   if (sig.verdict === 'BUY') return [
-    `Oversold dip — RSI2 at ${r} (below 15) inside a ${tl} uptrend.`,
+    `Oversold dip inside a ${tl} uptrend — the market has stretched deeply oversold.`,
     'This is a <b>buy-the-dip</b> (mean-reversion): we go LONG expecting the pullback to bounce back up — we do <b>not</b> short a falling market.',
-    'It profits only if price recovers; it closes when RSI2 snaps back above 65, or on its stop.',
+    'It profits if price recovers to the mean; it closes when the move reverts, or on its stop.',
   ];
-  if (sig.verdict === 'SELL') return [
-    `Overbought pop — RSI2 at ${r} (above 85) inside a ${tl} downtrend.`,
-    'The mirror of the buy: we go SHORT expecting an over-extended rally to fade back down.',
-    'Provisional side — the short is weaker on stock indices (they drift up over time).',
-  ];
-  return ['No setup right now — the market isn\'t stretched enough to trade.', `Trend is ${tl}; waiting for a genuine oversold dip in an uptrend before entering.`];
+  return ['No setup right now — the market isn\'t stretched enough to trade.', `Trend is ${tl}; waiting for a genuine setup before entering.`];
 }
 
 const MARKET_DEFS = [
