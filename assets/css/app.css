@@ -67,7 +67,19 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .stat-card::before { content: ''; position: absolute; top: 0; left: 14px; right: 14px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, var(--accent), transparent); opacity: 0.65; }
 .stat-card:active { transform: scale(0.98); }
 .stat-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 600; margin-bottom: 6px; }
-.stat-value { font: 800 21px var(--font-heading); letter-spacing: -0.01em; }
+.stat-value { font: 800 21px var(--font-mono); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+
+/* Living-board ticker — the terminal signature on Home */
+.home-ticker.empty { display: none; }
+.home-ticker { overflow: hidden; margin: 2px -16px 16px; border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); background: linear-gradient(180deg, var(--surface), var(--surface-2)); position: relative; z-index: 1; -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent); mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent); }
+.tk-track { display: inline-flex; align-items: center; gap: 24px; padding: 8px 16px; white-space: nowrap; will-change: transform; animation: tkScroll 46s linear infinite; }
+.home-ticker:hover .tk-track { animation-play-state: paused; }
+.tk-item { font: 600 12px var(--font-mono); color: var(--text-muted); display: inline-flex; align-items: center; gap: 7px; }
+.tk-item b { color: var(--text); font-weight: 700; letter-spacing: 0.02em; }
+.tk-item.buy b { color: var(--buy); }
+.tk-chg { font-variant-numeric: tabular-nums; }
+.tk-b { font: 700 8.5px var(--font-mono); letter-spacing: 0.04em; color: #04130d; background: var(--buy); padding: 1px 5px; border-radius: 3px; }
+@keyframes tkScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 .stat-sub { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
 
 .section-label {

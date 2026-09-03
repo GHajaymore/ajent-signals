@@ -40,6 +40,9 @@
 
   --font-heading: 'Inter', system-ui, sans-serif;
   --font-body: 'Inter', system-ui, sans-serif;
+  /* Terminal-data face — live numerics (prices, P&L, tickers) read as a trading
+     desk and tie the app to the landing. Use for DATA, never running text. */
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
 
   --radius-lg: 15px;
   --radius-md: 12px;

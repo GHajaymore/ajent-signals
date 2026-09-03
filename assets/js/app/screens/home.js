@@ -369,6 +369,27 @@ function computeDerived() {
   return { engine, threshold, openSignals, avgConf, riskOn, upToday, trendCount: trendScope.length, featured, featuredVerdict, nextEvent };
 }
 
+// A live market-board ticker — the "living terminal" signature. A seamless marquee
+// of the real markets (mono, coloured by today's move, BUYs flagged) that pauses on
+// hover and stills under reduced-motion. Data is live at render; refreshes with Home.
+function homeTickerTrack(engine, threshold) {
+  const mkts = engine.markets.filter(isRealMarket);
+  if (mkts.length < 3) return '';
+  const item = (m) => {
+    const chg = m.changePct || 0, up = chg >= 0;
+    const buy = m.verdict(threshold) === 'BUY';
+    return `<span class="tk-item${buy ? ' buy' : ''}"><b>${m.symbol}</b><span class="tk-chg" style="color:${up ? 'var(--buy)' : 'var(--sell)'}">${up ? '+' : ''}${(chg).toFixed(2)}%</span>${buy ? '<span class="tk-b">BUY</span>' : ''}</span>`;
+  };
+  const items = mkts.map(item).join('');
+  return `<div class="tk-track">${items}${items}</div>`; // duplicated for a seamless loop
+}
+// Always render the container (empty until markets turn real); the Home update loop
+// refills it each poll so the prices tick live — the "living board" signature.
+function homeTickerHtml(engine, threshold) {
+  const track = homeTickerTrack(engine, threshold);
+  return `<div class="home-ticker${track ? '' : ' empty'}" id="home-ticker" aria-hidden="true">${track}</div>`;
+}
+
 export function render(container) {
   const { engine, threshold, openSignals, avgConf, riskOn, upToday, trendCount, featured, featuredVerdict, nextEvent } = computeDerived();
   const perf = getPerformanceSummary();
@@ -389,6 +410,8 @@ export function render(container) {
         </button>
       </div>
     </div>
+
+    ${homeTickerHtml(engine, threshold)}
 
     <div class="home-greeting">${greeting()}</div>
 
@@ -460,6 +483,22 @@ export function refresh(container) {
 
   const statusEl = container.querySelector('#market-status');
   if (statusEl) statusEl.innerHTML = statusPillInner(marketStatus(statusMarket(engine)));
+
+  // Refresh the living-board ticker so its prices tick with every live poll (and it
+  // fills in once markets turn real after the initial paint).
+  const tickerEl = container.querySelector('#home-ticker');
+  if (tickerEl) {
+    const track = homeTickerTrack(engine, threshold);
+    tickerEl.classList.toggle('empty', !track);
+    if (track && !tickerEl.querySelector('.tk-track')) tickerEl.innerHTML = track;
+    else if (track) {
+      // Patch only the change cells in place so the marquee scroll position isn't reset.
+      const cells = tickerEl.querySelectorAll('.tk-chg');
+      const mkts = engine.markets.filter(isRealMarket);
+      const vals = mkts.concat(mkts).map((m) => { const c = m.changePct || 0; return { t: `${c >= 0 ? '+' : ''}${c.toFixed(2)}%`, up: c >= 0 }; });
+      cells.forEach((el, i) => { if (vals[i]) { el.textContent = vals[i].t; el.style.color = vals[i].up ? 'var(--buy)' : 'var(--sell)'; } });
+    }
+  }
 
   // Portfolio card: rebuild only when the P&L actually changes (a trade closed),
   // so the equity sparkline stays current without per-tick flicker.
