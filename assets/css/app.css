@@ -349,6 +349,11 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .pnl-custom { display: flex; align-items: center; gap: 8px; margin: 10px 0 2px; }
 .date-input { background: var(--neutral-900); border: 1px solid var(--hairline); color: var(--text); font: 600 12.5px var(--font-heading); padding: 7px 10px; border-radius: 9px; color-scheme: dark; }
 
+/* Ajent Strategy status dials */
+.sc-dials { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
+.sc-dial { font: 700 11px var(--font-heading); color: var(--accent-100); background: var(--neutral-900); border: 1px solid var(--hairline); padding: 5px 10px; border-radius: 8px; font-variant-numeric: tabular-nums; }
+.sc-dial.learning { color: var(--flat); }
+
 /* ── Modern Home ───────────────────────────────────────────────── */
 .home-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
 .home-brand { display: flex; align-items: center; gap: 11px; }

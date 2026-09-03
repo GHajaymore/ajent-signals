@@ -1,5 +1,6 @@
 import { getClosedTrades, getPerformanceSummary, getOpenPositions, tradePnl } from '../paperTrading.js';
 import { positionCallPill, updateCallPill } from '../tradeGuidance.js';
+import { getStrategy, getAdaptive } from '../strategyMeta.js';
 import { fmtPrice } from '../format.js';
 import { state, getEnabledPaperMarkets, setPaperMarketEnabled, setAllPaperMarkets, setPaperMarkets, FREE_MARKET_LIMIT } from '../state.js';
 import { isEntitled } from '../backendApi.js';
@@ -320,6 +321,27 @@ function honestBanner() {
   </div>`;
 }
 
+// The evolving Ajent Strategy — shows the current global dials (learned from all
+// trades) so the adaptation is transparent, honest, and clearly the same recipe.
+function strategyCard() {
+  const s = getStrategy();
+  const a = getAdaptive();
+  const note = a ? a.note : 'Gathering the record before the dials adapt.';
+  const chips = a && !a.learning
+    ? `<span class="sc-dial">stop ${(+a.stopMult || s.stopAtrMult).toFixed(1)}× ATR</span><span class="sc-dial">size ${Math.round((a.sizeMult || 1) * 100)}%</span><span class="sc-dial">exit ${s.indicator} ≥ ${s.exitAbove}</span>`
+    : `<span class="sc-dial learning">${a ? `learning · ${a.trades}/20 trades` : 'learning'}</span>`;
+  return `<div class="panel" style="padding:13px 15px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <i class="ph-fill ph-seal-check" style="color:var(--accent-300);font-size:18px"></i>
+      <b style="font:700 14px var(--font-heading)">${s.name}</b>
+      ${s.proven ? '<span style="font-size:9.5px;font-weight:700;color:#0b2b20;background:var(--buy);padding:2px 6px;border-radius:5px">PROVEN</span>' : ''}
+      <span style="font-size:9.5px;font-weight:700;color:var(--accent-100);background:var(--accent-800);padding:2px 6px;border-radius:5px">ADAPTIVE</span>
+    </div>
+    <div class="text-muted" style="font-size:12px;line-height:1.5;margin-top:7px">One proven recipe, applied across every market; its dials evolve globally from all trades. ${note}</div>
+    <div class="sc-dials">${chips}</div>
+  </div>`;
+}
+
 // User-facing explainer of how the dollar P&L is computed — especially for
 // non-US markets quoted in other currencies. Native <details> = no JS wiring.
 function pnlHelp() {
@@ -504,6 +526,8 @@ export function render(container) {
     </div>
 
     ${honestBanner()}
+
+    ${strategyCard()}
 
     <div class="stat2-grid">
       <div class="stat-card"><div class="stat-label">Win rate</div><div class="stat-value" style="color:var(--buy)">${perf.winRate}%</div><div class="stat-sub">${perf.wins}W / ${perf.losses}L</div></div>

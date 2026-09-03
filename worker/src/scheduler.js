@@ -4,6 +4,7 @@ import { fetchDailyCandles } from './data.js';
 import { computeSignal } from './strategy.js';
 import { deliverEvents } from './webhooks.js';
 import { STRATEGY } from './meta.js';
+import { computeAdaptive } from './adaptive.js';
 
 const dayKey = (ms) => new Date(ms).toISOString().slice(0, 10);
 
@@ -33,7 +34,7 @@ function changeEvents(prev, sig) {
 // the whole record is ONE KV get + ONE KV put per tick (see runTick), so we never
 // use KV list() — which is capped at 1,000/day on the free tier and was blowing up
 // /trades. `cost` is the round-turn transaction cost, deducted so P&L is NET.
-export function processPosition({ symbol, meta, sig, live, open, record, now, risk, cost = 0, exitRsi = STRATEGY.exitAbove }) {
+export function processPosition({ symbol, meta, sig, live, open, record, now, risk, cost = 0, exitRsi = STRATEGY.exitAbove, dials = null }) {
   const pos = record.open[symbol];
   if (pos) {
     const price = live ?? sig.price;
@@ -64,8 +65,11 @@ export function processPosition({ symbol, meta, sig, live, open, record, now, ri
     if (lastClose && lastClose.signalDay === dayKey(now)) return 'skip:tradedToday';
     const short = sig.verdict === 'SELL';
     const entry = live ?? sig.plan.entry;
+    // sig.plan is already scaled to the evolved stop in runTick; apply the size dial
+    // to the dollar risk so the ONE evolved strategy is expressed consistently.
     const r = sig.plan.risk || Math.abs(sig.plan.entry - sig.plan.stop);
-    record.open[symbol] = { symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', entry, stop: short ? entry + r : entry - r, target1: short ? entry - r : entry + r, risk: r, riskDollars: risk, conviction: sig.conviction, maxHoldMin: sig.plan.maxHoldMin, exitRule: short ? 'firstDownClose' : 'firstUpClose', openedAt: now };
+    const riskDollars = Math.round(risk * ((dials && dials.sizeMult) || 1));
+    record.open[symbol] = { symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', entry, stop: short ? entry + r : entry - r, target1: short ? entry - r : entry + r, risk: r, riskDollars, conviction: sig.conviction, maxHoldMin: sig.plan.maxHoldMin, exitRule: 'rsiRecover', exitAbove: exitRsi, openedAt: now };
     return 'open';
   }
   return 'none';
@@ -98,6 +102,9 @@ export async function runTick(env, store) {
     } catch (e) { /* list quota may be spent today; the record starts fresh */ }
     record.migrated = true;
   }
+  // The evolving Ajent Strategy: ONE set of dials, learned globally from the whole
+  // pooled record, applied uniformly to every market this tick.
+  const dials = computeAdaptive(record, STRATEGY);
   // Per-market signal timeline (bounded rolling log). Read once, written once only
   // if something changed this tick.
   const histBlob = (await store.get('HISTORY', 'ALL')) || {};
@@ -108,6 +115,15 @@ export async function runTick(env, store) {
       const meta = MARKETS[symbol];
       const { candles, live, liveTime } = await fetchDailyCandles(meta, env);
       const sig = computeSignal(candles, live);
+      // Express the evolved strategy in the plan itself: scale the stop (and the
+      // 1:1 target) by the global stop dial, so the displayed plan and the opened
+      // paper position share one honest stop. Same for every market.
+      if (sig.plan && dials && dials.stopMult) {
+        const scale = dials.stopMult / STRATEGY.stopAtrMult;
+        const long = sig.direction > 0;
+        const r = sig.plan.risk * scale;
+        sig.plan = { ...sig.plan, risk: r, stop: long ? sig.plan.entry - r : sig.plan.entry + r, target1: long ? sig.plan.entry + r : sig.plan.entry - r, stopMult: dials.stopMult, sizeMult: dials.sizeMult };
+      }
       const now = Date.now();
       // A verdict that flips INTO BUY/SELL (vs last tick) is a fresh signal.
       const prev = bySym[symbol];
@@ -128,7 +144,7 @@ export async function runTick(env, store) {
         histChanged = true;
       }
       bySym[symbol] = { symbol, name: meta.name, updatedAt: now, ...sig, live, liveTime, prevClose, history };
-      const res = processPosition({ symbol, meta, sig, live, open: isOpen(meta), record, now, risk, cost });
+      const res = processPosition({ symbol, meta, sig, live, open: isOpen(meta), record, now, risk, cost, dials });
       if (res === 'open') {
         events.push({ type: 'position.open', event: 'open', symbol, name: meta.name, price: live ?? sig.price, strategy: strategyLabel, plan: sig.plan, signal: sig, at: now });
       } else if (typeof res === 'string' && res.startsWith('exit:')) {
@@ -138,7 +154,7 @@ export async function runTick(env, store) {
   }
   // ONE write for all markets' signals (was one-per-market). Cuts KV writes ~8x
   // so the Worker fits Cloudflare's free tier alongside the account's other apps.
-  await store.put({ pk: 'SIGNALS', sk: 'ALL', updatedAt: Date.now(), signals: Object.values(bySym) });
+  await store.put({ pk: 'SIGNALS', sk: 'ALL', updatedAt: Date.now(), signals: Object.values(bySym), adaptive: dials });
   // One batched write for the whole paper record (was one put/del per position +
   // TRADE + LASTCLOSE keys). /trades now reads this single blob via get — no list.
   await store.put({ pk: 'RECORD', sk: 'ALL', updatedAt: Date.now(), open: record.open, closed: record.closed, lastClose: record.lastClose, migrated: record.migrated });

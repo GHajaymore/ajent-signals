@@ -23,6 +23,8 @@ export function setStrategyMeta(m) {
   if (m && typeof m === 'object' && (m.exitAbove != null || m.entryBelow != null)) live = m;
 }
 export function getStrategy() { return { ...DEFAULT, ...(live || {}) }; }
+// The evolving dials the Ajent Strategy has learned globally (or null before sync).
+export function getAdaptive() { return (live && live.adaptive) || null; }
 
 // Handy pre-formatted phrases so copy stays in sync too. `exitAbove` can be
 // overridden per-signal (plan.exitAbove) if a market ever differs.

@@ -229,7 +229,11 @@ export default {
       const blob = await store.get('SIGNALS', 'ALL'); // single batched blob (1 KV read)
       // `strategy` = the single source of truth for the strategy's parameters, so
       // the app's copy and its book-profit/stop logic always match what runs here.
-      return json({ updatedAt: (blob && blob.updatedAt) || Date.now(), signals: (blob && blob.signals) || [], strategy: STRATEGY, notice: NOTICE });
+      // The EVOLVED dials (learned globally from all trades) are merged in, so the
+      // app shows the current, adapted strategy — not just the frozen defaults.
+      const a = blob && blob.adaptive;
+      const strategy = a ? { ...STRATEGY, stopAtrMult: a.stopMult ?? STRATEGY.stopAtrMult, exitAbove: a.exitAbove ?? STRATEGY.exitAbove, adaptive: a } : STRATEGY;
+      return json({ updatedAt: (blob && blob.updatedAt) || Date.now(), signals: (blob && blob.signals) || [], strategy, notice: NOTICE });
     }
     if (url.pathname === '/trades') {
       try {
