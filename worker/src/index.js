@@ -3,6 +3,7 @@
 import { db } from './db.js';
 import { runTick } from './scheduler.js';
 import { MARKETS } from './markets.js';
+import { STRATEGY } from './meta.js';
 import { addSubscription, removeSubscription, pushToAll } from './push.js';
 import { requirePro } from './auth.js';
 import { registerWebhook, listWebhooks, deleteWebhook, deliverEvents, sampleEvent, EDU_DISCLAIMER } from './webhooks.js';
@@ -226,7 +227,9 @@ export default {
     const sub = gate.sub || 'anon';
     if (url.pathname === '/signals') {
       const blob = await store.get('SIGNALS', 'ALL'); // single batched blob (1 KV read)
-      return json({ updatedAt: (blob && blob.updatedAt) || Date.now(), signals: (blob && blob.signals) || [], notice: NOTICE });
+      // `strategy` = the single source of truth for the strategy's parameters, so
+      // the app's copy and its book-profit/stop logic always match what runs here.
+      return json({ updatedAt: (blob && blob.updatedAt) || Date.now(), signals: (blob && blob.signals) || [], strategy: STRATEGY, notice: NOTICE });
     }
     if (url.pathname === '/trades') {
       try {

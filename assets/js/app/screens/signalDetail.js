@@ -1,4 +1,5 @@
 import { state, saveSettings, toggleWatchlist, isInWatchlist, getEnabledPaperMarkets, dailyEdge, planConfigFor, planStopPrice, planTargetPrice, isDefaultPlan } from '../state.js';
+import { getStrategy, exitPhrase } from '../strategyMeta.js';
 import { getClosedTrades } from '../paperTrading.js';
 
 // Honest per-market note about the DAILY strategy's backtested edge on this
@@ -331,10 +332,16 @@ function tradeMarkers(symbol, times) {
 
 function areaChart(market, candles, color, showLevels, chartH) {
   const s = market.signal;
+  // Level lines honour the user's plan profile (stop + reward:risk), matching the
+  // Signal/Chart tab levels rather than a fixed 1:1 target.
+  const chLong = s.verdict !== 'SELL';
+  const chCfg = planConfigFor();
+  const chStop = s.plan ? planStopPrice(s.plan.entry, s.plan.stop, chLong, chCfg) : 0;
+  const chTarget = s.plan ? planTargetPrice(s.plan.entry, chStop, chLong, chCfg) : 0;
   const levels = showLevels && s.plan ? [
-    { v: s.plan.target1, stroke: 'var(--buy)', label: 'T' },
+    { v: chTarget, stroke: 'var(--buy)', label: 'T' },
     { v: s.plan.entry, stroke: 'var(--accent)', label: 'E' },
-    { v: s.plan.stop, stroke: 'var(--sell)', label: 'S' },
+    { v: chStop, stroke: 'var(--sell)', label: 'S' },
   ] : [];
   // If the paper account holds this market but there's no active setup line,
   // draw the position entry so the user still sees where they're in.
@@ -487,10 +494,14 @@ function wireChartRange(container, market, verdict, color) {
 function chartSvg(market, color, chartH) {
   const s = market.signal;
   const showLevels = market.verdict(state.settings.threshold) !== 'NO_TRADE' && s.plan;
+  const csLong = s.verdict !== 'SELL';
+  const csCfg = planConfigFor();
+  const csStop = s.plan ? planStopPrice(s.plan.entry, s.plan.stop, csLong, csCfg) : 0;
+  const csTarget = s.plan ? planTargetPrice(s.plan.entry, csStop, csLong, csCfg) : 0;
   const levels = showLevels ? [
-    { v: s.plan.target1, stroke: 'var(--buy)', label: 'T' },
+    { v: csTarget, stroke: 'var(--buy)', label: 'T' },
     { v: s.plan.entry, stroke: 'var(--accent)', label: 'E' },
-    { v: s.plan.stop, stroke: 'var(--sell)', label: 'S' },
+    { v: csStop, stroke: 'var(--sell)', label: 'S' },
   ] : [];
   const openPos = getOpenPositions().find((p) => p.symbol === market.symbol);
   if (!showLevels && openPos && openPos.entry != null) levels.push({ v: openPos.entry, stroke: 'var(--accent-200)', label: 'Pos' });
@@ -510,24 +521,28 @@ function actionSuggestion(market, s, verdict) {
   const has = typeof rsi === 'number';
   const rtxt = has ? Math.round(rsi) : '—';
   const price = market.price ?? s.price;
+  const strat = getStrategy();
+  const ind = strat.indicator;                       // e.g. "RSI-2"
+  const exitAbove = (s.plan && s.plan.exitAbove) || strat.exitAbove;
+  const entryBelow = strat.entryBelow;
   const pos = getOpenPositions().find((p) => p.symbol === market.symbol);
   if (pos) {
     const long = (pos.side || 'LONG') === 'LONG';
     if (price != null && (long ? price <= pos.stop : price >= pos.stop)) {
       return { icon: 'ph-hand-palm', tone: 'var(--sell)', title: 'Stop loss — cut it', text: `Price has reached your risk level (${fmtPrice(pos.stop, market.decimals)}). The strategy exits to cap the loss.` };
     }
-    if (has && rsi >= 65) {
-      return { icon: 'ph-flag-checkered', tone: 'var(--buy)', title: 'Book profit now', text: `RSI2 has recovered to ${rtxt} (≥ 65) — the oversold bounce has reverted to the mean. This is where the strategy takes profit.` };
+    if (has && rsi >= exitAbove) {
+      return { icon: 'ph-flag-checkered', tone: 'var(--buy)', title: 'Book profit now', text: `${ind} has recovered to ${rtxt} (≥ ${exitAbove}) — the oversold move has reverted to the mean. This is where the strategy takes profit.` };
     }
-    return { icon: 'ph-hourglass-medium', tone: 'var(--flat)', title: 'Hold the trade', text: `RSI2 is ${rtxt} — the bounce hasn't completed. Hold until RSI2 recovers above 65 (book profit) or price hits the ${fmtPrice(pos.stop, market.decimals)} stop (cut the loss).` };
+    return { icon: 'ph-hourglass-medium', tone: 'var(--flat)', title: 'Hold the trade', text: `${ind} is ${rtxt} — the bounce hasn't completed. Hold until ${ind} recovers above ${exitAbove} (book profit) or price hits the ${fmtPrice(pos.stop, market.decimals)} stop (cut the loss).` };
   }
   if (verdict === 'BUY') {
-    return { icon: 'ph-arrow-up-right', tone: 'var(--buy)', title: 'Buy the flush', text: `Deeply oversold (RSI2 ${rtxt}) in an uptrend — the dip the strategy buys. It books profit when RSI2 recovers above 65 and stops out at the risk level below.` };
+    return { icon: 'ph-arrow-up-right', tone: 'var(--buy)', title: 'Buy the flush', text: `Deeply oversold (${ind} ${rtxt}) in an uptrend — the dip the strategy buys. It books profit when ${ind} recovers above ${exitAbove} and stops out at the risk level below.` };
   }
-  if (has && rsi >= 65) {
-    return { icon: 'ph-minus-circle', tone: 'var(--flat)', title: 'No setup — already bounced', text: `RSI2 is ${rtxt} (≥ 65). The strategy buys oversold flushes, not markets that have already recovered — nothing to do here.` };
+  if (has && rsi >= exitAbove) {
+    return { icon: 'ph-minus-circle', tone: 'var(--flat)', title: 'No setup — already bounced', text: `${ind} is ${rtxt} (≥ ${exitAbove}). The strategy buys oversold flushes, not markets that have already recovered — nothing to do here.` };
   }
-  return { icon: 'ph-hourglass-medium', tone: 'var(--flat)', title: 'No setup — waiting', text: `RSI2 is ${rtxt} — not stretched enough to buy (entry needs a flush below 15 in an uptrend). Watching for a deeper dip.` };
+  return { icon: 'ph-hourglass-medium', tone: 'var(--flat)', title: 'No setup — waiting', text: `${ind} is ${rtxt} — not stretched enough to buy (entry needs a flush below ${entryBelow} in an uptrend). Watching for a deeper dip.` };
 }
 
 function renderSignalTab(market, verdict, color) {
@@ -594,7 +609,7 @@ function renderSignalTab(market, verdict, color) {
     ${edgeNote(market.symbol)}
     ${planRow('Suggested entry', fmtPrice(s.plan.entry, market.decimals), 'var(--accent)')}
     ${planRow(stopLabel, fmtPrice(dispStop, market.decimals), 'var(--sell)')}
-    ${planRow('Exit trigger', 'RSI2 recovers above 65', 'var(--buy)')}
+    ${planRow('Exit trigger', exitPhrase(s.plan && s.plan.exitAbove), 'var(--buy)')}
     ${planRow(`Reference target · ${rrStr}:1`, fmtPrice(dispTarget, market.decimals), 'var(--neutral-500)')}
     ${planRow('Max hold', s.expectedHold, 'var(--neutral-500)')}
     ${planRow('Timeframe', s.timeframe, 'var(--neutral-500)')}
@@ -606,8 +621,8 @@ function renderSignalTab(market, verdict, color) {
     </div>
     ${isDefaultPlan(planCfg) ? '' : `<div class="text-faint" style="font-size:11px;line-height:1.5;margin-top:8px;padding:0 2px">Your custom stop / reward:risk is applied to this plan. The 24/7 tracked paper record is one shared account and still runs the validated <b>2× ATR</b> stop + RSI2 exit — adjust your plan in <a href="#/settings" style="color:var(--accent-300)">Settings</a>.</div>`}
     <div style="font-size:11.5px;margin-top:9px;padding:6px 2px 0;border-top:1px solid var(--hairline);display:flex;align-items:center;gap:6px">
-      <i class="ph-fill ph-calendar-check" style="color:var(--accent-300);font-size:13px"></i>
-      <span class="text-muted">These levels come straight from your active <b style="color:var(--text)">Swing</b> strategy.</span>
+      <i class="ph-fill ph-seal-check" style="color:var(--accent-300);font-size:13px"></i>
+      <span class="text-muted">Levels set by the <b style="color:var(--text)">${getStrategy().name}</b>${getStrategy().proven ? ' <span style="color:var(--buy)">· proven</span>' : ''}.</span>
       <a href="#/methodology" style="color:var(--accent-300);margin-left:auto;white-space:nowrap">How it works &rsaquo;</a>
     </div>
   </div>`}
@@ -753,7 +768,7 @@ function renderChartTab(market, color, verdict) {
     <div class="level-row"><span class="text-muted">Reference target · ${clvRr}:1</span><span style="color:var(--buy);font-weight:600" class="tabular">${fmtPrice(clvTarget, market.decimals)}</span></div>
     <div class="level-row"><span class="text-muted">Entry</span><span style="font-weight:600" class="tabular">${fmtPrice(s.plan.entry, market.decimals)}</span></div>
     <div class="level-row"><span class="text-muted">Stop loss</span><span style="color:var(--sell);font-weight:600" class="tabular">${fmtPrice(clvStop, market.decimals)}</span></div>
-    <div class="level-row"><span class="text-muted">Exit trigger</span><span style="color:var(--buy);font-weight:600" class="tabular">RSI2 &ge; 65</span></div>
+    <div class="level-row"><span class="text-muted">Exit trigger</span><span style="color:var(--buy);font-weight:600" class="tabular">${getStrategy().indicator} &ge; ${(s.plan && s.plan.exitAbove) || getStrategy().exitAbove}</span></div>
   </div>` : `
   <div class="panel">
     <div class="panel-title">Key levels</div>

@@ -3,14 +3,19 @@
 // RSI2 back above 65 for a long), Cut (price at the risk level), or Hold. Honest:
 // every call is a real indicator state, never a fabricated target. Long-only today,
 // but the short mirror is handled for safety if it ever returns.
+import { getStrategy } from './strategyMeta.js';
+
 export function positionCall(market, pos) {
   const long = (pos.side || 'LONG') === 'LONG';
   const price = market ? (market.price ?? (market.signal && market.signal.price)) : null;
   const rsi = market && market.signal ? market.signal.rsi2 : null;
+  // Exit level comes from the strategy config (server-synced), never a hardcoded
+  // number — so if the strategy's book-profit threshold changes, this follows.
+  const exitAbove = (pos && pos.exitAbove) || getStrategy().exitAbove;
   if (price != null && (long ? price <= pos.stop : price >= pos.stop)) {
     return { status: 'cut', label: 'Cut · stop', tone: 'var(--sell)', icon: 'ph-hand-palm' };
   }
-  if (typeof rsi === 'number' && (long ? rsi >= 65 : rsi <= 35)) {
+  if (typeof rsi === 'number' && (long ? rsi >= exitAbove : rsi <= (100 - exitAbove))) {
     return { status: 'profit', label: 'Book profit', tone: 'var(--buy)', icon: 'ph-flag-checkered' };
   }
   return { status: 'hold', label: 'Hold', tone: 'var(--flat)', icon: 'ph-hourglass-medium' };

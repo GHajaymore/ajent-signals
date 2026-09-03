@@ -3,6 +3,7 @@ import { MARKETS, isOpen } from './markets.js';
 import { fetchDailyCandles } from './data.js';
 import { computeSignal } from './strategy.js';
 import { deliverEvents } from './webhooks.js';
+import { STRATEGY } from './meta.js';
 
 const dayKey = (ms) => new Date(ms).toISOString().slice(0, 10);
 
@@ -32,7 +33,7 @@ function changeEvents(prev, sig) {
 // the whole record is ONE KV get + ONE KV put per tick (see runTick), so we never
 // use KV list() — which is capped at 1,000/day on the free tier and was blowing up
 // /trades. `cost` is the round-turn transaction cost, deducted so P&L is NET.
-export function processPosition({ symbol, meta, sig, live, open, record, now, risk, cost = 0, exitRsi = 65 }) {
+export function processPosition({ symbol, meta, sig, live, open, record, now, risk, cost = 0, exitRsi = STRATEGY.exitAbove }) {
   const pos = record.open[symbol];
   if (pos) {
     const price = live ?? sig.price;

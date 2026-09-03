@@ -2,17 +2,18 @@
 // edge. SHORT side (added 2026-08-30) is PROVISIONAL — the mirror logic, NOT yet
 // backtest-validated; the live record is the judge. Keep in sync with the client.
 import { sma, rsi, atr, stdev } from './indicators.js';
+import { STRATEGY } from './meta.js';
 
 export function computeSignal(candles, live) {
   const c = candles.slice();
   if (live != null && c.length) c[c.length - 1] = { ...c[c.length - 1], c: live };
   const closes = c.map((x) => x.c);
   const n = closes.length;
-  if (n < 210) return { verdict: 'NO_TRADE', confidence: 0, reason: 'insufficient history' };
+  if (n < STRATEGY.trendSma + 10) return { verdict: 'NO_TRADE', confidence: 0, reason: 'insufficient history' };
 
   const price = closes[n - 1];
-  const s200 = sma(closes, 200)[n - 1];
-  const rsi2 = rsi(closes, 2)[n - 1];
+  const s200 = sma(closes, STRATEGY.trendSma)[n - 1];
+  const rsi2 = rsi(closes, STRATEGY.indicatorPeriod)[n - 1];
   const atrN = atr(c, 14)[n - 1];
   const s20 = sma(closes, 20)[n - 1];
   const sd = stdev(closes, 20)[n - 1];
@@ -35,15 +36,15 @@ export function computeSignal(candles, live) {
   // LONG (validated): oversold flush below the prior day's low in an uptrend.
   // Entry RSI2<15 (a standard Connors threshold — backtests +32% more CAGR than
   // <10 when paired with the RSI2 exit below, on the equity universe, 2yr).
-  if (up && rsi2 < 15 && price < c[n - 2].l) {
-    const deep = rsi2 < 5, stretched = price < lowerBB;
+  if (up && rsi2 < STRATEGY.entryBelow && price < c[n - 2].l) {
+    const deep = rsi2 < STRATEGY.deepBelow, stretched = price < lowerBB;
     setup = deep && stretched ? 1 : deep ? 0.9 : 0.8;
     conviction = deep && stretched ? 'high' : 'normal';
     side = 1;
-  } else if (ALLOW_SHORTS && down && rsi2 > 85 && price > c[n - 2].h) {
+  } else if (ALLOW_SHORTS && down && rsi2 > (100 - STRATEGY.entryBelow) && price > c[n - 2].h) {
     // SHORT (PROVISIONAL, disabled): overbought pop above the prior day's high in a
     // downtrend — the mirror of the long. Not backtest-validated; lost money.
-    const deep = rsi2 > 95, stretched = price > upperBB;
+    const deep = rsi2 > (100 - STRATEGY.deepBelow), stretched = price > upperBB;
     setup = deep && stretched ? 1 : deep ? 0.9 : 0.8;
     conviction = deep && stretched ? 'high' : 'normal';
     side = -1;
@@ -61,13 +62,13 @@ export function computeSignal(candles, live) {
     : up ? Math.round(clamp01((30 - rsi2) / 25) * 100)
     : (ALLOW_SHORTS && down) ? Math.round(clamp01((rsi2 - 70) / 25) * 100)
     : 0;
-  const risk = Math.max(atrN * 2.0, price * 0.004);
+  const risk = Math.max(atrN * STRATEGY.stopAtrMult, price * 0.004);
   const plan = fires ? {
     entry: price,
     stop: side > 0 ? price - risk : price + risk,
     target1: side > 0 ? price + risk : price - risk,
     risk, riskReward: 1,
-    exitRule: side > 0 ? 'firstUpClose' : 'firstDownClose',
+    exitRule: 'rsiRecover', exitAbove: STRATEGY.exitAbove,
     maxHoldMin: 5 * 24 * 60, conviction,
   } : null;
 

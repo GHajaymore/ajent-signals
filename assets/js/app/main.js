@@ -1,4 +1,5 @@
 import { state, perTradeRisk, getEnabledPaperMarkets } from './state.js';
+import { setStrategyMeta } from './strategyMeta.js';
 import * as gate from './screens/gate.js';
 import * as home from './screens/home.js';
 import * as signalDetail from './screens/signalDetail.js';
@@ -242,6 +243,7 @@ if (backendConfigured()) { syncServerRecord(); setInterval(syncServerRecord, 300
 async function syncServerSignals() {
   if (!backendConfigured()) return;
   const data = await fetchServerSignals();
+  if (data && data.strategy) setStrategyMeta(data.strategy); // keep the app's params in sync with the server
   if (data && Array.isArray(data.signals)) {
     for (const sig of data.signals) {
       const m = state.engine.get(sig.symbol);
