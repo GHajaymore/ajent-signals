@@ -51,6 +51,24 @@ try {
   p(`- Closed today: **${closedToday.length}** (${money(netToday)})`);
   if (closedToday.length) for (const c of closedToday) p(`  - ${c.symbol} ${c.side} · ${c.outcome} · ${money(c.pnl || 0)} · exit ${c.exitReason}`);
   p();
+  // Per-engine breakdown (mean-reversion vs trend) — so each edge's real
+  // contribution is visible. Trades before the ensemble default to mean-reversion.
+  const engines = { mr: 'Mean-reversion', trend: 'Trend-follow' };
+  const byEngine = {};
+  for (const c of closed) { const k = c.strat || 'mr'; (byEngine[k] = byEngine[k] || []).push(c); }
+  p('## By engine');
+  if (!closed.length) p('- No closed trades yet.');
+  for (const k of Object.keys(engines)) {
+    const list = byEngine[k] || [];
+    if (!list.length) { p(`- **${engines[k]}:** no closed trades yet.`); continue; }
+    const w = list.filter((c) => (c.pnl || 0) > 0).length;
+    const l = list.filter((c) => (c.pnl || 0) < 0).length;
+    const net = list.reduce((a, c) => a + (c.pnl || 0), 0);
+    const gwn = list.filter((c) => c.pnl > 0).reduce((a, c) => a + c.pnl, 0);
+    const gln = Math.abs(list.filter((c) => c.pnl < 0).reduce((a, c) => a + c.pnl, 0));
+    p(`- **${engines[k]}:** ${money(net)} over ${list.length} trade${list.length === 1 ? '' : 's'} · ${w + l ? Math.round((w / (w + l)) * 100) : 0}% win · PF ${gln ? (gwn / gln).toFixed(2) : '∞'}`);
+  }
+  p();
   p('## Ajent Pulse (evolving)');
   if (!a) {
     p('- Adaptive state not yet reported (awaiting a cron tick).');

@@ -227,6 +227,41 @@ function wirePnl(container) {
   if (to) to.addEventListener('change', () => { pnlTo = to.value; rebuild(); });
 }
 
+// Performance by ENGINE — mean-reversion vs trend-follow — so each edge's real
+// contribution shows. Pre-ensemble trades default to mean-reversion.
+const ENGINE_NAME = { mr: 'Mean-reversion', trend: 'Trend-follow' };
+function byEngineHtml(closed) {
+  const map = new Map();
+  for (const c of closed) {
+    const k = c.strat || 'mr';
+    const e = map.get(k) || { key: k, trades: 0, wins: 0, losses: 0, pnl: 0 };
+    const p = tradePnl(c);
+    e.trades += 1; e.pnl += p;
+    if (p > 0) e.wins += 1; else if (p < 0) e.losses += 1;
+    map.set(k, e);
+  }
+  const rows = [...map.values()];
+  if (rows.length < 2) return ''; // only show once both engines have traded
+  return `
+    <div class="section-label">Performance by engine</div>
+    <div class="card" style="padding:2px 12px">
+      ${rows.sort((a, b) => b.pnl - a.pnl).map((e) => {
+        const decisive = e.wins + e.losses;
+        const wr = decisive ? Math.round((e.wins / decisive) * 100) : 0;
+        const color = e.pnl >= 0 ? 'var(--buy)' : 'var(--sell)';
+        const icon = e.key === 'trend' ? 'ph-trend-up' : 'ph-arrow-bend-down-right';
+        return `<div class="closed-row">
+          <div class="closed-sym"><i class="ph-fill ${icon}" style="font-size:16px;color:var(--accent-300)"></i></div>
+          <div class="closed-body">
+            <div class="closed-title">${ENGINE_NAME[e.key] || e.key}</div>
+            <div class="closed-sub">${e.trades} trade${e.trades === 1 ? '' : 's'} · ${wr}% win</div>
+          </div>
+          <div class="closed-result"><div class="r" style="color:${color}">${money(e.pnl)}</div></div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
 // Group real closed trades by market → net P&L, win rate, count. Sorted best→worst.
 function byMarketStats(closed) {
   const map = new Map();
@@ -548,6 +583,8 @@ export function render(container) {
     ${pnlPanel(closed)}
 
     <div id="open-wrap" data-sig="${openSig()}">${openList()}</div>
+
+    ${byEngineHtml(closed)}
 
     ${byMarketHtml(closed)}
 
