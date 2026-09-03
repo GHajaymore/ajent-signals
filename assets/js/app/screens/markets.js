@@ -1,5 +1,6 @@
-import { state, toggleWatchlist } from '../state.js';
+import { state, toggleWatchlist, saveSettings } from '../state.js';
 import { backendConfigured } from '../backendApi.js';
+import { inActiveRegion, regionBarHtml, regionChipsHtml } from '../regions.js';
 import { CATEGORY_ORDER } from '../mockEngine.js';
 
 // A market shows only when we have REAL data for it (server signal or a real
@@ -87,10 +88,11 @@ function subtitleText() {
 
 // Long-only board, so there is no "Sell". Breadth = Buy (firing) / Watching
 // (no trade yet but a setup is brewing — proximity > 0) / No-trade (nothing near).
-export function breadthCounts() {
+export function breadthCounts(filter) {
   const threshold = state.settings.threshold;
   let buy = 0, watching = 0, flat = 0;
   for (const m of state.engine.markets) {
+    if (filter && !filter(m)) continue;
     const v = m.verdict(threshold);
     if (v === 'BUY') buy++;
     else if ((m.signal && m.signal.proximity) > 0) watching++;
@@ -99,7 +101,7 @@ export function breadthCounts() {
   return { buy, watching, flat };
 }
 function breadthHtml() {
-  const { buy, watching, flat } = breadthCounts();
+  const { buy, watching, flat } = breadthCounts(inActiveRegion);
   const total = buy + watching + flat || 1;
   return `<div class="breadth" data-counts="${buy},${watching}">
     <div class="breadth-row">
@@ -168,6 +170,7 @@ function heatmapHtml() {
   const realOnly = backendConfigured();
   const markets = state.engine.markets.filter((m) => {
     if (realOnly && !isRealMarket(m)) return false;
+    if (!inActiveRegion(m)) return false; // region lens (crypto always shows)
     if (q && !(m.symbol.includes(q) || m.name.toUpperCase().includes(q) || m.exchange.includes(q))) return false;
     return true;
   });
@@ -197,6 +200,7 @@ function listHtml() {
   const realOnly = backendConfigured();
   const filtered = engine.markets.filter((m) => {
     if (realOnly && !isRealMarket(m)) return false; // hide SIM/no-data markets
+    if (!inActiveRegion(m)) return false; // region lens (crypto always shows)
     if (q && !(m.symbol.includes(q) || m.name.toUpperCase().includes(q) || m.exchange.includes(q))) return false;
     const v = m.verdict(threshold);
     if (filter === 'buy' && v !== 'BUY') return false;
@@ -238,6 +242,8 @@ export function render(container) {
       <input id="mkt-search" class="search-input" placeholder="Search CME, NSE, LSE, ASX..." value="${escapeHtml(query)}">
     </div>
 
+    ${regionBarHtml(engine)}
+
     <div id="mkt-view-wrap">${viewToggle()}</div>
 
     <div id="mkt-filters-wrap"${view === 'heat' ? ' hidden' : ''}>${filterChips()}</div>
@@ -252,6 +258,18 @@ export function render(container) {
 
   const input = document.getElementById('mkt-search');
   input.addEventListener('input', () => { query = input.value; rebuild(); });
+
+  // Region lens — scope the board to a region; refresh its chips, the breadth, and the list.
+  const regionBar = container.querySelector('#region-bar');
+  if (regionBar) regionBar.addEventListener('click', (e) => {
+    const c = e.target.closest('.rgn-chip');
+    if (!c) return;
+    state.settings.region = c.dataset.region;
+    saveSettings();
+    regionBar.innerHTML = regionChipsHtml(engine);
+    const bw = container.querySelector('#breadth-wrap'); if (bw) bw.innerHTML = breadthHtml();
+    rebuild();
+  });
 
   container.querySelectorAll('#mkt-filters-wrap .fchip').forEach((chip) => {
     chip.addEventListener('click', () => {
