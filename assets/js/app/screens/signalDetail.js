@@ -597,6 +597,7 @@ function userBookPanel(market, verdict, s, dispEntry, dispStop, dispTarget) {
   return `<div class="panel ub-panel">
     <div class="panel-title" style="display:flex;align-items:center;gap:8px"><i class="ph-fill ph-scales" style="color:var(--accent)"></i>You vs Ajent</div>
     ${cmp}
+    <div class="fair-note"><b>Compare win rate &amp; profit factor</b> for a fair read — net $ depends on how many trades each took (Ajent trades the whole board; you trade what you pick).</div>
     ${action}
     <a href="#/mystrategy" class="ub-strat-link">Build your own strategy — beat Ajent your way <i class="ph-bold ph-caret-right"></i></a>
     <div class="text-faint" style="font-size:10.5px;margin-top:11px;line-height:1.45">Your book is virtual money kept on this device. Simulated and educational — not advice, no real orders.</div>

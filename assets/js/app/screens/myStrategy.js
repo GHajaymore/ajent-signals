@@ -1,6 +1,9 @@
 import { state } from '../state.js';
 import { isRealMarket } from './markets.js';
 import { evalCustom, getCustomConfig, setCustomConfig, resetCustomConfig, CUSTOM_BOUNDS, CUSTOM_DEFAULT } from '../customStrategy.js';
+import { customStats, customEquity } from '../customBook.js';
+import { getPerformanceSummary } from '../paperTrading.js';
+import { sparklineSvg } from '../components.js';
 
 // "Your strategy" — configure your own indicators, see YOUR signals across the
 // board, scored against the proven Ajent Pulse. Your rule is your experiment;
@@ -62,6 +65,31 @@ function boardHtml(cfg) {
     <div class="cs-board">${list || '<p class="text-muted" style="text-align:center;padding:20px 0;font-size:13px">Live data is loading…</p>'}</div>`;
 }
 
+function recordPanel() {
+  const you = customStats();
+  const aj = getPerformanceSummary() || { totalPnl: 0, winRate: 0, profitFactor: null };
+  const money = (n) => `${n >= 0 ? '+$' : '−$'}${Math.abs(Math.round(n)).toLocaleString('en-US')}`;
+  const pf = (v) => (v == null ? '∞' : (+v).toFixed(2));
+  if (!you.trades && !you.open) {
+    return `<div class="panel">
+      <div class="panel-title">Your strategy's record</div>
+      <div class="text-muted" style="font-size:12.5px;line-height:1.55;padding:4px 0">Your strategy hasn't taken a trade yet — it <b style="color:var(--text)">trades automatically in the background</b> as your rule fires, building a real record to compare against Ajent. Check back as it runs.</div>
+    </div>`;
+  }
+  const eq = customEquity();
+  const spark = eq.length > 2 ? sparklineSvg(eq, you.net >= 0 ? 'var(--buy)' : 'var(--sell)', 240, 40) : '';
+  return `<div class="panel">
+    <div class="panel-title">Your strategy's record</div>
+    <div class="vs-grid">
+      <div class="vs-col"><div class="vs-who">AJENT</div><div class="vs-net" style="color:${(aj.totalPnl || 0) >= 0 ? 'var(--buy)' : 'var(--sell)'}">${money(aj.totalPnl || 0)}</div><div class="vs-sub">${aj.winRate || 0}% · PF ${pf(aj.profitFactor)}</div></div>
+      <div class="vs-mid">vs</div>
+      <div class="vs-col"><div class="vs-who">YOURS</div><div class="vs-net" style="color:${you.net >= 0 ? 'var(--buy)' : 'var(--sell)'}">${money(you.net)}</div><div class="vs-sub">${you.winRate}% · PF ${pf(you.pf)} · ${you.trades}T · ${you.open} open</div></div>
+    </div>
+    ${spark ? `<div style="margin-top:6px">${spark}</div>` : ''}
+    <div class="fair-note"><b>For a fair read, compare win rate &amp; profit factor</b> — those don't depend on trade count. Net $ mostly reflects <b>how many trades</b> each took: Ajent trades the whole board, yours trades only what your rule picks.</div>
+  </div>`;
+}
+
 export function render(container) {
   const cfg = getCustomConfig();
   container.innerHTML = `
@@ -71,6 +99,8 @@ export function render(container) {
     <p class="text-muted" style="font-size:13px;margin:4px 0 14px;line-height:1.5">Configure your own indicators and see your signals across the board — scored against the proven <b style="color:var(--text)">Ajent Pulse</b>. This is <b style="color:var(--text)">your experiment</b>, not a validated edge.</p>
 
     ${configPanel(cfg)}
+
+    ${recordPanel()}
 
     <div class="panel">
       <div class="panel-title">Your signals vs Ajent · right now</div>
