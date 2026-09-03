@@ -2,22 +2,26 @@
 // US index markets source the real =F futures (24h Globex, real but ~15-25m
 // delayed on free Yahoo) so the record is live off-hours, not frozen at the cash
 // close. Global indices stay on their cash symbol / local session.
+// `assetClass` (added 2026-09-03, Phase 0) groups each market for the multi-asset
+// registry in classes.js. It's descriptive scaffolding — the schedulers still own
+// trading — so tagging changes no behaviour. Equity indices (US futures + global
+// cash indices) are the proven domain; crypto is a separate, edge-unproven class.
 export const MARKETS = {
-  ES: { yahoo: 'ES=F', td: 'SPX', country: 'US', futures: true, name: 'E-mini S&P 500' },
-  NQ: { yahoo: 'NQ=F', td: 'NDX', country: 'US', futures: true, name: 'E-mini Nasdaq-100' },
-  YM: { yahoo: 'YM=F', td: 'DJI', country: 'US', futures: true, name: 'E-mini Dow' },
-  RTY: { yahoo: 'RTY=F', td: 'RUT', country: 'US', futures: true, name: 'E-mini Russell 2000' },
+  ES: { yahoo: 'ES=F', td: 'SPX', country: 'US', futures: true, assetClass: 'index', name: 'E-mini S&P 500' },
+  NQ: { yahoo: 'NQ=F', td: 'NDX', country: 'US', futures: true, assetClass: 'index', name: 'E-mini Nasdaq-100' },
+  YM: { yahoo: 'YM=F', td: 'DJI', country: 'US', futures: true, assetClass: 'index', name: 'E-mini Dow' },
+  RTY: { yahoo: 'RTY=F', td: 'RUT', country: 'US', futures: true, assetClass: 'index', name: 'E-mini Russell 2000' },
   // ASX 200: the robustness sweep found the recipe does NOT fit it (PF ~0.75, a
   // net loser over ~2y), so it's excluded from auto-trading — its signal still
   // shows, but it's not opened into the tracked record. (2026-09-02, sweep.mjs.)
-  XJO: { yahoo: '^AXJO', country: 'AU', name: 'ASX 200', noTrade: true },
-  SX5E: { yahoo: '^STOXX50E', country: 'EU', name: 'Euro Stoxx 50' },
-  N225: { yahoo: '^N225', country: 'JP', name: 'Nikkei 225' },
-  TSX: { yahoo: '^GSPTSE', country: 'CA', name: 'S&P/TSX Composite' },
+  XJO: { yahoo: '^AXJO', country: 'AU', assetClass: 'index', name: 'ASX 200', noTrade: true },
+  SX5E: { yahoo: '^STOXX50E', country: 'EU', assetClass: 'index', name: 'Euro Stoxx 50' },
+  N225: { yahoo: '^N225', country: 'JP', assetClass: 'index', name: 'Nikkei 225' },
+  TSX: { yahoo: '^GSPTSE', country: 'CA', assetClass: 'index', name: 'S&P/TSX Composite' },
   // Crypto trades 24/7 — a natural fit for the always-on server loop. Same
   // RSI-2 mean-reversion strategy applied to real BTC-USD / ETH-USD daily candles.
-  BTC: { yahoo: 'BTC-USD', country: 'US', crypto: true, name: 'Bitcoin' },
-  ETH: { yahoo: 'ETH-USD', country: 'US', crypto: true, name: 'Ether' },
+  BTC: { yahoo: 'BTC-USD', country: 'US', crypto: true, assetClass: 'crypto', name: 'Bitcoin' },
+  ETH: { yahoo: 'ETH-USD', country: 'US', crypto: true, assetClass: 'crypto', name: 'Ether' },
 };
 
 const TZ = { US: 'America/New_York', CA: 'America/Toronto', AU: 'Australia/Sydney', EU: 'Europe/Berlin', JP: 'Asia/Tokyo' };
