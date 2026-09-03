@@ -329,6 +329,7 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .style-badge { font: 700 9.5px var(--font-heading); letter-spacing: .04em; text-transform: uppercase; padding: 2px 7px; border-radius: 5px; }
 .style-badge.live { color: #0b2b20; background: var(--pos, #34d399); }
 .style-badge.soon { color: #3a2a06; background: #e2b660; }
+.style-badge.experiment { color: var(--accent-100, #cdb4ff); background: color-mix(in srgb, var(--accent-300, #8b5cf6) 22%, transparent); border: 1px solid color-mix(in srgb, var(--accent-300, #8b5cf6) 45%, transparent); }
 .style-badge.na { color: var(--text-muted); background: var(--neutral-800, rgba(255,255,255,.06)); }
 .style-check { flex: none; color: var(--accent-300); font-size: 20px; width: 20px; display: flex; align-items: center; justify-content: center; }
 .style-lock { flex: none; color: var(--text-muted); font-size: 15px; margin-top: 2px; }

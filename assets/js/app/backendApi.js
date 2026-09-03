@@ -75,6 +75,9 @@ export function fetchServerTrades() { return getJson('/trades'); }
 export function fetchServerSignals() { return getJson('/signals'); }
 // Real-time crypto quotes fetched server-side (no browser CORS). { quotes:{BTC:{price,prevClose,at}}, at } or null.
 export function fetchLiveQuotes() { return getJson('/live'); }
+// The intraday day-trading EXPERIMENT — its live signals + its own tracked paper
+// record. Ungated (transparent). { experiment, status, signals, open, closed, summary } or null.
+export function fetchDayExperiment() { return getJson('/day'); }
 // Market news fetched server-side. { news:[{title,publisher,link,time}], source } or null.
 export function fetchNews() { return getJson('/news'); }
 // Per-market signal timeline (verdict flips, proximity milestones…). { events:[{at,text}] } or null.

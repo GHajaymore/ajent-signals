@@ -2,21 +2,23 @@ import { state, saveSettings, perTradeRisk, planConfigFor, setPlanConfig, active
 import { fmtMoney } from '../format.js';
 import { resetPaperTrades } from '../paperTrading.js';
 import { wireSignalExport, signalExportHtml } from './signalExport.js';
-import { isPaid, trialDaysLeft } from '../backendApi.js';
+import { isPaid, trialDaysLeft, fetchDayExperiment } from '../backendApi.js';
 import { isStandalone, isIOS, installAvailable, promptInstall } from '../install.js';
 import { pushSupported, pushPermission, enablePush, disablePush } from '../pushClient.js';
 import { isEntitled } from '../backendApi.js';
 
-// Trading styles (industry-standard, by holding period). Only 'swing' is live and
-// validated; the others are shown honestly with their real status so the picker
-// never implies a capability we don't have. 'day'/'position' are being built as
-// clearly-labelled experiments; 'scalping' needs sub-minute data the free feed
-// can't provide. `status`: 'live' (selectable/active) | 'soon' | 'na'.
+// Trading styles (industry-standard, by holding period). 'swing' is live and
+// validated; 'day' is a SELECTABLE but clearly-labelled EXPERIMENT (intraday, not
+// proven — an earlier intraday version lost money live, so it is tracked on its own
+// real record with no advertised returns); the others are shown honestly with their
+// real status so the picker never implies a capability we don't have. 'scalping'
+// needs sub-minute data the free feed can't provide.
+// `status`: 'live' (selectable/active/proven) | 'experiment' (selectable, unproven) | 'soon' | 'na'.
 const TRADING_STYLES = [
   { key: 'scalping', name: 'Scalping', icon: 'ph-lightning', hold: 'Seconds–minutes', freq: 'dozens+/day', status: 'na',
     note: 'Needs tick / sub-minute data — the free feed only serves 15-minute bars. Possible only with a paid market-data feed.' },
-  { key: 'day', name: 'Day trading', icon: 'ph-sun-horizon', hold: 'Intraday · flat by close', freq: '~5–50/day', status: 'soon',
-    note: 'Intraday mean reversion on 15-minute bars, no overnight risk. In development — an earlier version lost money live, so it will ship as a clearly-labelled experiment tracked on a real record, never with advertised returns.' },
+  { key: 'day', name: 'Day trading', icon: 'ph-sun-horizon', hold: 'Intraday · flat by close', freq: '~2–8/day', status: 'experiment',
+    note: 'Long-only intraday mean-reversion on 15-minute bars — buys an oversold flush in an intraday uptrend and is always flat by the close, so there is no overnight risk. NOT proven: an earlier intraday version lost money live, so this runs as an experiment tracked on its OWN real paper record, kept separate from Swing, with no advertised returns. Select it to watch the live record — it only graduates if that record holds up.' },
   { key: 'swing', name: 'Swing', icon: 'ph-calendar-check', hold: '~1–5 days', freq: '~1–5/week', status: 'live',
     note: 'The validated strategy running now — long-only daily mean-reversion. Buys deeply oversold dips in an uptrend and holds until the move reverts to the mean. This is what auto-trades your paper account.' },
   { key: 'position', name: 'Position', icon: 'ph-mountains', hold: 'Weeks–months', freq: 'a few/month', status: 'soon',
@@ -24,17 +26,19 @@ const TRADING_STYLES = [
 ];
 const STYLE_BADGE = {
   live: '<span class="style-badge live">Live</span>',
+  experiment: '<span class="style-badge experiment">Experiment</span>',
   soon: '<span class="style-badge soon">In development</span>',
   na: '<span class="style-badge na">Unavailable</span>',
 };
+const SELECTABLE = { live: true, experiment: true };
 function activeStyle() {
   const s = state.settings.tradingStyle || 'swing';
-  // Only 'live' styles can actually be active; anything else falls back to swing.
-  return TRADING_STYLES.some((x) => x.key === s && x.status === 'live') ? s : 'swing';
+  // Only selectable styles can actually be active; anything else falls back to swing.
+  return TRADING_STYLES.some((x) => x.key === s && SELECTABLE[x.status]) ? s : 'swing';
 }
 function styleRow(s) {
   const active = s.key === activeStyle();
-  const selectable = s.status === 'live';
+  const selectable = !!SELECTABLE[s.status];
   return `<button class="style-row${active ? ' active' : ''}${selectable ? '' : ' locked'}" data-style="${s.key}" ${selectable ? '' : 'aria-disabled="true"'}>
     <i class="ph-fill ${s.icon} style-ico"></i>
     <div class="style-body">
@@ -44,6 +48,69 @@ function styleRow(s) {
     </div>
     ${selectable ? `<span class="style-check">${active ? '<i class="ph-bold ph-check-circle"></i>' : ''}</span>` : '<i class="ph-bold ph-lock-simple style-lock"></i>'}
   </button>`;
+}
+
+// The Day-trading EXPERIMENT panel. Shown only while the experiment style is
+// selected. It surfaces the experiment's OWN live paper record (never a backtest
+// headline, never an advertised return) plus the current intraday watch, wrapped in
+// an unmissable "experimental / not proven" frame. Populated async from GET /day.
+function dayExperimentPanel() {
+  return `<div class="panel setting-block" id="day-exp" style="border:1px solid var(--accent-900)">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <i class="ph-fill ph-sun-horizon" style="font-size:20px;color:var(--accent-300)"></i>
+      <span class="panel-title" style="margin:0">Day trading</span>
+      <span class="style-badge experiment">Experiment</span>
+    </div>
+    <div class="setting-help" style="margin:0 0 12px;padding:9px 11px;border-radius:9px;background:color-mix(in srgb, var(--flat) 12%, transparent);border:1px solid color-mix(in srgb, var(--flat) 30%, transparent);color:var(--text)">
+      <b>Not proven.</b> Intraday mean-reversion on 15-minute bars, long-only, flat by the close. An earlier intraday version lost money live, so this runs as an experiment on its own real paper record — separate from your Swing account. The figures below are that <b>live record</b>, not a backtest and not a promise. No returns are advertised.
+    </div>
+    <div id="day-exp-body"><div class="setting-help" style="margin:0">Loading the live record…</div></div>
+  </div>`;
+}
+
+function dayStat(label, value, color) {
+  return `<div class="risk-result-cell"><div class="v" style="${color ? `color:${color}` : ''}">${value}</div><div class="k">${label}</div></div>`;
+}
+
+async function wireDayExperiment(container) {
+  const body = container.querySelector('#day-exp-body');
+  if (!body) return;
+  let data = null;
+  try { data = await fetchDayExperiment(); } catch (e) { /* handled below */ }
+  if (!data) {
+    body.innerHTML = `<div class="setting-help" style="margin:0">The live experiment record isn't reachable right now (it runs on the server). It'll appear here once connected — nothing is fabricated in the meantime.</div>`;
+    return;
+  }
+  const s = data.summary || { trades: 0, winRate: 0, totalPnl: 0, profitFactor: 0 };
+  const open = Array.isArray(data.open) ? data.open : [];
+  const closed = Array.isArray(data.closed) ? data.closed : [];
+  const signals = Array.isArray(data.signals) ? data.signals : [];
+  const pnlColor = s.totalPnl > 0 ? 'var(--buy)' : s.totalPnl < 0 ? 'var(--sell)' : 'var(--text)';
+  const recordHtml = s.trades > 0
+    ? `<div class="risk-result-grid" style="grid-template-columns:repeat(3,1fr)">
+        ${dayStat('closed trades', s.trades)}
+        ${dayStat('win rate', `${s.winRate}%`)}
+        ${dayStat('net P&L (paper)', fmtMoney(s.totalPnl), pnlColor)}
+      </div>
+      <div class="setting-help" style="margin-top:6px">Live paper result to date${s.profitFactor != null ? ` · profit factor ${s.profitFactor}` : ''}. Provisional — a short, real record, not a guarantee.</div>`
+    : `<div class="setting-help" style="margin:0"><b style="color:var(--text)">No closed trades yet.</b> The experiment only opens when a genuine intraday setup fires on ES, NQ or YM during the session — nothing is invented to fill the record.</div>`;
+
+  const watchHtml = signals.length
+    ? `<div class="eyebrow" style="margin:16px 0 6px">Intraday watch (15-min)</div>` + signals.map((m) => {
+        const v = m.verdict === 'BUY' ? '<span style="color:var(--buy);font-weight:600">BUY</span>' : `<span class="text-muted">watching${typeof m.proximity === 'number' ? ` · ${m.proximity}%` : ''}</span>`;
+        const held = open.find((p) => p.symbol === m.symbol);
+        return `<div class="notif-row" style="padding:8px 0"><div class="notif-label" style="flex:1">${m.name}${held ? ' <span style="color:var(--accent-200);font-size:11px">· in a trade</span>' : ''}</div><div>${v}</div></div>`;
+      }).join('')
+    : '';
+
+  const closedHtml = closed.length
+    ? `<div class="eyebrow" style="margin:16px 0 6px">Recent closes</div>` + closed.slice(0, 5).map((t) => {
+        const c = (t.pnl || 0) > 0 ? 'var(--buy)' : (t.pnl || 0) < 0 ? 'var(--sell)' : 'var(--text)';
+        return `<div class="notif-row" style="padding:7px 0"><div class="notif-label" style="flex:1">${t.name} <span class="text-muted" style="font-size:11px">· ${t.exitReason || 'closed'}</span></div><div style="color:${c};font-weight:600">${fmtMoney(t.pnl || 0)}</div></div>`;
+      }).join('')
+    : '';
+
+  body.innerHTML = recordHtml + watchHtml + closedHtml;
 }
 
 // Trade-plan profile — the user's preferred stop distance and reward:risk for the
@@ -188,8 +255,10 @@ export function render(container) {
       <div class="panel-title" style="margin-bottom:4px">Trading style</div>
       <div class="setting-help" style="margin:0 0 12px">Pick how you like to trade. Only styles we can run honestly on real, validated data are selectable — the rest show why not.</div>
       <div class="style-list">${TRADING_STYLES.map(styleRow).join('')}</div>
-      <div class="setting-help" style="margin-top:12px">You're trading <b style="color:var(--text)">Swing</b> — the only decade-validated style (long-only daily mean-reversion). Day trading &amp; Position are in development and will arrive labelled experimental with a real tracked record; Scalping needs a paid sub-minute data feed. <a href="#/methodology">How it works →</a></div>
+      <div class="setting-help" style="margin-top:12px"><b style="color:var(--text)">Swing</b> is the only decade-validated style (long-only daily mean-reversion) — it auto-trades your paper account. <b style="color:var(--text)">Day trading</b> is a selectable but unproven <b style="color:var(--accent-200)">experiment</b>, tracked on its own separate record with no advertised returns. Position is planned; Scalping needs a paid sub-minute feed. <a href="#/methodology">How it works →</a></div>
     </div>
+
+    ${activeStyle() === 'day' ? dayExperimentPanel() : ''}
 
     ${tradePlanPanel()}
 
@@ -300,7 +369,7 @@ export function render(container) {
     row.addEventListener('click', () => {
       const key = row.dataset.style;
       const def = TRADING_STYLES.find((s) => s.key === key);
-      if (!def || def.status !== 'live') {
+      if (!def || !SELECTABLE[def.status]) {
         row.classList.remove('nudge'); void row.offsetWidth; row.classList.add('nudge');
         return;
       }
@@ -389,4 +458,6 @@ export function render(container) {
   patchRiskCalc();
   // Signal export API (Pro) — async: loads webhooks from the backend when connected.
   wireSignalExport(container);
+  // Day-trading experiment: populate its live record when that style is selected.
+  if (activeStyle() === 'day') wireDayExperiment(container);
 }
