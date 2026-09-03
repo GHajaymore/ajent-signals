@@ -13,6 +13,7 @@ import * as methodology from './screens/methodology.js';
 import * as faq from './screens/faq.js';
 import * as onboarding from './screens/onboarding.js';
 import { startLiveDataLoop, startFocusDataLoop } from './liveData.js';
+import { checkUserPositions } from './userBook.js';
 import { applyGeoDefaults } from './geo.js';
 import { startUpdateWatcher } from './updateCheck.js';
 import { startSignalRefreshLoop } from './signalRefreshLoop.js';
@@ -257,6 +258,9 @@ async function syncServerSignals() {
       const now = m.displayVerdict;
       if (seen && prev !== now && (now === 'BUY' || now === 'SELL')) signalAlert(m, now);
     }
+    // Auto-close any of the user's own custom trades that hit their stop/target
+    // (their book runs on the same real prices as Ajent's record).
+    checkUserPositions(state.engine);
     const route = parseHash()[0];
     if (LIVE_SCREENS.has(route) || route === 'alerts') refreshRoute();
   }

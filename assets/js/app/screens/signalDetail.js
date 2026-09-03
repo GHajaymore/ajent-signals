@@ -1,6 +1,7 @@
 import { state, saveSettings, toggleWatchlist, isInWatchlist, getEnabledPaperMarkets, dailyEdge, planConfigFor, planStopPrice, planTargetPrice, isDefaultPlan } from '../state.js';
 import { getStrategy, exitPhrase } from '../strategyMeta.js';
-import { getClosedTrades } from '../paperTrading.js';
+import { getClosedTrades, getPerformanceSummary } from '../paperTrading.js';
+import { userTradeFor, userStats, unrealizedFor, defaultRiskDollars, openUserTrade, closeUserTrade } from '../userBook.js';
 
 // Honest per-market note about the DAILY strategy's backtested edge on this
 // specific market (daily mode only). Never implies an edge the backtest didn't
@@ -558,6 +559,49 @@ function actionSuggestion(market, s, verdict) {
   return { icon: 'ph-hourglass-medium', tone: 'var(--flat)', title: 'No setup — waiting', text: 'Not stretched enough to buy — the strategy waits for a deeper oversold flush in an uptrend. Watching.' };
 }
 
+// "You vs Ajent" — the user's own book (custom trades) scored against the
+// algorithm's record, plus the action to take a signal your own way.
+function userBookPanel(market, verdict, s, dispEntry, dispStop, dispTarget) {
+  const sym = market.symbol;
+  const pos = userTradeFor(sym);
+  const you = userStats();
+  const aj = getPerformanceSummary() || { totalPnl: 0, winRate: 0, profitFactor: null };
+  const money = (n) => `${n >= 0 ? '+$' : '−$'}${Math.abs(Math.round(n)).toLocaleString('en-US')}`;
+  const pf = (v) => (v == null ? '∞' : (+v).toFixed(2));
+  const cmp = `<div class="vs-grid">
+    <div class="vs-col"><div class="vs-who">AJENT</div><div class="vs-net" style="color:${(aj.totalPnl || 0) >= 0 ? 'var(--buy)' : 'var(--sell)'}">${money(aj.totalPnl || 0)}</div><div class="vs-sub">${aj.winRate || 0}% · PF ${pf(aj.profitFactor)}</div></div>
+    <div class="vs-mid">vs</div>
+    <div class="vs-col"><div class="vs-who">YOU</div><div class="vs-net" style="color:${you.net >= 0 ? 'var(--buy)' : 'var(--sell)'}">${money(you.net)}</div><div class="vs-sub">${you.winRate}% · PF ${pf(you.pf)} · ${you.trades} trade${you.trades === 1 ? '' : 's'}</div></div>
+  </div>`;
+  let action = '';
+  if (pos) {
+    const un = unrealizedFor(pos, market.price);
+    action = `<div class="ub-open">
+      <div class="ub-open-row"><span><b style="color:var(--text)">Your ${sym} trade</b> · open</span><span style="color:${un >= 0 ? 'var(--buy)' : 'var(--sell)'};font:600 13px var(--font-mono)">${money(un)} <span class="text-faint" style="font-weight:400">unreal.</span></span></div>
+      <div class="ub-lvls">Entry ${fmtPrice(pos.entry, pos.decimals)} · Stop ${fmtPrice(pos.stop, pos.decimals)}${pos.target ? ` · Target ${fmtPrice(pos.target, pos.decimals)}` : ''} · ${money(pos.riskDollars)} risk</div>
+      <button class="btn btn-ghost ub-close" data-ub-close="${sym}" style="height:38px;margin-top:9px;width:100%">Close at market · ${fmtPrice(market.price, pos.decimals)}</button>
+    </div>`;
+  } else if (s.plan && (verdict === 'BUY' || verdict === 'SELL')) {
+    action = `<details class="ub-form">
+      <summary class="ub-cta">Trade it your way <i class="ph-bold ph-caret-down"></i></summary>
+      <div class="ub-form-body">
+        <p class="text-muted" style="font-size:11.5px;line-height:1.5;margin:2px 0 10px">Set your own entry, stop and target — tracked in <b style="color:var(--text)">your book</b> (virtual money) so you can see how your version does against Ajent's.</p>
+        <label class="ub-field"><span>Entry</span><input type="number" step="any" data-ub="entry" value="${(+dispEntry).toFixed(market.decimals)}"></label>
+        <label class="ub-field"><span>Stop</span><input type="number" step="any" data-ub="stop" value="${(+dispStop).toFixed(market.decimals)}"></label>
+        <label class="ub-field"><span>Target</span><input type="number" step="any" data-ub="target" value="${(+dispTarget).toFixed(market.decimals)}"></label>
+        <label class="ub-field"><span>Risk&nbsp;$</span><input type="number" step="any" data-ub="risk" value="${defaultRiskDollars()}"></label>
+        <button class="btn btn-primary ub-add" data-ub-add="${sym}" style="height:42px;width:100%;margin-top:11px">Add to my book</button>
+      </div>
+    </details>`;
+  }
+  return `<div class="panel ub-panel">
+    <div class="panel-title" style="display:flex;align-items:center;gap:8px"><i class="ph-fill ph-scales" style="color:var(--accent)"></i>You vs Ajent</div>
+    ${cmp}
+    ${action}
+    <div class="text-faint" style="font-size:10.5px;margin-top:11px;line-height:1.45">Your book is virtual money kept on this device. Simulated and educational — not advice, no real orders.</div>
+  </div>`;
+}
+
 function renderSignalTab(market, verdict, color) {
   const s = market.signal;
   // Stop + reference target in the plan honour the user's per-strategy profile
@@ -649,6 +693,8 @@ function renderSignalTab(market, verdict, color) {
       <a href="#/methodology" style="color:var(--accent-300);margin-left:auto;white-space:nowrap">How it works &rsaquo;</a>
     </div>
   </div>`}
+
+  ${userBookPanel(market, verdict, s, planEntry, dispStop, dispTarget)}
 
   <div class="panel">
     <div class="panel-title">Why this signal</div>
@@ -841,6 +887,28 @@ export function render(container) {
   });
   if (tab === 'chart') wireChartRange(container, market, verdict, color);
   if (tab === 'signal') loadTimeline(container, market.symbol);
+  // "Trade it your way" — DELEGATED on the container (once) so it survives the live
+  // poll's tab rebuild. Reads the market + form values fresh at click time.
+  if (!container.dataset.ubWired) {
+    container.dataset.ubWired = '1';
+    container.addEventListener('click', (e) => {
+      const add = e.target.closest('[data-ub-add]');
+      const close = e.target.closest('[data-ub-close]');
+      if (!add && !close) return;
+      const m = state.engine.get(state.selectedSymbol);
+      if (!m) return;
+      if (add) {
+        const body = add.closest('.ub-form-body');
+        const num = (k) => parseFloat(body && body.querySelector(`[data-ub="${k}"]`)?.value);
+        const v = m.verdict(state.settings.threshold);
+        const ok = openUserTrade({ symbol: add.dataset.ubAdd, name: m.name, side: v === 'SELL' ? 'SHORT' : 'LONG', entry: num('entry'), stop: num('stop'), target: num('target'), riskDollars: num('risk'), decimals: m.decimals });
+        if (ok) render(container);
+      } else {
+        closeUserTrade(close.dataset.ubClose, m.price, 'manual');
+        render(container);
+      }
+    });
+  }
 }
 
 export function refresh(container) {
