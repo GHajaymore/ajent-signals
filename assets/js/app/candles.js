@@ -4,7 +4,7 @@
 // the quote-feed noise. Same public feed + CORS-proxy chain as liveData.js —
 // unofficial and best-effort, not a licensed data source.
 
-import { fetchServerCandles } from './backendApi.js';
+import { fetchServerCandles, backendConfigured } from './backendApi.js';
 
 const PROXIES = [
   (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
@@ -20,8 +20,13 @@ export async function fetchCandles(yahooSymbol, { interval = '15m', range = '1mo
     try {
       const srv = await fetchServerCandles(appSymbol, interval, range);
       if (srv && srv.length >= minCandles) return srv;
-    } catch (e) { /* fall through to proxies */ }
+    } catch (e) { /* fall through */ }
   }
+  // The public CORS proxies are dead (corsproxy.io → 401, allorigins → CORS), so
+  // once the Worker backend is configured there's no working browser-side fallback.
+  // Fail cleanly instead of spamming dead-proxy requests — the chart then shows its
+  // "history unavailable" state (only non-server symbols reach here anyway).
+  if (backendConfigured()) throw new Error(`no server candles for ${appSymbol || yahooSymbol}`);
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=${interval}&range=${range}`;
   let lastErr;
   for (const wrap of PROXIES) {

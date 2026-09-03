@@ -7,6 +7,7 @@ import { fetchCandles } from './candles.js';
 import { fetchNews } from './news.js';
 import { computeRealSignal } from './signalEngine.js';
 import { COUNTRY_DEFAULTS } from './geo.js';
+import { backendConfigured } from './backendApi.js';
 
 const SIGNAL_STALE_MS = 20 * 60 * 1000;
 
@@ -51,6 +52,11 @@ function orderedMarkets(engine) {
 }
 
 function refreshAll(engine, stagger) {
+  // When the Worker backend is configured it owns every displayed market's signal,
+  // and non-server markets are hidden — so client-side signal computation is pure
+  // redundant work (and would fetch 2y candles that only the dead proxies could
+  // serve). Skip the whole loop; the server feed drives the app.
+  if (backendConfigured()) return;
   let i = 0;
   for (const market of orderedMarkets(engine)) {
     if (market.hasServerSignal) continue; // backend-driven — server signal wins

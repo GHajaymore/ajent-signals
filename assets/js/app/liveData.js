@@ -2,6 +2,7 @@
 // free CORS proxies (no backend on this static site). NOT a licensed feed — see README note.
 // Every symbol falls back to the existing simulator automatically if this is unavailable.
 import { COUNTRY_DEFAULTS } from './geo.js';
+import { backendConfigured } from './backendApi.js';
 
 // corsproxy first — it's the reliable one; allorigins is a fallback that is
 // frequently unreachable. Order matters: the first that succeeds wins, so a
@@ -74,7 +75,12 @@ function orderedMarkets(engine) {
 // indices stay server-delayed). The public CORS proxies are unreliable anyway,
 // so we never depend on them for the real record.
 function wantsClientQuote(market) {
-  return !!market && !market.hasServerSignal;
+  // The public CORS proxies are dead (corsproxy.io → 401, allorigins → CORS
+  // blocked), so browser-side quote fetching never succeeds once the Worker
+  // backend is configured — it only spams the console with failed requests every
+  // poll. The Worker owns all real data and non-server markets are hidden, so we
+  // only attempt client quotes in the no-backend fallback mode.
+  return !!market && !market.hasServerSignal && !backendConfigured();
 }
 
 function applyQuote(market, price, prevClose, marketState, quoteTime) {
