@@ -5,6 +5,7 @@ import { computeSignal } from './strategy.js';
 import { deliverEvents } from './webhooks.js';
 import { STRATEGY } from './meta.js';
 import { computeAdaptive } from './adaptive.js';
+import { highImpactToday } from './calendar.js';
 
 const dayKey = (ms) => new Date(ms).toISOString().slice(0, 10);
 
@@ -155,8 +156,11 @@ export async function runTick(env, store) {
         if (hist[symbol].length > 12) hist[symbol].length = 12;
         histChanged = true;
       }
-      bySym[symbol] = { symbol, name: meta.name, updatedAt: now, ...sig, live, liveTime, prevClose, history };
-      const res = processPosition({ symbol, meta, sig, live, open: isOpen(meta) && !meta.noTrade, record, now, risk, cost, dials });
+      // News/event regime filter: stand aside on a high-impact event day for this
+      // market's region (mean reversion is unreliable into a scheduled event).
+      const newsHold = highImpactToday(meta.country, new Date(now));
+      bySym[symbol] = { symbol, name: meta.name, updatedAt: now, ...sig, live, liveTime, prevClose, history, newsHold: newsHold ? newsHold.name : null };
+      const res = processPosition({ symbol, meta, sig, live, open: isOpen(meta) && !meta.noTrade && !newsHold, record, now, risk, cost, dials });
       if (res === 'open') {
         events.push({ type: 'position.open', event: 'open', symbol, name: meta.name, price: live ?? sig.price, strategy: strategyLabel, plan: sig.plan, signal: sig, at: now });
       } else if (typeof res === 'string' && res.startsWith('exit:')) {

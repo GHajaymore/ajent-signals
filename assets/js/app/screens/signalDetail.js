@@ -526,6 +526,10 @@ function actionSuggestion(market, s, verdict) {
   const exitAbove = (s.plan && s.plan.exitAbove) || strat.exitAbove;
   const entryBelow = strat.entryBelow;
   const pos = getOpenPositions().find((p) => p.symbol === market.symbol);
+  // News/event regime filter: a scheduled high-impact event holds new entries.
+  if (!pos && verdict === 'BUY' && s.newsHold) {
+    return { icon: 'ph-newspaper', tone: 'var(--flat)', title: 'Standing aside — event risk', text: `The setup fired, but ${s.newsHold} is due today. Mean reversion is unreliable into a scheduled event, so the strategy waits it out rather than fading news.` };
+  }
   if (pos) {
     const long = (pos.side || 'LONG') === 'LONG';
     if (price != null && (long ? price <= pos.stop : price >= pos.stop)) {
