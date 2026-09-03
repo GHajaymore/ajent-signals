@@ -564,11 +564,15 @@ function renderSignalTab(market, verdict, color) {
   // (stop distance and reward:risk). The tracked record still uses 2× ATR + RSI2.
   const planCfg = planConfigFor();
   const planLong = verdict !== 'SELL';
+  // Trend continuation setups ride the move with a ratcheting TRAILING stop; the
+  // mean-reversion dips exit on reversion. The plan copy adapts to which fired.
+  const isTrend = s.strat === 'trend';
   const planEntry = s.plan ? s.plan.entry : 0;
   const dispStop = s.plan ? planStopPrice(planEntry, s.plan.stop, planLong, planCfg) : 0;
   const dispTarget = s.plan ? planTargetPrice(planEntry, dispStop, planLong, planCfg) : 0;
   const rrStr = (Number(planCfg.rr) || 1).toFixed(planCfg.rr % 1 ? 1 : 0);
-  const stopLabel = planCfg.stopMode === 'pct' ? `Stop loss · ${planCfg.stopValue}%`
+  const stopLabel = isTrend ? 'Trailing stop · initial'
+    : planCfg.stopMode === 'pct' ? `Stop loss · ${planCfg.stopValue}%`
     : planCfg.stopMode === 'usd' ? `Stop loss · ${planCfg.stopValue} pts`
     : `Stop loss · ${planCfg.stopValue}× volatility`;
   const subline = (verdict === 'NO_TRADE' ? 'Waiting for a high-probability setup' : (verdict === 'BUY' ? 'Long setup confirmed' : 'Short setup confirmed'))
@@ -625,15 +629,18 @@ function renderSignalTab(market, verdict, color) {
     ${edgeNote(market.symbol)}
     ${planRow('Suggested entry', fmtPrice(s.plan.entry, market.decimals), 'var(--accent)')}
     ${planRow(stopLabel, fmtPrice(dispStop, market.decimals), 'var(--sell)')}
-    ${planRow('Exit trigger', 'When it reverts to the mean', 'var(--buy)')}
+    ${planRow('Exit trigger', isTrend ? 'Trail the stop · ride until the trend breaks' : 'When it reverts to the mean', 'var(--buy)')}
     ${planRow(`Reference target · ${rrStr}:1`, fmtPrice(dispTarget, market.decimals), 'var(--neutral-500)')}
     ${planRow('Max hold', s.expectedHold, 'var(--neutral-500)')}
     ${planRow('Timeframe', s.timeframe, 'var(--neutral-500)')}
+    ${isTrend ? `<div class="panel" style="background:var(--buy-dim);border:1px solid color-mix(in srgb,var(--buy) 22%,transparent);border-radius:11px;padding:10px 12px;margin-top:9px;display:flex;gap:9px;align-items:flex-start">
+      <i class="ph-fill ph-trend-up" style="color:var(--buy);font-size:17px;flex:none;margin-top:1px"></i>
+      <div style="font-size:11.5px;line-height:1.55;color:var(--text-muted)"><b style="color:var(--text)">Use a trailing stop.</b> This is a continuation setup — let it run and <b style="color:var(--text)">ratchet your stop up</b> as price rises (about 3&times; volatility below the peak), instead of a fixed target. You exit only when the trend actually breaks, so a big winner isn't cut short.</div>
+    </div>` : ''}
     <div class="text-muted" style="font-size:11.5px;line-height:1.55;margin-top:8px;padding:0 2px">
-      This is a <b style="color:var(--text)">mean-reversion</b> trade: it buys the oversold flush and exits when the
-      <b style="color:var(--text)">move reverts to the mean</b> — rather than at a fixed target, so winners can run past
-      the 1:1 mark. A hard <b style="color:var(--text)">volatility-based stop</b> caps the downside and a time stop
-      closes stale trades. The reference target is the ~1:1 level for orientation, not a hard exit.
+      ${isTrend
+        ? `This is a <b style="color:var(--text)">trend-continuation</b> trade: it buys an established uptrend and rides it, exiting on a <b style="color:var(--text)">trailing stop</b> that ratchets up with price — so winners run and the exit only fires when momentum breaks. The reference target is the ~1:1 level for orientation, not a cap.`
+        : `This is a <b style="color:var(--text)">mean-reversion</b> trade: it buys the oversold flush and exits when the <b style="color:var(--text)">move reverts to the mean</b> — rather than at a fixed target, so winners can run past the 1:1 mark. A hard <b style="color:var(--text)">volatility-based stop</b> caps the downside and a time stop closes stale trades. The reference target is the ~1:1 level for orientation, not a hard exit.`}
     </div>
     ${isDefaultPlan(planCfg) ? '' : `<div class="text-faint" style="font-size:11px;line-height:1.5;margin-top:8px;padding:0 2px">Your custom stop / reward:risk is applied to this plan. The 24/7 tracked paper record is one shared account and still runs the strategy's own validated stop &amp; exit — adjust your plan in <a href="#/settings" style="color:var(--accent-300)">Settings</a>.</div>`}
     <div style="font-size:11.5px;margin-top:9px;padding:6px 2px 0;border-top:1px solid var(--hairline);display:flex;align-items:center;gap:6px">
