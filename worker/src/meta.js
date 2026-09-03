@@ -5,7 +5,7 @@
 // place and the whole app follows. Never hardcode these values elsewhere.
 export const STRATEGY = {
   key: 'swing',
-  name: 'Ajent Strategy',     // the proven, branded "secret recipe" (validated default)
+  name: 'Ajent Pulse',        // the proven, branded "secret recipe" (validated default)
   proven: true,               // decade-backtested; the tracked record runs THIS
   adaptive: true,             // evolves in market-selection / sizing / regime filters
   version: 1,                 // core recipe bumps only on re-validation, not weekly tuning

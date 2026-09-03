@@ -6,7 +6,7 @@
 // server and the whole app follows — no hardcoded RSI/ATR numbers scattered around.
 const DEFAULT = {
   key: 'swing',
-  name: 'Ajent Strategy',
+  name: 'Ajent Pulse',
   proven: true,
   label: 'Swing · daily Connors RSI-2',
   indicator: 'RSI-2',

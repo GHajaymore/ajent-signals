@@ -1,8 +1,8 @@
-// Independent DAILY ANALYTICS for the Ajent Strategy. It only READS the deployed
-// worker (the live paper record + the strategy's proposed dials) and prints a
+// Independent DAILY ANALYTICS for Ajent Pulse. It only READS the deployed worker
+// (the live paper record + the strategy's adopted/learned dials) and prints a
 // markdown report — it changes NOTHING and cannot interfere with live trading.
-// Any change the learning loop proposes is surfaced here for a human to approve;
-// it is never applied automatically.
+// The strategy auto-adapts on a weekly cadence within hard bounds; this report
+// just shows what it did.
 //   node analytics/daily-report.mjs           → prints the report
 //   (CI writes it to the job summary + an artifact — see daily-analytics.yml)
 const API = process.env.AJENT_API || 'https://ajent-signals-worker.golferajay.workers.dev';
@@ -38,7 +38,7 @@ try {
 
   const a = signals.strategy && signals.strategy.adaptive;
 
-  p(`# Ajent Strategy — Daily Report · ${today}`);
+  p(`# Ajent Pulse — Daily Report · ${today}`);
   p();
   p('_Independent, read-only report. The strategy auto-adapts within hard safety bounds; this shows what it did — no action needed._');
   p();
@@ -51,7 +51,7 @@ try {
   p(`- Closed today: **${closedToday.length}** (${money(netToday)})`);
   if (closedToday.length) for (const c of closedToday) p(`  - ${c.symbol} ${c.side} · ${c.outcome} · ${money(c.pnl || 0)} · exit ${c.exitReason}`);
   p();
-  p('## Ajent Strategy (evolving)');
+  p('## Ajent Pulse (evolving)');
   if (!a) {
     p('- Adaptive state not yet reported (awaiting a cron tick).');
   } else if (a.learning) {
@@ -67,7 +67,7 @@ try {
   p('- ASX 200 (XJO) is excluded from auto-trading (the robustness sweep found the recipe does not fit it).');
   p('- Run `node worker/test/sweep.mjs` for the full parameter/market robustness check.');
 } catch (e) {
-  p(`# Ajent Strategy — Daily Report · ${today}`);
+  p(`# Ajent Pulse — Daily Report · ${today}`);
   p();
   p(`⚠️ Could not build the report: ${e.message}`);
   p(`(API: ${API})`);
