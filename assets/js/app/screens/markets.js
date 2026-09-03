@@ -6,7 +6,7 @@ import { CATEGORY_ORDER } from '../mockEngine.js';
 // client fetch). When the backend is connected we never display SIM markets —
 // no fabricated data, ever.
 export function isRealMarket(m) { return !!(m && (m.hasServerSignal || m.signalIsReal)); }
-import { marketRow, patchRow, symTile } from '../components.js';
+import { marketRow, patchRow, symTile, sparklineSvg } from '../components.js';
 import { escapeHtml, fmtPct } from '../format.js';
 import { marketSession } from '../marketHours.js';
 
@@ -136,21 +136,30 @@ function viewToggle() {
 // A Finviz-style board: one tile per market, background coloured by the REAL
 // daily % change (green up / red down), grouped by category. A BUY setup gets an
 // accent ring; closed markets are dimmed. No fabricated values — colour == change.
+// A subtle directional wash — a hint of green/red scaled by the day's move, over
+// the dark surface. Kept restrained so the sparkline and the figure carry the eye.
 function heatColor(pct) {
   const p = Math.max(-2, Math.min(2, pct || 0)) / 2; // clamp ±2% → -1..1
-  const mag = Math.round((0.1 + Math.abs(p) * 0.5) * 100); // 10%..60% tint
+  const mag = Math.round((0.05 + Math.abs(p) * 0.2) * 100); // 5%..25% tint
   const hue = p >= 0 ? 'var(--buy)' : 'var(--sell)';
-  return `background:color-mix(in srgb, ${hue} ${mag}%, var(--neutral-900));`;
+  return `linear-gradient(158deg, color-mix(in srgb, ${hue} ${mag}%, var(--surface-2, #12141f)) 0%, var(--surface-2, #12141f) 76%)`;
 }
 function heatTile(m, threshold) {
   const buy = m.verdict(threshold) === 'BUY';
   const closed = marketSession(m) === 'closed';
-  const up = (m.changePct || 0) >= 0;
-  // Show which ensemble engine fired: a dip (mean-reversion) or a trend entry.
-  const badge = buy ? (m.signal && m.signal.strat === 'trend' ? 'TREND' : 'DIP') : '';
-  return `<button class="heat-tile${buy ? ' buy' : ''}${closed ? ' closed' : ''}" style="${heatColor(m.changePct)}" data-nav="#/signal/${m.symbol}" data-heat="${m.symbol}" title="${escapeHtml(m.name)}">
-    <div class="heat-sym">${m.symbol}${buy ? `<span class="heat-badge">${badge}</span>` : ''}</div>
-    <div class="heat-chg" style="color:${up ? 'var(--buy)' : 'var(--sell)'}">${fmtPct(m.changePct)}</div>
+  const chg = m.changePct || 0;
+  const up = chg >= 0;
+  const dir = up ? 'var(--buy)' : 'var(--sell)';
+  const isTrend = m.signal && m.signal.strat === 'trend';
+  const badge = buy ? (isTrend ? 'TREND' : 'DIP') : '';
+  const spark = (m.history && m.history.length > 1) ? sparklineSvg(m.history, dir, 96, 26) : '';
+  return `<button class="heat-tile${buy ? ' buy' : ''}${closed ? ' closed' : ''}" style="background:${heatColor(chg)}" data-nav="#/signal/${m.symbol}" data-heat="${m.symbol}" title="${escapeHtml(m.name)}">
+    <div class="ht-head">
+      <span class="ht-sym">${m.symbol}</span>
+      ${buy ? `<span class="ht-badge ${isTrend ? 'trend' : 'dip'}">${badge}</span>` : ''}
+    </div>
+    <div class="ht-spark" aria-hidden="true">${spark}</div>
+    <div class="ht-chg" style="color:${dir}"><i class="ph-bold ${up ? 'ph-caret-up' : 'ph-caret-down'}"></i>${fmtPct(chg)}</div>
   </button>`;
 }
 function heatmapHtml() {

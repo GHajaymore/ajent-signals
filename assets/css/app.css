@@ -401,14 +401,31 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 /* Heatmap */
 .heat-legend { display: flex; align-items: center; gap: 12px; font-size: 10.5px; color: var(--text-muted); margin: 2px 0 12px; flex-wrap: wrap; }
 .heat-legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
-.heat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 7px; margin-bottom: 6px; }
-.heat-tile { position: relative; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 3px; min-height: 62px; padding: 9px 10px; border: 1px solid var(--hairline); border-radius: 11px; cursor: pointer; color: var(--text); font: inherit; text-align: left; transition: transform 0.1s, border-color 0.15s; }
-.heat-tile:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--accent) 45%, var(--hairline)); }
-.heat-tile.buy { border-color: var(--buy); box-shadow: 0 0 0 1px var(--buy) inset; }
-.heat-tile.closed { opacity: 0.62; }
-.heat-sym { display: flex; align-items: center; gap: 5px; font: 800 14px var(--font-heading); letter-spacing: -0.01em; }
-.heat-chg { font: 700 12px var(--font-heading); font-variant-numeric: tabular-nums; }
-.heat-badge { font: 800 8px var(--font-heading); letter-spacing: 0.04em; color: #0b2b20; background: var(--buy); padding: 1px 4px; border-radius: 4px; }
+.heat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 9px; margin-bottom: 8px; }
+.heat-tile {
+  position: relative; display: flex; flex-direction: column; gap: 5px;
+  min-height: 92px; padding: 11px 11px 10px; border-radius: 14px; cursor: pointer;
+  color: var(--text); font: inherit; text-align: left; overflow: hidden; isolation: isolate;
+  border: 1px solid var(--hairline);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 6px 18px -12px rgba(0,0,0,0.7);
+  transition: transform 0.16s cubic-bezier(.2,.7,.3,1), box-shadow 0.16s, border-color 0.16s;
+}
+/* thin top sheen for a bit of glass depth */
+.heat-tile::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 40%; background: linear-gradient(180deg, rgba(255,255,255,0.05), transparent); pointer-events: none; }
+.heat-tile:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--accent) 40%, var(--hairline)); box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 16px 30px -16px rgba(0,0,0,0.85); }
+.heat-tile:active { transform: translateY(-1px); }
+.heat-tile.buy { border-color: color-mix(in srgb, var(--buy) 60%, var(--hairline)); }
+.heat-tile.buy::after { content: ''; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 3px; background: var(--buy); box-shadow: 0 0 10px var(--buy); }
+.heat-tile.closed { opacity: 0.55; }
+.ht-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.ht-sym { font: 800 15px var(--font-heading); letter-spacing: -0.02em; }
+.ht-spark { flex: 1; display: flex; align-items: center; min-height: 26px; opacity: 0.9; }
+.ht-spark svg { width: 100%; }
+.ht-chg { display: inline-flex; align-items: center; gap: 3px; font: 750 12.5px var(--font-heading); font-variant-numeric: tabular-nums; }
+.ht-chg i { font-size: 11px; }
+.ht-badge { font: 800 8.5px var(--font-heading); letter-spacing: 0.05em; padding: 2px 6px; border-radius: 999px; flex: none; }
+.ht-badge.dip { color: #0b2b20; background: var(--buy); }
+.ht-badge.trend { color: var(--accent-100); background: var(--accent-800); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent); }
 
 /* Paper Trading hero */
 .pf-hero { position: relative; overflow: hidden; border: 1px solid var(--hairline); border-radius: 20px; padding: 22px 20px 10px; margin-bottom: 14px; background: linear-gradient(160deg, color-mix(in srgb, var(--buy) 12%, var(--surface)), var(--surface) 66%); box-shadow: 0 16px 40px -26px rgba(0,0,0,0.8); }
