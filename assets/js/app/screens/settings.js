@@ -49,10 +49,9 @@ function styleRow(s) {
 // Trade-plan profile — the user's preferred stop distance and reward:risk for the
 // SUGGESTED plan shown on a signal. The app's own book-profit / stop suggestion is
 // indicator-driven (RSI2), separate from this; the tracked record uses 2× ATR.
-const STOP_RANGE = { atr: { min: 1, max: 4, step: 0.5, unit: '× ATR', dflt: 2 }, pct: { min: 0.25, max: 5, step: 0.25, unit: '%', dflt: 1.5 } };
+const STOP_RANGE = { atr: { min: 1, max: 4, step: 0.5, unit: '× vol', dflt: 2 }, pct: { min: 0.25, max: 5, step: 0.25, unit: '%', dflt: 1.5 } };
 function stopValLabel(cfg) {
-  const r = STOP_RANGE[cfg.stopMode] || STOP_RANGE.atr;
-  return cfg.stopMode === 'pct' ? `${cfg.stopValue}%` : `${cfg.stopValue}× ATR`;
+  return cfg.stopMode === 'pct' ? `${cfg.stopValue}%` : `${cfg.stopValue}× volatility`;
 }
 function tradePlanPanel() {
   const cfg = planConfigFor();
@@ -63,7 +62,7 @@ function tradePlanPanel() {
     <div class="setting-help" style="margin:0 0 12px">Your preferred stop and reward:risk for the plan shown on a signal. The app's own "book profit / stop now" call is driven by the strategy's indicators; this just frames the levels you'd trade. The 24/7 tracked record uses the strategy's own validated stop and exit.</div>
     <div class="eyebrow" style="margin-bottom:6px">Stop loss</div>
     <div class="seg-toggle" id="stop-mode">
-      <button class="seg-opt ${cfg.stopMode === 'atr' ? 'on' : ''}" data-stopmode="atr">ATR ×</button>
+      <button class="seg-opt ${cfg.stopMode === 'atr' ? 'on' : ''}" data-stopmode="atr">Volatility</button>
       <button class="seg-opt ${cfg.stopMode === 'pct' ? 'on' : ''}" data-stopmode="pct">Percent</button>
     </div>
     <div class="setting-row-top" style="margin-top:12px"><span class="t">Stop distance</span><span class="v" id="stop-val">${stopValLabel(cfg)}</span></div>

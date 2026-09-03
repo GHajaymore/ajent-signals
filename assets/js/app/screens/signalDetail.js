@@ -567,7 +567,7 @@ function renderSignalTab(market, verdict, color) {
   const rrStr = (Number(planCfg.rr) || 1).toFixed(planCfg.rr % 1 ? 1 : 0);
   const stopLabel = planCfg.stopMode === 'pct' ? `Stop loss · ${planCfg.stopValue}%`
     : planCfg.stopMode === 'usd' ? `Stop loss · ${planCfg.stopValue} pts`
-    : `Stop loss · ${planCfg.stopValue}× ATR`;
+    : `Stop loss · ${planCfg.stopValue}× volatility`;
   const subline = (verdict === 'NO_TRADE' ? 'Waiting for a high-probability setup' : (verdict === 'BUY' ? 'Long setup confirmed' : 'Short setup confirmed'))
     + (s.provisional ? ' · <span style="color:var(--accent-200)">provisional (short side unproven)</span>' : '');
   const status = autoTradeStatus(market, verdict);
