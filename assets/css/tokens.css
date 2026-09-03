@@ -76,6 +76,21 @@ a:hover { color: var(--accent-300); }
 img, svg { display: block; max-width: 100%; }
 button, input, select, textarea { font-family: inherit; color: inherit; }
 button { cursor: pointer; }
+
+/* Keyboard focus — a crisp accent ring on anything reached by keyboard.
+   :focus-visible never fires on pointer clicks, so mouse users don't see it.
+   Inputs (which set outline:none) get their own sharper ring below. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.text-input:focus-visible,
+.search-input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 26%, transparent);
+}
+
 .tabular { font-variant-numeric: tabular-nums; }
 .text-muted { color: var(--text-muted); }
 .text-faint { color: var(--text-faint); }
