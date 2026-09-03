@@ -47,7 +47,7 @@ function run(strat, syms = Object.keys(DATA)) {
       if (!pos && strat.entry(ctx)) {
         const a = p.atr[i]; if (a == null || !(a > 0)) continue;
         const risk = Math.max(a * strat.stopMult, price * 0.004);
-        pos = { entry: price, stop: price - risk, t, peak: price, atr: a };
+        pos = { entry: price, stop: price - risk, t, peak: price, atr: a, oi: i };
       }
     }
     const first = p.closes[210], last = p.closes[p.closes.length - 1];
@@ -100,6 +100,25 @@ const STRATS = {
     entry: ({ p, i, price }) => up(p, i) && p.sma50[i] != null && p.sma50[i] > p.sma50[i - 5]
       && p.sma20[i] != null && p.c[i - 1] && p.c[i - 1].l < p.sma20[i - 1] && price > p.sma20[i], // dipped to the 20MA, resumed
     exit: ({ p, i, price }) => p.sma50[i] != null && price < p.sma50[i],
+  },
+  // --- structurally DIFFERENT edges (time / volatility, orthogonal to price) ---
+  'Turn-of-month seasonality': { // buy last days of month, hold into the new month
+    stopMult: 3,
+    entry: ({ p, i }) => { const d = new Date(p.c[i].t).getUTCDate(); return up(p, i) && d >= 26; },
+    exit: ({ i }, pos) => i - pos.oi >= 5, // hold ~5 trading days (through the turn)
+  },
+  'Volatility-spike reversion': { // buy after an ATR spike settles, in an uptrend
+    stopMult: 3,
+    entry: ({ p, i, price }) => {
+      if (!up(p, i) || p.atr[i] == null) return false;
+      const recent = p.atr.slice(Math.max(0, i - 20), i).filter((v) => v > 0);
+      if (!recent.length) return false;
+      const med = recent.slice().sort((a, b) => a - b)[Math.floor(recent.length / 2)];
+      // was a spike in the last 3 bars, now calming and price above the 20MA
+      const spiked = [i - 1, i - 2, i - 3].some((k) => k >= 0 && p.atr[k] > med * 1.8);
+      return spiked && p.atr[i] < med * 1.5 && p.sma20[i] != null && price > p.sma20[i];
+    },
+    exit: ({ i }, pos) => i - pos.oi >= 5,
   },
 };
 

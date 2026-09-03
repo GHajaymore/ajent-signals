@@ -9,7 +9,7 @@ const SLIDES = [
   {
     icon: 'ph-trend-up', color: 'var(--accent-300)',
     title: 'Meet Ajent Pulse',
-    body: 'Our engine trades <b>with</b> the trend but enters on the pullback — buying deeply oversold dips in uptrends — with the discipline seasoned traders live by.',
+    body: 'A proven ensemble of edges — it buys deeply oversold dips in uptrends <b>and</b> rides established uptrends — with the discipline seasoned traders live by, and it keeps learning from its own real record.',
   },
   {
     icon: 'ph-shield-check', color: 'var(--buy)',
