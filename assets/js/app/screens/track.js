@@ -1,4 +1,5 @@
 import { getClosedTrades, getPerformanceSummary, getOpenPositions, tradePnl } from '../paperTrading.js';
+import { positionCallPill, updateCallPill } from '../tradeGuidance.js';
 import { fmtPrice } from '../format.js';
 import { state, getEnabledPaperMarkets, setPaperMarketEnabled, setAllPaperMarkets, setPaperMarkets, FREE_MARKET_LIMIT } from '../state.js';
 import { isEntitled } from '../backendApi.js';
@@ -327,15 +328,16 @@ function riskBar(r) {
 }
 
 function openRow(p) {
+  const market = state.engine.get(p.symbol);
   const pnl = posLivePnl(p);
-  const dec = state.engine.get(p.symbol)?.decimals ?? p.decimals ?? 2;
+  const dec = market?.decimals ?? p.decimals ?? 2;
   const col = pnl ? (pnl.dollars >= 0 ? 'var(--buy)' : 'var(--sell)') : 'var(--text-muted)';
   const pnlStr = pnl ? `${money(pnl.dollars)} · ${pnl.r >= 0 ? '+' : ''}${pnl.r.toFixed(2)}R` : 'live…';
   return `<div class="closed-row" data-open-row="${p.symbol}" data-nav="#/chart/${p.symbol}" style="cursor:pointer;display:block;padding:11px 4px">
       <div style="display:flex;align-items:center;gap:12px">
         <div class="closed-sym">${p.symbol}</div>
         <div class="closed-body" style="flex:1;min-width:0">
-          <div class="closed-title">${(p.side || 'LONG') === 'LONG' ? 'Long' : 'Short'} · ${p.name}</div>
+          <div class="closed-title" style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">${(p.side || 'LONG') === 'LONG' ? 'Long' : 'Short'} · ${p.name} ${positionCallPill(market, p)}</div>
           <div class="closed-sub">Entry ${fmtPrice(p.entry, dec)} · stop ${fmtPrice(p.stop, dec)} · target ${fmtPrice(p.target1, dec)}</div>
         </div>
         <div style="text-align:right;flex:none">
@@ -384,8 +386,8 @@ function watchingList() {
       ${markets.map((m) => {
         const prox = Math.max(0, Math.min(100, m.signal.proximity || 0));
         const up = m.signal.htfTrend === 'up';
-        const trig = up ? `RSI2 ${m.signal.rsi2} · long fires under 15`
-          : m.signal.htfTrend === 'down' ? `RSI2 ${m.signal.rsi2} · short fires over 85`
+        const trig = up ? `RSI2 ${m.signal.rsi2} · buy fires under 15`
+          : m.signal.htfTrend === 'down' ? `RSI2 ${m.signal.rsi2} · downtrend — no long setup`
           : `RSI2 ${m.signal.rsi2} · no clear trend`;
         return `<div class="closed-row" data-nav="#/signal/${m.symbol}" style="cursor:pointer">
           <div class="closed-sym">${m.symbol}</div>
@@ -572,6 +574,7 @@ export function refresh(container) {
           pEl.style.color = pnl.dollars >= 0 ? 'var(--buy)' : 'var(--sell)';
         }
         if (bEl && pnl) bEl.innerHTML = riskBar(pnl.r);
+        updateCallPill(openWrap.querySelector(`[data-call="${p.symbol}"]`), state.engine.get(p.symbol), p);
       });
       // If the set of open positions changed (a trade opened/closed), rebuild.
       const cur = [...openWrap.querySelectorAll('[data-open-row]')].map((el) => el.dataset.openRow).join(',');

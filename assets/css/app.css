@@ -334,6 +334,13 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 @keyframes styleNudge { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-3px)} 75%{transform:translateX(3px)} }
 .style-row.nudge { animation: styleNudge 0.25s ease; }
 
+/* Indicator-driven position call pill */
+.call-pill { display: inline-flex; align-items: center; gap: 4px; font: 700 10px var(--font-heading); letter-spacing: .02em; padding: 2px 7px; border-radius: 6px; white-space: nowrap; }
+.call-pill i { font-size: 10px; }
+.call-pill.profit { color: #0b2b20; background: var(--buy, #34d399); }
+.call-pill.cut { color: #fff; background: var(--sell, #ff5c7c); }
+.call-pill.hold { color: var(--flat, #e2b660); background: color-mix(in srgb, var(--flat, #e2b660) 18%, transparent); }
+
 /* ── Modern Home ───────────────────────────────────────────────── */
 .home-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
 .home-brand { display: flex; align-items: center; gap: 11px; }

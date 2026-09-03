@@ -6,6 +6,7 @@ import { backendConfigured, isEntitled, fetchNews } from '../backendApi.js';
 import { isRealMarket } from './markets.js';
 import { upcomingEvents, daysUntil } from '../econCalendar.js';
 import { fmtPrice } from '../format.js';
+import { positionCallPill, updateCallPill } from '../tradeGuidance.js';
 
 // --- Market news (Pro/trial) ------------------------------------------------
 let newsCache = null, newsCacheAt = 0;
@@ -262,7 +263,7 @@ function positionRow(p) {
   return `<div class="setup-row" data-nav="#/chart/${p.symbol}" data-pos="${p.symbol}">
     ${symTile(p.symbol, 34)}
     <div class="setup-body">
-      <div class="setup-name">${p.name || p.symbol}${p.conviction === 'high' ? ' <span class="conv-badge"><i class="ph-fill ph-star"></i>High conviction</span>' : ''}</div>
+      <div class="setup-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${p.name || p.symbol} ${positionCallPill(market, p)}${p.conviction === 'high' ? ' <span class="conv-badge"><i class="ph-fill ph-star"></i>High conviction</span>' : ''}</div>
       <div class="setup-type" style="color:${long ? 'var(--buy)' : 'var(--sell)'}"><i class="ph-fill ${long ? 'ph-caret-up' : 'ph-caret-down'}"></i>${long ? 'Long' : 'Short'} · entry ${fmtPrice(p.entry, dec)} · ${relTime(p.openedAt)}</div>
     </div>
     <div style="text-align:right;flex:none">
@@ -501,6 +502,7 @@ export function refresh(container) {
         if (!pnl) return;
         el.textContent = `${money(pnl.dollars)} · ${pnl.r >= 0 ? '+' : ''}${pnl.r.toFixed(2)}R`;
         el.style.color = pnl.dollars >= 0 ? 'var(--buy)' : 'var(--sell)';
+        updateCallPill(posWrap.querySelector(`[data-call="${p.symbol}"]`), state.engine.get(p.symbol), p);
       });
     }
   }
