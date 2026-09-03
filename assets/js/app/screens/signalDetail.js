@@ -535,10 +535,16 @@ function actionSuggestion(market, s, verdict) {
     if (price != null && (long ? price <= pos.stop : price >= pos.stop)) {
       return { icon: 'ph-hand-palm', tone: 'var(--sell)', title: 'Stop loss — cut it', text: `Price has reached your risk level (${fmtPrice(pos.stop, market.decimals)}). The strategy exits to cap the loss.` };
     }
+    if (pos.strat === 'trend') {
+      return { icon: 'ph-trend-up', tone: 'var(--flat)', title: 'Ride the trend', text: `This is a trend-continuation trade — let it run. It exits when the trend breaks or price hits the ${fmtPrice(pos.stop, market.decimals)} stop.` };
+    }
     if (has && rsi >= exitAbove) {
       return { icon: 'ph-flag-checkered', tone: 'var(--buy)', title: 'Book profit now', text: 'The oversold move has reverted to the mean — this is where the strategy takes profit.' };
     }
     return { icon: 'ph-hourglass-medium', tone: 'var(--flat)', title: 'Hold the trade', text: `The bounce hasn't fully reverted to the mean yet. Hold until it does (book profit) or price hits the ${fmtPrice(pos.stop, market.decimals)} stop (cut the loss).` };
+  }
+  if (verdict === 'BUY' && s.strat === 'trend') {
+    return { icon: 'ph-trend-up', tone: 'var(--buy)', title: 'Trend entry', text: 'A continuation setup — the market is trending up with momentum. The strategy rides it until the trend breaks, with a stop below.' };
   }
   if (verdict === 'BUY') {
     return { icon: 'ph-arrow-up-right', tone: 'var(--buy)', title: 'Buy the flush', text: 'Deeply oversold in an uptrend — the dip the strategy buys. It takes profit as the move reverts to the mean, and stops out at the risk level below.' };

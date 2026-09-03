@@ -15,6 +15,11 @@ export function positionCall(market, pos) {
   if (price != null && (long ? price <= pos.stop : price >= pos.stop)) {
     return { status: 'cut', label: 'Cut · stop', tone: 'var(--sell)', icon: 'ph-hand-palm' };
   }
+  // A trend position rides the trend (server-managed exit on a trend break) — no
+  // mean-reversion book-profit signal; just hold until stop or the trend breaks.
+  if (pos && pos.strat === 'trend') {
+    return { status: 'hold', label: 'Ride the trend', tone: 'var(--flat)', icon: 'ph-trend-up' };
+  }
   if (typeof rsi === 'number' && (long ? rsi >= exitAbove : rsi <= (100 - exitAbove))) {
     return { status: 'profit', label: 'Book profit', tone: 'var(--buy)', icon: 'ph-flag-checkered' };
   }

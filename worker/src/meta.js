@@ -21,7 +21,7 @@ export const STRATEGY = {
   // Public, GENERALIZED description — what the strategy does, without the recipe.
   // The exact indicators/thresholds/stop above are the proprietary edge and are
   // NEVER sent to clients (see index.js /signals) or shown in the UI copy.
-  approach: 'A momentum mean-reversion strategy: it buys markets stretched oversold within a healthy uptrend and exits as they revert toward the mean, capped by a volatility-based stop. Long-only, and it evolves from its own real record.',
+  approach: 'An adaptive ensemble of proven edges: it buys markets stretched oversold within a healthy uptrend (fading the dip) and rides markets in established uptrends (following the trend), exiting each as its setup completes, capped by a volatility-based stop. Long-only, and it evolves from its own real record.',
 };
 
 // The public view of the strategy — safe to send to clients. Excludes the exact

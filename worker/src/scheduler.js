@@ -6,6 +6,7 @@ import { deliverEvents } from './webhooks.js';
 import { STRATEGY } from './meta.js';
 import { computeAdaptive } from './adaptive.js';
 import { highImpactToday } from './calendar.js';
+import { computeTrend, trendShouldExit } from './trend.js';
 
 const dayKey = (ms) => new Date(ms).toISOString().slice(0, 10);
 
@@ -35,27 +36,31 @@ function changeEvents(prev, sig) {
 // the whole record is ONE KV get + ONE KV put per tick (see runTick), so we never
 // use KV list() — which is capped at 1,000/day on the free tier and was blowing up
 // /trades. `cost` is the round-turn transaction cost, deducted so P&L is NET.
-export function processPosition({ symbol, meta, sig, live, open, record, now, risk, cost = 0, exitRsi = STRATEGY.exitAbove, dials = null }) {
+// Mean-reversion exit (the default): stop, the momentum-recovery exit, or time stop.
+// `exitRsiOverride` lets the backtest sweep vary the exit; live uses pos.exitAbove.
+export function mrShouldExit(sig, pos, price, now, exitRsiOverride) {
+  const short = pos.side === 'SHORT';
+  const exitRsi = exitRsiOverride ?? pos.exitAbove ?? STRATEGY.exitAbove;
+  if (short ? price >= pos.stop : price <= pos.stop) return 'stop';
+  if (sig.rsi2 != null && (short ? sig.rsi2 < (100 - exitRsi) : sig.rsi2 > exitRsi)) return 'rsiRecover';
+  if (now - pos.openedAt > pos.maxHoldMin * 60000) return 'timeStop';
+  return null;
+}
+
+export function processPosition({ symbol, meta, sig, live, open, record, now, risk, cost = 0, exitRsi, dials = null, strat = 'mr', shouldExit }) {
+  const exitFn = shouldExit || ((s, p, pr, nw) => mrShouldExit(s, p, pr, nw, exitRsi));
   const pos = record.open[symbol];
   if (pos) {
     const price = live ?? sig.price;
     const short = pos.side === 'SHORT';
-    let exit = null;
-    if (short ? price >= pos.stop : price <= pos.stop) exit = 'stop';
-    // Connors RSI2 exit: hold until the oversold snaps back (RSI2 recovers above
-    // `exitRsi` for a long / below its mirror for a short) rather than bailing on
-    // the first up-close. Lets winners run — backtests materially higher CAGR.
-    // Falls back to the first-close signal only if RSI2 is somehow unavailable.
-    else if (sig.rsi2 != null && (short ? sig.rsi2 < (100 - exitRsi) : sig.rsi2 > exitRsi)) exit = 'rsiRecover';
-    else if (sig.rsi2 == null && sig.lastDaily && dayKey(sig.lastDaily.t) !== dayKey(pos.openedAt) && sig.lastDaily.t > pos.openedAt && (short ? sig.lastDaily.up === false : sig.lastDaily.up === true)) exit = short ? 'firstDownClose' : 'firstUpClose';
-    else if (now - pos.openedAt > pos.maxHoldMin * 60000) exit = 'timeStop';
+    const exit = exitFn(sig, pos, price, now); // exit rule is per the position's strategy
     if (!exit) return 'hold';
     const r = pos.risk || Math.abs(pos.entry - pos.stop) || 1e-9;
     const resultR = (short ? (pos.entry - price) : (price - pos.entry)) / r;
     const gross = resultR * (pos.riskDollars || risk);
     const pnl = Math.round(gross - cost); // NET of round-turn cost
     const outcome = pnl > 0 ? 'Win' : pnl < 0 ? 'Loss' : 'Break-even';
-    record.closed.unshift({ symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', entry: pos.entry, exit: price, resultR: +resultR.toFixed(3), pnl, cost, riskDollars: pos.riskDollars || risk, outcome, exitReason: exit, openedAt: pos.openedAt, closedAt: now });
+    record.closed.unshift({ symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', strat: pos.strat || 'mr', entry: pos.entry, exit: price, resultR: +resultR.toFixed(3), pnl, cost, riskDollars: pos.riskDollars || risk, outcome, exitReason: exit, openedAt: pos.openedAt, closedAt: now });
     if (record.closed.length > 300) record.closed.length = 300;
     delete record.open[symbol];
     record.lastClose[symbol] = { signalDay: dayKey(now), at: now };
@@ -66,11 +71,9 @@ export function processPosition({ symbol, meta, sig, live, open, record, now, ri
     if (lastClose && lastClose.signalDay === dayKey(now)) return 'skip:tradedToday';
     const short = sig.verdict === 'SELL';
     const entry = live ?? sig.plan.entry;
-    // sig.plan is already scaled to the evolved stop in runTick; apply the size dial
-    // to the dollar risk so the ONE evolved strategy is expressed consistently.
     const r = sig.plan.risk || Math.abs(sig.plan.entry - sig.plan.stop);
     const riskDollars = Math.round(risk * ((dials && dials.sizeMult) || 1));
-    record.open[symbol] = { symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', entry, stop: short ? entry + r : entry - r, target1: short ? entry - r : entry + r, risk: r, riskDollars, conviction: sig.conviction, maxHoldMin: sig.plan.maxHoldMin, exitRule: 'rsiRecover', exitAbove: exitRsi, openedAt: now };
+    record.open[symbol] = { symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', strat, entry, stop: short ? entry + r : entry - r, target1: short ? entry - r : entry + r, risk: r, riskDollars, conviction: sig.conviction, maxHoldMin: sig.plan.maxHoldMin, exitRule: strat === 'trend' ? 'trendBreak' : 'rsiRecover', exitAbove: sig.plan.exitAbove, openedAt: now };
     return 'open';
   }
   return 'none';
@@ -127,44 +130,57 @@ export async function runTick(env, store) {
     try {
       const meta = MARKETS[symbol];
       const { candles, live, liveTime } = await fetchDailyCandles(meta, env);
-      const sig = computeSignal(candles, live);
-      // Express the evolved strategy in the plan itself: scale the stop (and the
-      // 1:1 target) by the global stop dial, so the displayed plan and the opened
-      // paper position share one honest stop. Same for every market.
-      if (sig.plan && dials && dials.stopMult) {
+      // ENSEMBLE: compute both engines. Mean-reversion (the dip-buyer) + trend-
+      // follow (continuation). They fire on different conditions, so at most one
+      // opens per market; each is managed by its own exit rule.
+      const mrSig = computeSignal(candles, live);
+      // Express the evolved dials in the MR plan (stop scaled by the global dial).
+      if (mrSig.plan && dials && dials.stopMult) {
         const scale = dials.stopMult / STRATEGY.stopAtrMult;
-        const long = sig.direction > 0;
-        const r = sig.plan.risk * scale;
-        sig.plan = { ...sig.plan, risk: r, stop: long ? sig.plan.entry - r : sig.plan.entry + r, target1: long ? sig.plan.entry + r : sig.plan.entry - r, stopMult: dials.stopMult, sizeMult: dials.sizeMult };
+        const long = mrSig.direction > 0;
+        const r = mrSig.plan.risk * scale;
+        mrSig.plan = { ...mrSig.plan, risk: r, stop: long ? mrSig.plan.entry - r : mrSig.plan.entry + r, target1: long ? mrSig.plan.entry + r : mrSig.plan.entry - r, stopMult: dials.stopMult, sizeMult: dials.sizeMult };
       }
+      const trendSig = computeTrend(candles, live);
       const now = Date.now();
-      // A verdict that flips INTO BUY/SELL (vs last tick) is a fresh signal.
+      // The signal shown for the market: whichever engine is actionable (dip first,
+      // else trend), else the mean-reversion no-trade state.
+      const displaySig = mrSig.verdict === 'BUY' ? mrSig : (trendSig.verdict === 'BUY' ? trendSig : mrSig);
       const prev = bySym[symbol];
-      const actionable = sig.verdict === 'BUY' || sig.verdict === 'SELL';
-      if (actionable && (!prev || prev.verdict !== sig.verdict)) {
-        events.push({ type: 'signal', event: sig.verdict, symbol, name: meta.name, price: live ?? sig.price, strategy: strategyLabel, plan: sig.plan, signal: sig, at: now });
+      const actionable = displaySig.verdict === 'BUY' || displaySig.verdict === 'SELL';
+      if (actionable && (!prev || prev.verdict !== displaySig.verdict)) {
+        events.push({ type: 'signal', event: displaySig.verdict, symbol, name: meta.name, price: live ?? displaySig.price, strategy: strategyLabel, plan: displaySig.plan, signal: displaySig, at: now });
       }
       const prevClose = candles.length >= 2 ? candles[candles.length - 2].c : (candles.length ? candles[candles.length - 1].c : null);
-      // Recent daily closes (timestamped) so the app charts real price action and
-      // can position trade markers by time — not a flat SIM line.
       const history = candles.slice(-64).map((c) => ({ t: c.t, c: Math.round(c.c * 100) / 100 }));
-      // Log meaningful transitions to this market's timeline.
-      const evs = changeEvents(prev, sig);
+      const evs = changeEvents(prev, displaySig);
       if (evs.length) {
         hist[symbol] = hist[symbol] || [];
         for (const t of evs) hist[symbol].unshift({ at: now, text: t });
         if (hist[symbol].length > 12) hist[symbol].length = 12;
         histChanged = true;
       }
-      // News/event regime filter: stand aside on a high-impact event day for this
-      // market's region (mean reversion is unreliable into a scheduled event).
+      // News/event regime filter: stand aside on a high-impact event day.
       const newsHold = highImpactToday(meta.country, new Date(now));
-      bySym[symbol] = { symbol, name: meta.name, updatedAt: now, ...sig, live, liveTime, prevClose, history, newsHold: newsHold ? newsHold.name : null };
-      const res = processPosition({ symbol, meta, sig, live, open: isOpen(meta) && !meta.noTrade && !newsHold, record, now, risk, cost, dials });
+      const dispStrat = displaySig === trendSig ? 'trend' : 'mr';
+      bySym[symbol] = { symbol, name: meta.name, updatedAt: now, ...displaySig, live, liveTime, prevClose, history, newsHold: newsHold ? newsHold.name : null, strat: dispStrat };
+      const canOpen = isOpen(meta) && !meta.noTrade && !newsHold;
+      // Manage the open position with ITS engine's exit; if flat, try MR then trend.
+      const pos = record.open[symbol];
+      let res;
+      if (pos) {
+        const isTrend = pos.strat === 'trend';
+        res = processPosition({ symbol, meta, sig: isTrend ? trendSig : mrSig, live, open: canOpen, record, now, risk, cost, dials, strat: pos.strat, shouldExit: isTrend ? trendShouldExit : mrShouldExit });
+      } else {
+        res = processPosition({ symbol, meta, sig: mrSig, live, open: canOpen, record, now, risk, cost, dials, strat: 'mr', shouldExit: mrShouldExit });
+        if (res === 'none' && canOpen && trendSig.verdict === 'BUY') {
+          res = processPosition({ symbol, meta, sig: trendSig, live, open: canOpen, record, now, risk, cost, dials, strat: 'trend', shouldExit: trendShouldExit });
+        }
+      }
       if (res === 'open') {
-        events.push({ type: 'position.open', event: 'open', symbol, name: meta.name, price: live ?? sig.price, strategy: strategyLabel, plan: sig.plan, signal: sig, at: now });
+        events.push({ type: 'position.open', event: 'open', symbol, name: meta.name, price: live ?? displaySig.price, strategy: strategyLabel, plan: displaySig.plan, signal: displaySig, at: now });
       } else if (typeof res === 'string' && res.startsWith('exit:')) {
-        events.push({ type: 'position.close', event: res.slice(5), symbol, name: meta.name, price: live ?? sig.price, strategy: strategyLabel, signal: sig, at: now });
+        events.push({ type: 'position.close', event: res.slice(5), symbol, name: meta.name, price: live ?? displaySig.price, strategy: strategyLabel, signal: displaySig, at: now });
       }
     } catch (e) { /* skip this market this tick — its last-known signal is carried forward */ }
   }
