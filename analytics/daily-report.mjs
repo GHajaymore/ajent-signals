@@ -84,7 +84,7 @@ try {
   p();
   p('## Notes');
   p('- ASX 200 (XJO) is excluded from auto-trading (the robustness sweep found the recipe does not fit it).');
-  p('- Run `node worker/test/sweep.mjs` for the full parameter/market robustness check.');
+  p('- Robustness is auto-checked weekly (`.github/workflows/lab-benchmark.yml`); run `node analytics/lab-benchmark.mjs` on demand for the full parameter/market sweep + drift check.');
 } catch (e) {
   p(`# Ajent Pulse — Daily Report · ${today}`);
   p();
