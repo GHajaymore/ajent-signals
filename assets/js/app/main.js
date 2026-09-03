@@ -10,6 +10,7 @@ import * as alertsScreen from './screens/alerts.js';
 import * as settingsScreen from './screens/settings.js';
 import * as paywall from './screens/paywall.js';
 import * as methodology from './screens/methodology.js';
+import * as myStrategy from './screens/myStrategy.js';
 import * as faq from './screens/faq.js';
 import * as onboarding from './screens/onboarding.js';
 import { startLiveDataLoop, startFocusDataLoop } from './liveData.js';
@@ -123,6 +124,9 @@ function renderRoute() {
       break;
     case 'methodology':
       methodology.render(contentEl);
+      break;
+    case 'mystrategy':
+      myStrategy.render(contentEl);
       break;
     case 'faq':
       faq.render(contentEl);

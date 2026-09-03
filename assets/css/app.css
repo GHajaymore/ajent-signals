@@ -84,6 +84,36 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 @keyframes tkScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
 /* Region-pulse switcher — focus the board on your region vs the world */
+/* Your strategy builder */
+.cs-config { display: flex; flex-direction: column; gap: 2px; }
+.cs-slider { display: grid; grid-template-columns: 1fr 44%; align-items: center; gap: 10px 12px; padding: 9px 0; }
+.cs-slider .range { grid-column: 2; }
+.cs-l { font: 600 13px var(--font-body); color: var(--text); }
+.cs-v { grid-column: 2; justify-self: end; font: 700 13px var(--font-mono); color: var(--accent); font-variant-numeric: tabular-nums; margin-top: -26px; pointer-events: none; }
+.cs-toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 11px 0; border-top: 1px solid var(--hairline); }
+.cs-sma-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0 2px; }
+.cs-sma-row.off { opacity: 0.4; pointer-events: none; }
+.cs-sma { display: flex; gap: 6px; }
+.cs-sma-btn { font: 600 11px var(--font-mono); color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+.cs-sma-btn.on { background: color-mix(in srgb, var(--accent) 14%, transparent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); color: var(--text); }
+.cs-reset { margin-top: 12px; font: 600 12px var(--font-body); color: var(--text-muted); background: none; border: none; text-decoration: underline; cursor: pointer; align-self: flex-start; padding: 0; }
+
+.cs-cmp { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 4px 0 14px; }
+.cs-cmp-col { text-align: center; background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 12px; padding: 12px 6px; }
+.cs-cmp-col.mid { border-color: color-mix(in srgb, var(--accent) 30%, var(--hairline)); }
+.cs-cmp-n { font: 800 26px var(--font-mono); letter-spacing: -0.02em; }
+.cs-cmp-l { font: 600 10px var(--font-mono); letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); margin-top: 2px; }
+.cs-board { display: flex; flex-direction: column; }
+.cs-row { display: flex; align-items: center; gap: 10px; padding: 10px 2px; border-top: 1px solid var(--hairline); cursor: pointer; }
+.cs-row:first-child { border-top: none; }
+.cs-sym { font: 700 13.5px var(--font-mono); width: 56px; flex: none; }
+.cs-rsi { font: 500 11.5px var(--font-mono); color: var(--text-muted); flex: 1; font-variant-numeric: tabular-nums; }
+.cs-dn { color: var(--sell); }
+.cs-tags { display: flex; gap: 5px; flex: none; }
+.cs-tag { font: 700 8.5px var(--font-mono); letter-spacing: 0.05em; padding: 2px 6px; border-radius: 5px; }
+.cs-tag.you { color: #08101f; background: var(--accent); }
+.cs-tag.aj { color: #04120d; background: var(--buy); }
+
 /* You-vs-Ajent · user book */
 .ub-panel { margin-top: 14px; }
 .vs-grid { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; margin: 6px 0 12px; }
@@ -104,6 +134,8 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .ub-open { background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 12px; padding: 12px 13px; }
 .ub-open-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font: 600 12.5px var(--font-body); }
 .ub-lvls { font: 500 11px var(--font-mono); color: var(--text-muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.ub-strat-link { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 11px; padding: 10px; border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--hairline)); border-radius: 11px; font: 700 12.5px var(--font-body); color: var(--accent-200); text-decoration: none; }
+.ub-strat-link:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 
 .region-bar.empty { display: none; }
 .region-bar { display: flex; gap: 7px; margin: 0 0 16px; flex-wrap: wrap; }
