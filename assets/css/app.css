@@ -80,6 +80,18 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .tk-chg { font-variant-numeric: tabular-nums; }
 .tk-b { font: 700 8.5px var(--font-mono); letter-spacing: 0.04em; color: #04130d; background: var(--buy); padding: 1px 5px; border-radius: 3px; }
 @keyframes tkScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* Region-pulse switcher — focus the board on your region vs the world */
+.region-bar.empty { display: none; }
+.region-bar { display: flex; gap: 7px; margin: 0 0 16px; flex-wrap: wrap; }
+.rgn-chip { display: inline-flex; align-items: center; gap: 6px; font: 600 11px var(--font-mono); letter-spacing: 0.03em; color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 9px; padding: 6px 10px; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
+.rgn-chip:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--hairline)); }
+.rgn-chip.on { background: color-mix(in srgb, var(--accent) 14%, transparent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+.rgn-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--neutral-700); flex: none; }
+.rgn-dot.open { background: var(--buy); box-shadow: 0 0 6px var(--buy); }
+.rgn-lab { font-weight: 700; color: var(--text); }
+.rgn-chip:not(.on) .rgn-lab { color: var(--text-muted); }
+.rgn-brd { font-variant-numeric: tabular-nums; }
 .stat-sub { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
 
 .section-label {

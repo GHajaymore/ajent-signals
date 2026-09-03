@@ -294,6 +294,27 @@ function greeting() {
 // Friendly name for the pill — the user's *market by country* ("US market",
 // "India market") rather than a bare ticker, since the pill answers "is MY
 // market open?". Crypto is 24/7; commodities keep their own name.
+// Region lens — a VIEW filter (never changes what the engine trades; the record
+// stays globally diversified). Crypto is 24/7 and global, so it shows in every view.
+const REGION_OF_COUNTRY = { US: 'americas', CA: 'americas', BR: 'americas', EU: 'europe', DE: 'europe', FR: 'europe', GB: 'europe', JP: 'asia', AU: 'asia', HK: 'asia', CN: 'asia', SG: 'asia', IN: 'asia' };
+const REGIONS = [
+  { key: 'americas', short: 'AMER', name: 'Americas' },
+  { key: 'europe', short: 'EUR', name: 'Europe' },
+  { key: 'asia', short: 'APAC', name: 'Asia-Pacific' },
+];
+function regionOfMarket(m) { return (m && m.category === 'Crypto') ? 'crypto' : (REGION_OF_COUNTRY[m && m.country] || 'americas'); }
+// The user's active region: their explicit pick, else their geo region, else 'all'.
+function activeRegion() {
+  const set = state.settings.region;
+  if (set === 'all' || REGIONS.some((r) => r.key === set)) return set;
+  return REGION_OF_COUNTRY[state.geoCountry] || 'all';
+}
+function inActiveRegion(m) {
+  const r = activeRegion();
+  if (r === 'all') return true;
+  return regionOfMarket(m) === r || (m && m.category === 'Crypto'); // crypto always shows
+}
+
 const REGION_NAME = {
   US: 'US market', IN: 'India market', GB: 'UK market', DE: 'Germany market',
   FR: 'Europe market', EU: 'Europe market', JP: 'Japan market', HK: 'Hong Kong market',
@@ -347,8 +368,9 @@ function computeDerived() {
   // scoped to markets with live data so stale/no-feed ones don't skew it. NOTE:
   // this reflects price direction, NOT how many BUY signals fired — the strategy
   // is in cash most of the time, so signal-count would read "Down" almost always.
-  const liveMkts = markets.filter((m) => m.signalIsReal);
-  const trendScope = liveMkts.length ? liveMkts : markets;
+  // Daily-trend breadth respects the region lens (crypto always counts).
+  const liveMkts = markets.filter((m) => m.signalIsReal).filter(inActiveRegion);
+  const trendScope = liveMkts.length ? liveMkts : markets.filter(inActiveRegion);
   const upToday = trendScope.filter((m) => (m.changePct || 0) > 0).length;
   const downToday = trendScope.filter((m) => (m.changePct || 0) < 0).length;
   const riskOn = upToday >= downToday;
@@ -373,7 +395,7 @@ function computeDerived() {
 // of the real markets (mono, coloured by today's move, BUYs flagged) that pauses on
 // hover and stills under reduced-motion. Data is live at render; refreshes with Home.
 function homeTickerTrack(engine, threshold) {
-  const mkts = engine.markets.filter(isRealMarket);
+  const mkts = engine.markets.filter(isRealMarket).filter(inActiveRegion);
   if (mkts.length < 3) return '';
   const item = (m) => {
     const chg = m.changePct || 0, up = chg >= 0;
@@ -388,6 +410,31 @@ function homeTickerTrack(engine, threshold) {
 function homeTickerHtml(engine, threshold) {
   const track = homeTickerTrack(engine, threshold);
   return `<div class="home-ticker${track ? '' : ' empty'}" id="home-ticker" aria-hidden="true">${track}</div>`;
+}
+
+// Region-pulse switcher — each region shows its live breadth + open/closed status,
+// and selecting one focuses the Home view (ticker + breadth) on it. "All" = global.
+// The engine still trades every region; this only scopes what the user sees.
+function regionChipsHtml(engine) {
+  const real = engine.markets.filter(isRealMarket);
+  if (real.length < 2) return '';
+  const active = activeRegion();
+  const stat = (pred) => { const ms = real.filter(pred); return { n: ms.length, up: ms.filter((m) => (m.changePct || 0) > 0).length, open: ms.some((m) => marketSession(m) === 'open') }; };
+  const chip = (key, label, s, on) => {
+    if (!s.n) return '';
+    const lead = s.up >= s.n - s.up;
+    return `<button class="rgn-chip${on ? ' on' : ''}" data-region="${key}" title="${label}: ${s.up} of ${s.n} up · ${s.open ? 'open' : 'closed'}">
+      <span class="rgn-dot${s.open ? ' open' : ''}"></span><span class="rgn-lab">${label}</span>
+      <span class="rgn-brd" style="color:${lead ? 'var(--buy)' : 'var(--sell)'}">${lead ? '▲' : '▼'}${s.up}/${s.n}</span>
+    </button>`;
+  };
+  return REGIONS.map((r) => chip(r.key, r.short, stat((m) => regionOfMarket(m) === r.key), active === r.key)).join('')
+    + chip('all', 'ALL', stat(() => true), active === 'all');
+}
+// Always render the container; the update loop refills it once markets turn real.
+function regionBarHtml(engine) {
+  const chips = regionChipsHtml(engine);
+  return `<div class="region-bar${chips ? '' : ' empty'}" id="region-bar">${chips}</div>`;
 }
 
 export function render(container) {
@@ -412,6 +459,8 @@ export function render(container) {
     </div>
 
     ${homeTickerHtml(engine, threshold)}
+
+    ${regionBarHtml(engine)}
 
     <div class="home-greeting">${greeting()}</div>
 
@@ -472,6 +521,16 @@ export function render(container) {
 
   wireNews(container);
   loadNews(container);
+
+  // Region lens: delegated so it survives the update loop refilling the chips.
+  const regionBar = container.querySelector('#region-bar');
+  if (regionBar) regionBar.addEventListener('click', (e) => {
+    const c = e.target.closest('.rgn-chip');
+    if (!c) return;
+    state.settings.region = c.dataset.region;
+    saveSettings();
+    render(container);
+  });
 }
 
 export function refresh(container) {
@@ -486,6 +545,10 @@ export function refresh(container) {
 
   // Refresh the living-board ticker so its prices tick with every live poll (and it
   // fills in once markets turn real after the initial paint).
+  // Keep the region-pulse bar's breadth/status fresh (delegated click survives this).
+  const regionBarEl = container.querySelector('#region-bar');
+  if (regionBarEl) { const chips = regionChipsHtml(engine); regionBarEl.classList.toggle('empty', !chips); regionBarEl.innerHTML = chips; }
+
   const tickerEl = container.querySelector('#home-ticker');
   if (tickerEl) {
     const track = homeTickerTrack(engine, threshold);
@@ -494,7 +557,7 @@ export function refresh(container) {
     else if (track) {
       // Patch only the change cells in place so the marquee scroll position isn't reset.
       const cells = tickerEl.querySelectorAll('.tk-chg');
-      const mkts = engine.markets.filter(isRealMarket);
+      const mkts = engine.markets.filter(isRealMarket).filter(inActiveRegion);
       const vals = mkts.concat(mkts).map((m) => { const c = m.changePct || 0; return { t: `${c >= 0 ? '+' : ''}${c.toFixed(2)}%`, up: c >= 0 }; });
       cells.forEach((el, i) => { if (vals[i]) { el.textContent = vals[i].t; el.style.color = vals[i].up ? 'var(--buy)' : 'var(--sell)'; } });
     }
