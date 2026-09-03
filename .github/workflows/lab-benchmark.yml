@@ -1,0 +1,40 @@
+name: Weekly lab benchmark
+
+# Independent, READ-ONLY robustness check for Ajent Pulse. It re-runs the exact
+# production recipe across the parameter/market grid (the same sweep as
+# worker/test/sweep.mjs), compares the result against fixed guardrails, writes a
+# report to the run summary + an artifact, and turns the run RED (notifying) only
+# if the proven edge has drifted outside its envelope. It changes nothing and
+# cannot interfere with live trading.
+on:
+  schedule:
+    - cron: '0 23 * * 0'    # Sundays 23:00 UTC (after the week's close)
+  workflow_dispatch:          # or run it on demand
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run robustness benchmark
+        run: |
+          node analytics/lab-benchmark.mjs | tee benchmark.md
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          cat benchmark.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload benchmark artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ajent-lab-benchmark
+          path: benchmark.md
+      - name: Flag drift
+        if: always()
+        run: |
+          if grep -q '⚠️ DRIFT' benchmark.md; then
+            echo "::warning::Ajent Pulse robustness drift detected — see the benchmark summary and re-run the full lab."
+            exit 1
+          fi
+          echo "No drift — proven edge intact."
