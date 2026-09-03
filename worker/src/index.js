@@ -41,7 +41,11 @@ export default {
   async scheduled(event, env, ctx) {
     ctx.waitUntil((async () => {
       const store = db(env);
-      const r = await runTick(env, store);
+      // A thrown tick must not go unnoticed — log it. The next cron run retries; the
+      // record is only rewritten on a clean pass, so a failure never corrupts state.
+      let r;
+      try { r = await runTick(env, store); }
+      catch (e) { console.error('runTick failed:', e && e.stack || e); return; }
       // Ping push subscribers only when a fresh BUY/SELL actually fires. Record
       // WHAT fired so the notification can name the market(s), not just "a setup".
       if (r && r.signalFired) {

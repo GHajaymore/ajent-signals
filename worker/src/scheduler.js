@@ -117,7 +117,11 @@ export async function runTick(env, store) {
   // current read (reported); `record.adopted` is what actually trades until the
   // next re-tune. The daily report shows both.
   const RETUNE_MS = 7 * 86400000; // adjust the strategy at most weekly
-  const learned = computeAdaptive(record, STRATEGY);
+  // Defensive: a bug in the adaptive layer must NEVER stop live trading. On any
+  // failure, fall back to the proven defaults (no adaptation this tick).
+  let learned;
+  try { learned = computeAdaptive(record, STRATEGY); }
+  catch (e) { learned = { learning: true, trades: (record.closed || []).length, winRate: 0, sizeMult: 1, stopMult: STRATEGY.stopAtrMult, engines: {}, note: 'adaptive fell back to defaults' }; }
   const nowMs = Date.now();
   if (!record.adopted || (nowMs - (record.adopted.at || 0)) > RETUNE_MS) {
     record.adopted = { stopMult: learned.stopMult, sizeMult: learned.sizeMult, engines: learned.engines, at: nowMs, fromTrades: learned.trades };
@@ -186,13 +190,12 @@ export async function runTick(env, store) {
       }
     } catch (e) { /* skip this market this tick — its last-known signal is carried forward */ }
   }
-  // ONE write for all markets' signals (was one-per-market). Cuts KV writes ~8x
-  // so the Worker fits Cloudflare's free tier alongside the account's other apps.
-  await store.put({ pk: 'SIGNALS', sk: 'ALL', updatedAt: Date.now(), signals: Object.values(bySym), adaptive: { ...learned, adopted: record.adopted, nextRetune: (record.adopted.at || nowMs) + RETUNE_MS } });
-  // One batched write for the whole paper record (was one put/del per position +
-  // TRADE + LASTCLOSE keys). /trades now reads this single blob via get — no list.
-  await store.put({ pk: 'RECORD', sk: 'ALL', updatedAt: Date.now(), open: record.open, closed: record.closed, lastClose: record.lastClose, migrated: record.migrated, adopted: record.adopted });
-  if (histChanged) await store.put({ pk: 'HISTORY', sk: 'ALL', updatedAt: Date.now(), hist });
+  // Persist each blob independently so one failure (e.g. a KV quota blip) can't
+  // stop the others. RECORD first — the paper trades are the most important thing
+  // to save; a batched blob each (no KV list, fits the free tier).
+  try { await store.put({ pk: 'RECORD', sk: 'ALL', updatedAt: Date.now(), open: record.open, closed: record.closed, lastClose: record.lastClose, migrated: record.migrated, adopted: record.adopted }); } catch (e) { /* retried next tick */ }
+  try { await store.put({ pk: 'SIGNALS', sk: 'ALL', updatedAt: Date.now(), signals: Object.values(bySym), adaptive: { ...learned, adopted: record.adopted, nextRetune: (record.adopted.at || nowMs) + RETUNE_MS } }); } catch (e) { /* retried next tick */ }
+  try { if (histChanged) await store.put({ pk: 'HISTORY', sk: 'ALL', updatedAt: Date.now(), hist }); } catch (e) { /* non-fatal */ }
   // Fan out the fresh events to registered Pro webhooks (best-effort).
   try { await deliverEvents(store, events); } catch (e) { /* delivery never blocks trading */ }
   const fired = events.filter((e) => e.type === 'signal').map((e) => ({ symbol: e.symbol, name: e.name, verdict: e.event, confidence: e.signal && e.signal.confidence }));
