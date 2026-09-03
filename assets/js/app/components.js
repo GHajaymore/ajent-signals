@@ -187,6 +187,21 @@ export function watchlistRow(market, verdict) {
   </div>`;
 }
 
+// Compact per-row freshness for the markets list: real-time, proxy-estimated
+// (~RT via the tracking ETF), or delayed. Closed markets already carry a CLOSED
+// tag from dataTag, so we skip them here.
+function rowFreshness(market) {
+  if (marketSession(market) === 'closed') return '';
+  const age = market.quoteAgeSec;
+  if (!market.isLiveFresh || age == null) return '';
+  if (age <= 180) {
+    return market.proxySource
+      ? ` <span class="data-tag rt" title="Near-real-time — estimated from ${market.proxySource}">~RT</span>`
+      : ` <span class="data-tag rt" title="Real-time">LIVE</span>`;
+  }
+  return ` <span class="data-tag dly" title="Real price, delayed at the source">DELAYED</span>`;
+}
+
 export function marketRow(market, verdict) {
   const chgColor = market.changePct >= 0 ? 'var(--buy)' : 'var(--sell)';
   return `
@@ -194,7 +209,7 @@ export function marketRow(market, verdict) {
     ${symTile(market.symbol, 36)}
     <div class="mkt-body">
       <div class="mkt-name">${market.name}</div>
-      <div class="mkt-ex">${countryFlag(market.country)} ${market.exchange} · <span data-f="tag">${dataTag(market)}</span></div>
+      <div class="mkt-ex">${countryFlag(market.country)} ${market.exchange} · <span data-f="tag">${dataTag(market)}</span><span data-f="fresh">${rowFreshness(market)}</span></div>
     </div>
     <div class="mkt-price">
       <div class="px tabular" data-f="price">${fmtPrice(market.price, market.decimals)}</div>
@@ -261,6 +276,8 @@ export function patchRow(el, market, verdict) {
     if (v) v.innerHTML = verdictChip(verdict);
     el.dataset.verdict = verdict;
   }
+  const fresh = el.querySelector('[data-f="fresh"]');
+  if (fresh) { const f = rowFreshness(market); if (fresh.innerHTML !== f) fresh.innerHTML = f; }
   const realStr = market.signalIsReal ? '1' : '0';
   if (el.dataset.real !== realStr) {
     const tag = el.querySelector('[data-f="tag"]');
