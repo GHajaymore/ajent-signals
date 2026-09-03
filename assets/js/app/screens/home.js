@@ -559,7 +559,12 @@ export function refresh(container) {
       const cells = tickerEl.querySelectorAll('.tk-chg');
       const mkts = engine.markets.filter(isRealMarket).filter(inActiveRegion);
       const vals = mkts.concat(mkts).map((m) => { const c = m.changePct || 0; return { t: `${c >= 0 ? '+' : ''}${c.toFixed(2)}%`, up: c >= 0 }; });
-      cells.forEach((el, i) => { if (vals[i]) { el.textContent = vals[i].t; el.style.color = vals[i].up ? 'var(--buy)' : 'var(--sell)'; } });
+      cells.forEach((el, i) => {
+        if (!vals[i]) return;
+        if (el.textContent !== vals[i].t) { el.classList.remove('tk-flash'); void el.offsetWidth; el.classList.add('tk-flash'); }
+        el.textContent = vals[i].t;
+        el.style.color = vals[i].up ? 'var(--buy)' : 'var(--sell)';
+      });
     }
   }
 

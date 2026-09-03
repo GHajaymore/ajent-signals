@@ -77,7 +77,9 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .tk-item { font: 600 12px var(--font-mono); color: var(--text-muted); display: inline-flex; align-items: center; gap: 7px; }
 .tk-item b { color: var(--text); font-weight: 700; letter-spacing: 0.02em; }
 .tk-item.buy b { color: var(--buy); }
-.tk-chg { font-variant-numeric: tabular-nums; }
+.tk-chg { font-variant-numeric: tabular-nums; border-radius: 3px; }
+.tk-flash { animation: tkFlash 0.7s ease-out; }
+@keyframes tkFlash { 0% { background: color-mix(in srgb, currentColor 28%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 12%, transparent); } 100% { background: transparent; box-shadow: none; } }
 .tk-b { font: 700 8.5px var(--font-mono); letter-spacing: 0.04em; color: #04130d; background: var(--buy); padding: 1px 5px; border-radius: 3px; }
 @keyframes tkScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
@@ -146,8 +148,8 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .sym-name { font: 600 15px var(--font-heading); }
 .sym-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 1px; }
 .hero-price { text-align: right; }
-.hero-price .px { font: 700 19px var(--font-heading); }
-.hero-price .chg { font: 700 12px var(--font-heading); margin-top: 2px; }
+.hero-price .px { font: 700 19px var(--font-mono); letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.hero-price .chg { font: 600 12px var(--font-mono); margin-top: 2px; font-variant-numeric: tabular-nums; }
 
 .hero-verdict-row { display: flex; align-items: center; gap: 16px; margin: 14px 0 6px; }
 .hero-verdict { font: 800 34px var(--font-heading); display: flex; align-items: center; gap: 8px; letter-spacing: -0.02em; }
@@ -308,8 +310,8 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .mkt-name { font: 600 13.5px var(--font-heading); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mkt-ex { font-size: 11px; color: var(--text-muted); }
 .mkt-price { text-align: right; flex: none; }
-.mkt-price .px { font: 600 13.5px var(--font-heading); }
-.mkt-price .chg { font-size: 11px; margin-top: 1px; }
+.mkt-price .px { font: 600 13.5px var(--font-mono); font-variant-numeric: tabular-nums; }
+.mkt-price .chg { font: 500 11px var(--font-mono); margin-top: 1px; font-variant-numeric: tabular-nums; }
 .mkt-verdict { flex: none; width: 82px; display: flex; justify-content: flex-end; }
 .setup-row { display: flex; align-items: center; gap: 11px; padding: 10px 4px; border-bottom: 1px solid var(--divider); cursor: pointer; }
 .setup-row:last-child { border-bottom: none; }
