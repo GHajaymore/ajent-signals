@@ -165,6 +165,7 @@ function fmtHoldMin(min) {
 // --- Selectable Profit & Loss (Daily / Monthly / Quarterly / YTD / Custom) ---
 let pnlPeriod = 'monthly';
 let pnlFrom = '', pnlTo = '';
+let renderedClosedCount = -1; // so the record view re-renders when a trade closes
 function bucketOf(ts, grp) {
   const d = new Date(ts);
   if (grp === 'daily') return { key: d.toDateString(), label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), sort: new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() };
@@ -486,6 +487,7 @@ export function render(container) {
   if (!perf) { container.innerHTML = emptyState(); wireSelector(container); return; }
 
   const closed = getClosedTrades();
+  renderedClosedCount = closed.length;
   const pnlColor = perf.totalPnl >= 0 ? 'var(--buy)' : 'var(--sell)';
   const up = perf.totalPnl >= 0;
   const pfStr = perf.profitFactor === Infinity ? '∞' : perf.profitFactor.toFixed(2);
@@ -575,6 +577,11 @@ export function refresh(container) {
     const sig = watchSig();
     if (watchWrap.dataset.sig !== sig) { watchWrap.innerHTML = watchingList(); watchWrap.dataset.sig = sig; }
   }
+
+  // In the full record view, a newly-closed trade changes the P&L, stats and
+  // record — re-render so they stay live (the period selector persists via the
+  // module-level state). Rare event, so a full rebuild is fine.
+  if (!watchWrap && getClosedTrades().length !== renderedClosedCount) { render(container); return; }
 
   // Open positions: patch each row's live P&L + risk bar as prices tick (works in
   // both the empty state and the full record view).
