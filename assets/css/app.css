@@ -213,10 +213,18 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 }
 .seg-btn.active { background: var(--accent-800); color: var(--accent-100); }
 
-.verdict-frame { position: relative; overflow: hidden; border: 1px solid color-mix(in srgb, var(--vc) 34%, var(--hairline)); border-radius: var(--radius-lg); padding: 28px 20px; text-align: center; margin-bottom: 16px; background: radial-gradient(130% 130% at 50% -14%, color-mix(in srgb, var(--vc) 17%, var(--surface)), var(--surface) 72%); box-shadow: 0 18px 44px -28px var(--vc); }
-.verdict-frame > * { position: relative; z-index: 1; }
-.verdict-big { font: 800 32px var(--font-heading); letter-spacing: -0.5px; display: inline-flex; align-items: center; gap: 10px; }
-.verdict-sub { font-size: 13px; color: var(--text-muted); margin-top: 6px; }
+/* Cinematic verdict hero — the "act on the signal" moment. Deep ground, a breathing
+   glow in the verdict colour, an oversized gradient verdict. Quiet variant for NO_TRADE. */
+.verdict-frame { position: relative; overflow: hidden; border: 1px solid color-mix(in srgb, var(--vc) 30%, var(--hairline)); border-radius: var(--radius-lg); padding: 30px 20px 26px; text-align: center; margin-bottom: 16px; background: radial-gradient(130% 120% at 50% 120%, color-mix(in srgb, var(--vc) 12%, #06070c), #06070c 70%); box-shadow: 0 24px 60px -32px var(--vc), inset 0 1px 0 rgba(255,255,255,0.05); }
+.verdict-frame > *:not(.verdict-glow) { position: relative; z-index: 1; }
+.verdict-glow { position: absolute; top: -8%; left: 50%; width: 150%; height: 62%; transform: translateX(-50%); pointer-events: none; z-index: 0; background: radial-gradient(50% 50% at 50% 42%, color-mix(in srgb, var(--vc) 34%, transparent), transparent 70%); filter: blur(20px); opacity: 0.85; animation: verdictBreathe 5s ease-in-out infinite; }
+.verdict-frame.quiet { box-shadow: 0 18px 44px -32px rgba(0,0,0,0.7); }
+.verdict-frame.quiet .verdict-glow { opacity: 0.4; animation: none; }
+.verdict-eye { font: 700 11px var(--font-heading); letter-spacing: 0.26em; text-transform: uppercase; color: var(--vc); margin-bottom: 12px; }
+.verdict-big { font: 800 clamp(46px, 15vw, 62px) var(--font-heading); letter-spacing: -0.03em; line-height: 0.98; display: inline-flex; align-items: center; gap: 12px; background: linear-gradient(180deg, color-mix(in srgb, var(--vc) 12%, #ffffff), var(--vc)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.verdict-big i { font-size: 0.62em; -webkit-text-fill-color: var(--vc); color: var(--vc); filter: drop-shadow(0 3px 12px color-mix(in srgb, var(--vc) 60%, transparent)); }
+.verdict-sub { font-size: 13px; color: var(--text-muted); margin-top: 8px; }
+@keyframes verdictBreathe { 0%, 100% { opacity: 0.72; transform: translateX(-50%) scale(1); } 50% { opacity: 1; transform: translateX(-50%) scale(1.06); } }
 
 .ring-wrap { position: relative; width: 132px; height: 132px; margin: 22px auto 4px; }
 .ring-wrap svg { transform: rotate(-90deg); }

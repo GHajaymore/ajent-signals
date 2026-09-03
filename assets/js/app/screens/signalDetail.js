@@ -579,9 +579,12 @@ function renderSignalTab(market, verdict, color) {
     <i class="ph-fill ${status.ok ? 'ph-check-circle' : 'ph-info'}"></i>
     <span>${status.text}</span>
   </div>` : '';
+  const eyebrow = verdict === 'NO_TRADE' ? 'Standing by' : verdict === 'BUY' ? 'Setup confirmed' : 'Setup confirmed · short';
   return `
-  <div class="verdict-frame" style="--vc:${color}">
-    <div class="verdict-big" style="color:${color}">${verdictIcon(verdict)}${verdict === 'NO_TRADE' ? 'NO TRADE' : verdict}</div>
+  <div class="verdict-frame${verdict === 'NO_TRADE' ? ' quiet' : ''}" style="--vc:${color}">
+    <div class="verdict-glow" aria-hidden="true"></div>
+    <div class="verdict-eye">${eyebrow}</div>
+    <div class="verdict-big" style="color:${color}">${verdictIcon(verdict)}<span>${verdict === 'NO_TRADE' ? 'NO TRADE' : verdict}</span></div>
     <div class="verdict-sub">${subline}</div>
     ${confidenceRing(s.confidence, color)}
   </div>
