@@ -4,16 +4,20 @@
 import { sma, rsi, atr, stdev } from './indicators.js';
 import { STRATEGY } from './meta.js';
 
-export function computeSignal(candles, live) {
+// `params` (optional) overrides the STRATEGY dials for the backtest sweep, so the
+// robustness lab tests the EXACT production logic at different settings — never a
+// re-implementation that could drift from what actually trades.
+export function computeSignal(candles, live, params) {
+  const P = params ? { ...STRATEGY, ...params } : STRATEGY;
   const c = candles.slice();
   if (live != null && c.length) c[c.length - 1] = { ...c[c.length - 1], c: live };
   const closes = c.map((x) => x.c);
   const n = closes.length;
-  if (n < STRATEGY.trendSma + 10) return { verdict: 'NO_TRADE', confidence: 0, reason: 'insufficient history' };
+  if (n < P.trendSma + 10) return { verdict: 'NO_TRADE', confidence: 0, reason: 'insufficient history' };
 
   const price = closes[n - 1];
-  const s200 = sma(closes, STRATEGY.trendSma)[n - 1];
-  const rsi2 = rsi(closes, STRATEGY.indicatorPeriod)[n - 1];
+  const s200 = sma(closes, P.trendSma)[n - 1];
+  const rsi2 = rsi(closes, P.indicatorPeriod)[n - 1];
   const atrN = atr(c, 14)[n - 1];
   const s20 = sma(closes, 20)[n - 1];
   const sd = stdev(closes, 20)[n - 1];
@@ -36,15 +40,15 @@ export function computeSignal(candles, live) {
   // LONG (validated): oversold flush below the prior day's low in an uptrend.
   // Entry RSI2<15 (a standard Connors threshold — backtests +32% more CAGR than
   // <10 when paired with the RSI2 exit below, on the equity universe, 2yr).
-  if (up && rsi2 < STRATEGY.entryBelow && price < c[n - 2].l) {
-    const deep = rsi2 < STRATEGY.deepBelow, stretched = price < lowerBB;
+  if (up && rsi2 < P.entryBelow && price < c[n - 2].l) {
+    const deep = rsi2 < P.deepBelow, stretched = price < lowerBB;
     setup = deep && stretched ? 1 : deep ? 0.9 : 0.8;
     conviction = deep && stretched ? 'high' : 'normal';
     side = 1;
-  } else if (ALLOW_SHORTS && down && rsi2 > (100 - STRATEGY.entryBelow) && price > c[n - 2].h) {
+  } else if (ALLOW_SHORTS && down && rsi2 > (100 - P.entryBelow) && price > c[n - 2].h) {
     // SHORT (PROVISIONAL, disabled): overbought pop above the prior day's high in a
     // downtrend — the mirror of the long. Not backtest-validated; lost money.
-    const deep = rsi2 > (100 - STRATEGY.deepBelow), stretched = price > upperBB;
+    const deep = rsi2 > (100 - P.deepBelow), stretched = price > upperBB;
     setup = deep && stretched ? 1 : deep ? 0.9 : 0.8;
     conviction = deep && stretched ? 'high' : 'normal';
     side = -1;
@@ -62,7 +66,7 @@ export function computeSignal(candles, live) {
     : up ? Math.round(clamp01((30 - rsi2) / 25) * 100)
     : (ALLOW_SHORTS && down) ? Math.round(clamp01((rsi2 - 70) / 25) * 100)
     : 0;
-  const risk = Math.max(atrN * STRATEGY.stopAtrMult, price * 0.004);
+  const risk = Math.max(atrN * P.stopAtrMult, price * 0.004);
   const plan = fires ? {
     entry: price,
     stop: side > 0 ? price - risk : price + risk,
