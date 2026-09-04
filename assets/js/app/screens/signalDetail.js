@@ -672,7 +672,7 @@ function renderSignalTab(market, verdict, color) {
   </div>`; })()}
 
   <div class="stat3-row">
-    <div class="stat3-cell"><div class="k">Trend</div><div class="v" style="color:${s.trend === 'Bullish' ? 'var(--buy)' : s.trend === 'Bearish' ? 'var(--sell)' : 'var(--flat)'}">${s.trend}</div></div>
+    <div class="stat3-cell"><div class="k">Bigger trend</div><div class="v" style="color:${s.trend === 'Bullish' ? 'var(--buy)' : s.trend === 'Bearish' ? 'var(--sell)' : 'var(--flat)'}">${s.trend}</div></div>
     <div class="stat3-cell"><div class="k">Volatility</div><div class="v">${s.volatility}</div></div>
     <div class="stat3-cell"><div class="k">Hold</div><div class="v">${s.expectedHold}</div></div>
   </div>
