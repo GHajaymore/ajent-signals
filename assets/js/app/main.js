@@ -55,7 +55,7 @@ function tabKeyFor(route) {
 function renderTabbar(route) {
   const activeKey = tabKeyFor(route);
   tabbarEl.innerHTML = TABS.map((t) => `
-    <button class="tab-btn ${t.key === activeKey ? 'active' : ''}" data-tab="${t.key}">
+    <button class="tab-btn ${t.key === activeKey ? 'active' : ''}" data-tab="${t.key}"${t.key === activeKey ? ' aria-current="page"' : ''}>
       <span class="i" style="position:relative">
         <i class="${activeKey === t.key ? 'ph-fill' : 'ph'} ${t.icon}"></i>
         ${t.key === 'alerts' && state.hasUnreadAlerts ? '<span style="position:absolute;top:-1px;right:-3px;width:6px;height:6px;border-radius:50%;background:var(--sell)"></span>' : ''}
