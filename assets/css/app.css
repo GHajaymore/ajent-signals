@@ -140,6 +140,10 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .vs-exp-l { display: block; font: 600 8px var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-top: 3px; }
 .vs-sub { font: 500 10px var(--font-mono); color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .vs-mid { font: 700 11px var(--font-heading); color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.06em; }
+.yva-chart { margin: 4px 0 12px; }
+.yva-legend { display: flex; gap: 16px; justify-content: center; margin-top: 6px; font: 600 10.5px var(--font-mono); color: var(--text-muted); }
+.yva-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.yva-legend i { width: 12px; height: 2.5px; border-radius: 2px; display: inline-block; }
 .yva-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 4px 0 12px; }
 .yva-3 .vs-col { padding: 12px 5px; }
 .yva-3 .vs-exp { font-size: 18px; }

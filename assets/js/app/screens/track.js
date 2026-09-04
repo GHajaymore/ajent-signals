@@ -1,6 +1,6 @@
 import { getClosedTrades, getPerformanceSummary, getOpenPositions, tradePnl } from '../paperTrading.js';
-import { userStats } from '../userBook.js';
-import { customStats, ajentAvgR } from '../customBook.js';
+import { userStats, getUserBook } from '../userBook.js';
+import { customStats, ajentAvgR, getCustomBook } from '../customBook.js';
 import { positionCallPill, updateCallPill } from '../tradeGuidance.js';
 import { getStrategy, getAdaptive } from '../strategyMeta.js';
 import { fmtPrice } from '../format.js';
@@ -547,6 +547,33 @@ function downloadCsv(filename, csv) {
   setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
 }
 
+// Overlaid cumulative-P&L curves — your combined virtual results vs Ajent's, both
+// plotted over real time from a common zero, so you literally watch the two lines
+// diverge over the same window.
+function dualEquityChart(ajClosed, youClosed) {
+  const series = (closed) => {
+    const s = closed.slice().filter((t) => t.closedAt).sort((a, b) => a.closedAt - b.closedAt);
+    let eq = 0; return s.map((t) => { eq += (t.pnl || 0); return { t: t.closedAt, v: eq }; });
+  };
+  const aj = series(ajClosed), you = series(youClosed);
+  if (aj.length < 2 && you.length < 2) return '';
+  const all = aj.concat(you);
+  const tMin = Math.min(...all.map((p) => p.t)), tMaxRaw = Math.max(...all.map((p) => p.t));
+  const tMax = tMaxRaw > tMin ? tMaxRaw : tMin + 1;
+  const vMax = Math.max(0, ...all.map((p) => p.v)), vMin = Math.min(0, ...all.map((p) => p.v));
+  const w = 280, h = 92, pad = 6, span = tMax - tMin, vspan = (vMax - vMin) || 1;
+  const x = (t) => pad + ((t - tMin) / span) * (w - 2 * pad);
+  const y = (v) => pad + (1 - (v - vMin) / vspan) * (h - 2 * pad);
+  const path = (pts, color, dash) => pts.length ? `<path d="${pts.map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ')}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"${dash ? ' stroke-dasharray="4 4"' : ''}/>${pts.length ? `<circle cx="${x(pts[pts.length - 1].t).toFixed(1)}" cy="${y(pts[pts.length - 1].v).toFixed(1)}" r="2.6" fill="${color}"/>` : ''}` : '';
+  const youFinal = you.length ? you[you.length - 1].v : 0;
+  return `<div class="yva-chart"><svg viewBox="0 0 ${w} ${h}" width="100%" style="height:auto;display:block">
+    <line x1="${pad}" y1="${y(0).toFixed(1)}" x2="${w - pad}" y2="${y(0).toFixed(1)}" stroke="var(--hairline)" stroke-dasharray="3 4"/>
+    ${path(aj, 'var(--accent)')}
+    ${path(you, youFinal >= 0 ? 'var(--buy)' : 'var(--sell)')}
+  </svg>
+  <div class="yva-legend"><span><i style="background:var(--accent)"></i>Ajent</span><span><i style="background:${youFinal >= 0 ? 'var(--buy)' : 'var(--sell)'}"></i>You</span></div></div>`;
+}
+
 // "You vs Ajent" on the record's home — the user's own book + strategy scored
 // against Ajent by expectancy (the scale-fair metric). Selection stays your own,
 // so net $ is secondary; avg R/trade is the headline.
@@ -569,9 +596,12 @@ function youVsAjentCard(perf, ajTradeCount) {
   const grid = cols.length === 2
     ? `<div class="vs-grid">${cols[0]}<div class="vs-mid">vs</div>${cols[1]}</div>`
     : `<div class="yva-3">${cols.join('')}</div>`;
+  const youClosed = getUserBook().closed.concat(getCustomBook().closed);
+  const chart = dualEquityChart(getClosedTrades(), youClosed);
   return `<div class="panel">
     <div class="panel-title" style="display:flex;align-items:center;gap:8px"><i class="ph-fill ph-scales" style="color:var(--accent)"></i>You vs Ajent</div>
     ${grid}
+    ${chart}
     <div class="fair-note"><b>Avg R/trade is the fair read</b> — count- and size-independent, so it's true even at a small account. Net $ just reflects how many trades each took. <a href="#/mystrategy" style="color:var(--accent-300)">Tune your strategy ›</a></div>
   </div>`;
 }
