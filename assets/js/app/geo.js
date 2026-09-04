@@ -53,6 +53,9 @@ export async function applyGeoDefaults(state) {
   // Respect a user-curated watchlist (the star) — only seed the geo default
   // when the user hasn't starred anything yet.
   if (!state.watchlistCustomized) state.homeWatchlist = watchlist;
-  state.selectedSymbol = symbol;
+  // This resolves ASYNC (after a geo lookup), so it must not clobber a symbol the user
+  // is already deep-linked into (#/signal/… or #/chart/…) — that caused the detail to
+  // show the geo default (e.g. ES) while the header showed the linked market.
+  if (!/#\/(?:signal|chart)\//.test(location.hash || '')) state.selectedSymbol = symbol;
   state.geoCountry = code || 'US';
 }

@@ -24,6 +24,17 @@ import { fmtPrice, fmtCountdown, verdictColorVar, countryFlag } from '../format.
 import { confidenceRing, verdictIcon, indicatorRow, planRow, dataTag } from '../components.js';
 import { YAHOO_SYMBOL } from '../liveData.js';
 import { fetchCandles } from '../candles.js';
+
+// The URL is the source of truth for which market this screen shows. Deriving the symbol
+// from the hash (rather than trusting state.selectedSymbol, which a render race on a
+// deep-link/reload can leave stale) keeps the header, plan and "trade it your way" form
+// all on the same market. Also syncs state.selectedSymbol so the rest of the app agrees.
+function detailSymbol() {
+  const m = (location.hash || '').match(/#\/(?:signal|chart)\/([^/]+)/);
+  const sym = m && decodeURIComponent(m[1]);
+  if (sym && state.engine.get(sym)) { state.selectedSymbol = sym; return sym; }
+  return state.selectedSymbol;
+}
 import { isHighConviction, getOpenPositions } from '../paperTrading.js';
 import { isMarketAllowed } from '../adaptiveWeights.js';
 import { fetchHistory, backendConfigured } from '../backendApi.js';
@@ -446,7 +457,7 @@ function wireChartType(container, rerender) {
 // Full-screen chart page (#/chart/<symbol>) — one large annotated chart plus the
 // market's real trade log. Reached via the expand button on the Chart tab.
 export function renderChartPage(container) {
-  const symbol = state.selectedSymbol;
+  const symbol = detailSymbol();
   const market = state.engine.get(symbol);
   if (!market) { location.hash = '#/home'; return; }
   const color = verdictColorVar(market.verdict(state.settings.threshold));
@@ -930,7 +941,7 @@ function tabContentHtml(market, verdict, color, tab) {
 }
 
 export function render(container) {
-  const market = state.engine.get(state.selectedSymbol);
+  const market = state.engine.get(detailSymbol());
   if (!market) { location.hash = '#/home'; return; }
   const verdict = market.verdict(state.settings.threshold);
   const color = verdictColorVar(verdict);
