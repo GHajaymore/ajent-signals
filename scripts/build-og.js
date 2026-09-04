@@ -51,6 +51,9 @@ const svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http
     <linearGradient id="mk" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#2fe0a6"/><stop offset="1" stop-color="#66f2c8"/>
     </linearGradient>
+    <!-- Canonical app mark gradients (match favicon / app icon / home-screen icon). -->
+    <linearGradient id="icnbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c1f2e"/><stop offset="1" stop-color="#0d0e15"/></linearGradient>
+    <linearGradient id="icnp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#66f2c8"/><stop offset="1" stop-color="#2bbf8d"/></linearGradient>
   </defs>
 
   <rect width="${W}" height="${H}" fill="#0b0d16"/>
@@ -61,10 +64,19 @@ const svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http
   <!-- candlestick motif (upper right, clear of the text) -->
   <g transform="translate(26,-132)">${candleSvg}</g>
 
-  <!-- brand -->
+  <!-- brand: the canonical candlestick mark on the dark tile (matches favicon/app icon) -->
   <g transform="translate(80,74)">
-    <rect width="62" height="62" rx="17" fill="url(#mk)"/>
-    <path d="M14 40 L26 40 L32 22 L45 58 L52 34 L60 34" fill="none" stroke="#08130d" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect width="62" height="62" rx="17" fill="url(#icnbg)"/>
+    <g transform="scale(0.969)">
+      <line x1="18" y1="27" x2="18" y2="47" stroke="#ff5c7c" stroke-width="2.4" stroke-linecap="round"/>
+      <rect x="14.6" y="32" width="6.8" height="11.5" rx="2" fill="#ff5c7c"/>
+      <line x1="32" y1="20" x2="32" y2="45" stroke="url(#icnp)" stroke-width="2.4" stroke-linecap="round"/>
+      <rect x="28.6" y="24.5" width="6.8" height="16" rx="2" fill="url(#icnp)"/>
+      <line x1="46" y1="15" x2="46" y2="39" stroke="#66f2c8" stroke-width="2.2" stroke-linecap="round"/>
+      <rect x="42.4" y="19.5" width="7.2" height="14.5" rx="2" fill="none" stroke="#66f2c8" stroke-width="2.2"/>
+      <circle cx="46" cy="10.5" r="3.3" fill="#0d0e15"/>
+      <circle cx="46" cy="10.5" r="2.4" fill="#4d9bff"/>
+    </g>
     <text x="82" y="26" font-family="${FONT}" font-size="24" font-weight="800" letter-spacing="0.3" fill="#eef0f7">Ajent Signals</text>
     <text x="82" y="52" font-family="${FONT}" font-size="14.5" font-weight="700" letter-spacing="3.5" fill="#4d9bff">LONG-ONLY · SIGNAL ENSEMBLE</text>
   </g>
