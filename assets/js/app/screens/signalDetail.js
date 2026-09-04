@@ -178,7 +178,7 @@ function levelParts(levels, yFor, h, decimals, w) {
   return { lines, chips };
 }
 
-function priceChartSvg(series, color, { levels = [], decimals = 2, markers = [], h = 188, times = [] } = {}) {
+function priceChartSvg(series, color, { levels = [], decimals = 2, markers = [], h = 188, times = [], entry = null, stop = null } = {}) {
   const w = 500;
   const hasAxis = Array.isArray(times) && times.length === (series ? series.length : -1) && times.length >= 2;
   const axisH = hasAxis ? 18 : 0;               // room below the plot for date labels
@@ -221,7 +221,7 @@ function priceChartSvg(series, color, { levels = [], decimals = 2, markers = [],
   }
   const lv = levelParts(levels, yFor, h, decimals, w);
   return `
-  <svg ${hoverAttrs(series, times, lo, hi, h, w, decimals)} viewBox="0 0 ${w} ${vbH}" width="100%" style="height:auto;display:block">
+  <svg ${hoverAttrs(series, times, lo, hi, h, w, decimals, 'price', { entry, stop })} viewBox="0 0 ${w} ${vbH}" width="100%" style="height:auto;display:block">
     <defs>
       <linearGradient id="fill${uid}" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="${color}" stop-opacity="0.26"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/>
@@ -254,7 +254,7 @@ function priceChartSvg(series, color, { levels = [], decimals = 2, markers = [],
 // Candlestick chart from real OHLC bars — the classic trading view: a high-low
 // wick and an open-close body per bar, green up / red down. Same scaling, grid,
 // time axis, level lines and trade markers as the line chart.
-function candleChartSvg(candles, { levels = [], decimals = 2, markers = [], h = 188, times = [] } = {}) {
+function candleChartSvg(candles, { levels = [], decimals = 2, markers = [], h = 188, times = [], entry = null, stop = null } = {}) {
   const w = 500;
   const hasAxis = Array.isArray(times) && times.length === (candles ? candles.length : -1) && times.length >= 2;
   const axisH = hasAxis ? 18 : 0;
@@ -323,7 +323,7 @@ function candleChartSvg(candles, { levels = [], decimals = 2, markers = [], h = 
     return `<path d="${t}" fill="${c}" stroke="var(--bg)" stroke-width="0.8"/>`;
   }).join('');
   return `
-  <svg ${hoverAttrs(candles.map((c) => c.c), times, lo, hi, h, w, decimals)} viewBox="0 0 ${w} ${vbH}" width="100%" style="height:auto;display:block">
+  <svg ${hoverAttrs(candles.map((c) => c.c), times, lo, hi, h, w, decimals, 'price', { entry, stop })} viewBox="0 0 ${w} ${vbH}" width="100%" style="height:auto;display:block">
     ${grid}
     ${volBars}
     ${axisSvg}
@@ -379,10 +379,12 @@ function areaChart(market, candles, color, showLevels, chartH) {
   // Candlesticks when the user prefers them AND we have real OHLC bars (the Worker
   // /candles feed); the seeded daily-close fallback has no OHLC, so it stays a line.
   const hasOHLC = candles.length >= 2 && candles.every((c) => c.o != null && c.h != null && c.l != null);
+  const hvEntry = showLevels && s.plan ? s.plan.entry : null;
+  const hvStop = showLevels && s.plan ? chStop : null;
   if (state.settings.chartType !== 'line' && hasOHLC) {
-    return candleChartSvg(candles, { levels, decimals: market.decimals, markers, h: chartH, times });
+    return candleChartSvg(candles, { levels, decimals: market.decimals, markers, h: chartH, times, entry: hvEntry, stop: hvStop });
   }
-  return priceChartSvg(candles.map((c) => c.c), color, { levels, decimals: market.decimals, markers, h: chartH, times });
+  return priceChartSvg(candles.map((c) => c.c), color, { levels, decimals: market.decimals, markers, h: chartH, times, entry: hvEntry, stop: hvStop });
 }
 
 function chartCanvasHtml(symbol, rangeKey, chartH) {
@@ -538,7 +540,7 @@ function chartSvg(market, color, chartH) {
   const series = market.history.slice(-n);
   const times = (market.historyTimes || []).slice(-n);
   const markers = tradeMarkers(market.symbol, times);
-  return priceChartSvg(series, color, { levels, decimals: market.decimals, markers, h: chartH, times });
+  return priceChartSvg(series, color, { levels, decimals: market.decimals, markers, h: chartH, times, entry: showLevels ? s.plan.entry : null, stop: showLevels ? csStop : null });
 }
 
 // Indicator-driven "what to do now": the app reading the live indicators (RSI2,

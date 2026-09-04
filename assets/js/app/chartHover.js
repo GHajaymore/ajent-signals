@@ -10,9 +10,14 @@ function fmtTick(ms, spanMs) {
 }
 
 // Stash the data the hover needs on the <svg>. `fmt`: 'price' (default) or 'usd'.
-export function hoverAttrs(series, times, lo, hi, h, w, dec, fmt) {
+// `opts.entry`/`opts.stop` (price charts with a live setup) let the tooltip also show the
+// risk-multiple at the hovered price: 0R at entry, -1R at the stop, +1R at the 1:1 target.
+export function hoverAttrs(series, times, lo, hi, h, w, dec, fmt, opts = {}) {
   const enc = (o) => encodeURIComponent(JSON.stringify(o));
-  return `class="pchart" data-lo="${lo}" data-hi="${hi}" data-h="${h}" data-w="${w}" data-dec="${dec}" data-fmt="${fmt || 'price'}" data-series="${enc(series)}"${times && times.length ? ` data-times="${enc(times)}"` : ''}`;
+  const e = opts.entry, s = opts.stop;
+  const rAttr = (typeof e === 'number' && isFinite(e) && typeof s === 'number' && isFinite(s) && Math.abs(e - s) > 1e-9)
+    ? ` data-entry="${e}" data-stop="${s}"` : '';
+  return `class="pchart" data-lo="${lo}" data-hi="${hi}" data-h="${h}" data-w="${w}" data-dec="${dec}" data-fmt="${fmt || 'price'}"${rAttr} data-series="${enc(series)}"${times && times.length ? ` data-times="${enc(times)}"` : ''}`;
 }
 
 // Hidden crosshair + chip. A transparent hit rect captures the pointer across the plot.
@@ -35,6 +40,9 @@ export function wireChartHover(root) {
     if (!Array.isArray(series) || series.length < 2) return;
     const lo = +svg.dataset.lo, hi = +svg.dataset.hi, h = +svg.dataset.h, w = +svg.dataset.w, dec = +svg.dataset.dec;
     const fmt = svg.dataset.fmt || 'price';
+    const entry = svg.dataset.entry !== undefined ? +svg.dataset.entry : null;
+    const stop = svg.dataset.stop !== undefined ? +svg.dataset.stop : null;
+    const hasR = entry !== null && stop !== null && isFinite(entry) && isFinite(stop) && Math.abs(entry - stop) > 1e-9;
     const yFor = (v) => h - ((v - lo) / (hi - lo)) * h;
     const step = w / (series.length - 1);
     const g = svg.querySelector('.hv'), lineEl = svg.querySelector('.hv-x'), dot = svg.querySelector('.hv-dot');
@@ -54,8 +62,10 @@ export function wireChartHover(root) {
       const valStr = fmt === 'usd'
         ? `${v >= 0 ? '+$' : '−$'}${Math.abs(Math.round(v)).toLocaleString('en-US')}`
         : v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+      // Risk-multiple at this price (long or short): 0R at entry, -1R at the stop.
+      const rStr = hasR ? `  ·  ${(v - entry) / (entry - stop) >= 0 ? '+' : ''}${((v - entry) / (entry - stop)).toFixed(1)}R` : '';
       const ctx = times ? '  ·  ' + fmtTick(times[idx], spanMs) : '';
-      const label = valStr + ctx;
+      const label = valStr + rStr + ctx;
       tx.textContent = label;
       const tw = label.length * 5.7 + 12;
       const tipX = Math.max(2, Math.min(w - tw - 2, x - tw / 2));
