@@ -635,7 +635,10 @@ function renderSignalTab(market, verdict, color) {
     : planCfg.stopMode === 'pct' ? `Stop loss · ${planCfg.stopValue}%`
     : planCfg.stopMode === 'usd' ? `Stop loss · ${planCfg.stopValue} pts`
     : `Stop loss · ${planCfg.stopValue}× volatility`;
-  const subline = (verdict === 'NO_TRADE' ? 'Waiting for a high-probability setup' : (verdict === 'BUY' ? 'Long setup confirmed' : 'Short setup confirmed'))
+  // Describe WHAT the setup is here — the eyebrow already says "Setup confirmed", so
+  // don't repeat it. Strat-aware so a trend BUY doesn't read like an oversold dip.
+  const buySub = isTrend ? 'Riding an established uptrend' : 'Oversold dip within an uptrend';
+  const subline = (verdict === 'NO_TRADE' ? 'Waiting for a high-probability setup' : (verdict === 'BUY' ? buySub : 'Fading an overbought pop'))
     + (s.provisional ? ' · <span style="color:var(--accent-200)">provisional (short side unproven)</span>' : '');
   const status = autoTradeStatus(market, verdict);
   const statusHtml = status ? `
