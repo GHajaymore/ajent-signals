@@ -333,7 +333,7 @@ export function render(container) {
 
     ${signalExportHtml()}
 
-    <div class="footer-note">Ajent Signals is an educational tool and does not execute trades.<br>Markets tagged REAL compute indicators from a free public price feed (unofficial, best-effort, delayed). Markets without a live feed show no signal and are hidden — never a fabricated one · v1.0.0</div>
+    <div class="footer-note">Ajent Signals is an educational tool and does not execute trades.<br>Markets tagged REAL compute indicators from a free public price feed (unofficial, best-effort, delayed). Markets without a live feed show no signal and are hidden — never a fabricated one · v1.0.0<br><a href="../privacy/">Privacy</a> · <a href="../terms/">Terms</a> · <a href="#/methodology">How it works</a></div>
   </div>`;
 
   const pushBtn = container.querySelector('#push-btn');
