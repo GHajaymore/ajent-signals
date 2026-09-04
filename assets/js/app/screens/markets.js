@@ -244,6 +244,12 @@ export function render(container) {
 
     ${regionBarHtml(engine)}
 
+    <a class="stk-link" data-nav="#/stocks">
+      <span class="stk-link-ic"><i class="ph-fill ph-magnifying-glass-plus"></i></span>
+      <span class="stk-link-body"><b>Stock screener</b><small>Swing signals across 38 large-caps · new</small></span>
+      <i class="ph-bold ph-caret-right"></i>
+    </a>
+
     <div id="mkt-view-wrap">${viewToggle()}</div>
 
     <div id="mkt-filters-wrap"${view === 'heat' ? ' hidden' : ''}>${filterChips()}</div>

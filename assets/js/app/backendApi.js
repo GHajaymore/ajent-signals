@@ -78,6 +78,9 @@ export function fetchLiveQuotes() { return getJson('/live'); }
 // The intraday day-trading EXPERIMENT — its live signals + its own tracked paper
 // record. Ungated (transparent). { experiment, status, signals, open, closed, summary } or null.
 export function fetchDayExperiment() { return getJson('/day'); }
+
+// Stock screener — daily swing scan across a large-cap universe (signals only).
+export function fetchStocks() { return getJson('/stocks'); }
 // Market news fetched server-side. { news:[{title,publisher,link,time}], source } or null.
 export function fetchNews() { return getJson('/news'); }
 // Per-market signal timeline (verdict flips, proximity milestones…). { events:[{at,text}] } or null.

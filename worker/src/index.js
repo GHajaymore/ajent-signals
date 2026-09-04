@@ -3,6 +3,7 @@
 import { db } from './db.js';
 import { runTick } from './scheduler.js';
 import { runDayTick } from './daytradeScheduler.js';
+import { scanStocks } from './stocks.js';
 import { MARKETS } from './markets.js';
 import { STRATEGY, publicStrategy } from './meta.js';
 import { addSubscription, removeSubscription, pushToAll } from './push.js';
@@ -52,6 +53,16 @@ export default {
       // wrapped and its outcome is not allowed to change Swing's push behaviour.
       try { await runDayTick(env, store); }
       catch (e) { console.error('runDayTick failed:', e && e.stack || e); }
+      // Stock-screener scan — once per calendar day, fully isolated (signals only, its
+      // own blob, never touches the traded record). A failure can't affect Swing.
+      try {
+        const sBlob = await store.get('SIGNALS_STOCKS', 'ALL');
+        const today = new Date().toISOString().slice(0, 10);
+        if (!sBlob || sBlob.day !== today) {
+          const stocks = await scanStocks(env);
+          if (stocks.length) await store.put({ pk: 'SIGNALS_STOCKS', sk: 'ALL', day: today, at: Date.now(), stocks });
+        }
+      } catch (e) { console.error('stock scan failed:', e && e.stack || e); }
       // Ping push subscribers only when a fresh BUY/SELL actually fires. Record
       // WHAT fired so the notification can name the market(s), not just "a setup".
       if (r && r.signalFired) {
@@ -117,6 +128,21 @@ export default {
       const blob = await db(env).get('HISTORY', 'ALL');
       const hist = (blob && blob.hist) || {};
       return json({ symbol: sym, events: (sym ? hist[sym] : null) || [] });
+    }
+
+    // Daily stock screener — the proven swing strategy scanned across a diversified
+    // large-cap universe. SIGNALS ONLY (not auto-traded; single-name risk needs
+    // guardrails), recipe stripped like /signals. Ungated + transparent.
+    if (url.pathname === '/stocks') {
+      const blob = await db(env).get('SIGNALS_STOCKS', 'ALL');
+      return json({
+        updatedAt: (blob && blob.at) || 0,
+        day: (blob && blob.day) || null,
+        experiment: true,
+        status: 'SCREENER — the proven swing strategy scanned across a diversified large-cap universe, refreshed daily. These are signals to consider, NOT auto-traded into the tracked record. Educational, not advice.',
+        stocks: (blob && blob.stocks) || [],
+        notice: NOTICE,
+      });
     }
 
     if (url.pathname === '/live') {
