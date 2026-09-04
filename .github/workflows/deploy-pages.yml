@@ -23,7 +23,7 @@ jobs:
       - name: Stage static site (exclude worker/, mobile, node_modules, docs)
         run: |
           mkdir -p dist
-          cp index.html manifest.webmanifest sw.js _headers version.json dist/
+          cp index.html manifest.webmanifest sw.js _headers version.json robots.txt sitemap.xml dist/
           cp -r app assets terms privacy dist/
 
       - name: Deploy to Cloudflare Pages
