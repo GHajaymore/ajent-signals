@@ -1,7 +1,7 @@
 import { state, saveSettings, toggleWatchlist, isInWatchlist, getEnabledPaperMarkets, dailyEdge, planConfigFor, planStopPrice, planTargetPrice, isDefaultPlan, perTradeRisk, capStopUsdPrice, maxStopUsd } from '../state.js';
 import { hoverAttrs, hoverLayerSvg, wireChartHover } from '../chartHover.js';
 import { shareOrCopy } from '../share.js';
-import { getStrategy, exitPhrase } from '../strategyMeta.js';
+import { getStrategy } from '../strategyMeta.js';
 import { getClosedTrades, getPerformanceSummary } from '../paperTrading.js';
 import { userTradeFor, userStats, unrealizedFor, defaultRiskDollars, openUserTrade, closeUserTrade, headToHead } from '../userBook.js';
 import { ajentAvgR } from '../customBook.js';
