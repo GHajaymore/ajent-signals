@@ -1,5 +1,5 @@
 import { getClosedTrades, getPerformanceSummary, getOpenPositions, tradePnl } from '../paperTrading.js';
-import { userStats, getUserBook } from '../userBook.js';
+import { userStats, getUserBook, closeUserTrade } from '../userBook.js';
 import { customStats, ajentAvgR, getCustomBook } from '../customBook.js';
 import { positionCallPill, updateCallPill } from '../tradeGuidance.js';
 import { getStrategy, getAdaptive } from '../strategyMeta.js';
@@ -574,6 +574,37 @@ function dualEquityChart(ajClosed, youClosed) {
   <div class="yva-legend"><span><i style="background:var(--accent)"></i>Ajent</span><span><i style="background:${youFinal >= 0 ? 'var(--buy)' : 'var(--sell)'}"></i>You</span></div></div>`;
 }
 
+// Your OWN open trades (manual book + auto strategy) in one place, with live
+// unrealized P&L. Manual ones can be closed at market; strategy ones run on their rules.
+function yourOpenTradesHtml() {
+  const manual = Object.values(getUserBook().open).map((p) => ({ ...p, src: 'manual' }));
+  const auto = Object.values(getCustomBook().open).map((p) => ({ ...p, src: 'strategy' }));
+  const all = manual.concat(auto);
+  if (!all.length) return '';
+  const unreal = (p, price) => {
+    const long = p.side !== 'SHORT';
+    const r = (long ? (price - p.entry) : (p.entry - price)) / (p.risk || Math.abs(p.entry - p.stop) || 1e-9);
+    return Math.round(r * p.riskDollars);
+  };
+  const rows = all.map((p) => {
+    const m = state.engine.get(p.symbol);
+    // Only compute unrealized against a REAL live price — before data loads a stale
+    // SIM price would show a garbage number.
+    const priceReal = !!(m && m.signalIsReal && m.price > 0);
+    const un = priceReal ? unreal(p, m.price) : null;
+    const unHtml = un == null
+      ? '<span class="uot-un" style="color:var(--text-faint)">…</span>'
+      : `<div class="uot-un" style="color:${un >= 0 ? 'var(--buy)' : 'var(--sell)'}">${un >= 0 ? '+$' : '−$'}${Math.abs(un).toLocaleString('en-US')}</div>`;
+    return `<div class="uot-row">
+      <div class="uot-main"><span class="uot-sym">${p.symbol}</span><span class="uot-src ${p.src}">${p.src === 'manual' ? 'YOUR TRADE' : 'STRATEGY'}</span></div>
+      <div class="uot-lvls">${fmtPrice(p.entry, p.decimals)} · SL ${fmtPrice(p.stop, p.decimals)}${p.target ? ` · TP ${fmtPrice(p.target, p.decimals)}` : ''}</div>
+      ${unHtml}
+      ${p.src === 'manual' ? `<button class="uot-close" data-uot-close="${p.symbol}">Close</button>` : '<span class="uot-auto">auto</span>'}
+    </div>`;
+  }).join('');
+  return `<div class="panel"><div class="panel-title">Your open trades · ${all.length}</div>${rows}<div class="text-faint" style="font-size:10px;margin-top:8px">Virtual money · closes at the live price. Strategy trades run on their own rules.</div></div>`;
+}
+
 // "You vs Ajent" on the record's home — the user's own book + strategy scored
 // against Ajent by expectancy (the scale-fair metric). Selection stays your own,
 // so net $ is secondary; avg R/trade is the headline.
@@ -633,6 +664,8 @@ export function render(container) {
 
     ${youVsAjentCard(perf, closed.length)}
 
+    ${yourOpenTradesHtml()}
+
     <div class="stat2-grid">
       <div class="stat-card"><div class="stat-label">Win rate</div><div class="stat-value" style="color:var(--buy)">${perf.winRate}%</div><div class="stat-sub">${perf.wins}W / ${perf.losses}L</div></div>
       <div class="stat-card"><div class="stat-label">Avg win</div><div class="stat-value" style="color:var(--buy)">${money(perf.avgWin)}</div><div class="stat-sub">per winning trade</div></div>
@@ -691,6 +724,15 @@ export function render(container) {
     if (!trades.length) return;
     downloadCsv(`ajent-paper-trades-${new Date().toISOString().slice(0, 10)}.csv`, tradesToCsv(trades));
   });
+
+  // Close a manual "your book" trade at the live price.
+  container.querySelectorAll('[data-uot-close]').forEach((b) => b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const sym = b.dataset.uotClose;
+    const m = state.engine.get(sym);
+    closeUserTrade(sym, (m && m.price) || 0, 'manual');
+    render(container);
+  }));
 }
 
 // Live, in-place refresh: only re-paint the per-market Buy/Sell/Flat tags in the
