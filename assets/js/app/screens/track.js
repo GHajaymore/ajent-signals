@@ -8,6 +8,20 @@ import { state, getEnabledPaperMarkets, setPaperMarketEnabled, setAllPaperMarket
 import { isEntitled } from '../backendApi.js';
 import { CATEGORY_ORDER } from '../mockEngine.js';
 import { hoverAttrs, hoverLayerSvg, wireChartHover } from '../chartHover.js';
+import { shareOrCopy } from '../share.js';
+
+// Share the honest You-vs-Ajent result — avg R per trade (performance, never the recipe).
+// The link points at the app's start so a recipient can run their own trial, not at the
+// sharer's private record. User-initiated.
+function shareResult(you, cs, ajR) {
+  const fmtR = (v) => (v == null ? '—' : `${v >= 0 ? '+' : ''}${v}R`);
+  const mine = [];
+  if (you.trades) mine.push(`my trades ${fmtR(you.avgR)}/trade over ${you.trades}`);
+  if (cs.trades) mine.push(`my strategy ${fmtR(cs.avgR)}/trade over ${cs.trades}`);
+  const text = `Competing against Ajent on Ajent Signals — ${mine.join(', ')}, vs Ajent ${fmtR(ajR)}/trade. Educational paper trading on a real virtual-money record — avg R/trade is the fair, scale-independent read. Not investment advice.`;
+  const url = location.origin + '/';
+  return shareOrCopy({ title: 'You vs Ajent · Ajent Signals', text, url });
+}
 
 // Coarse region grouping for the quick paper-trade presets, from each market's
 // country code. Anything unmapped falls into "Other".
@@ -717,7 +731,7 @@ function youVsAjentCard(perf, ajTradeCount) {
   const youClosed = getUserBook().closed.concat(getCustomBook().closed);
   const chart = dualEquityChart(getClosedTrades(), youClosed);
   return `<div class="panel">
-    <div class="panel-title" style="display:flex;align-items:center;gap:8px"><i class="ph-fill ph-scales" style="color:var(--accent)"></i>You vs Ajent</div>
+    <div class="panel-title" style="display:flex;align-items:center;gap:8px"><i class="ph-fill ph-scales" style="color:var(--accent)"></i>You vs Ajent<button class="share-btn" id="yva-share" aria-label="Share your result" title="Share your result" style="margin-left:auto"><i class="ph-bold ph-share-network"></i></button></div>
     ${grid}
     ${chart}
     <div class="fair-note"><b>Avg R/trade is the fair read</b> — count- and size-independent, so it's true even at a small account. Net $ just reflects how many trades each took. <a href="#/mystrategy" style="color:var(--accent-300)">Tune your strategy ›</a></div>
@@ -824,6 +838,9 @@ export function render(container) {
   // Crosshair + P&L tooltip on the equity curve and the You-vs-Ajent comparison.
   wireChartHover(container);
   wireDualHover(container);
+
+  const yvaShare = container.querySelector('#yva-share');
+  if (yvaShare) yvaShare.addEventListener('click', () => shareResult(userStats(), customStats(), ajentAvgR(getClosedTrades())));
 }
 
 // Live, in-place refresh: only re-paint the per-market Buy/Sell/Flat tags in the
