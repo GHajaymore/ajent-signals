@@ -118,7 +118,7 @@ function strategyChip() {
   return `<div class="stat-card strat-card" data-nav="#/methodology" title="How the strategy works">
     <div class="stat-label">Trading style</div>
     <div class="stat-value" style="font-size:14px;display:flex;align-items:center;gap:5px"><i class="ph-fill ph-calendar-check" style="color:var(--accent-300);font-size:14px"></i>Swing</div>
-    <div class="stat-sub">buys dips · holds days</div>
+    <div class="stat-sub">dips + trends · holds days</div>
   </div>`;
 }
 

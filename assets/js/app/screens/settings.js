@@ -20,7 +20,7 @@ const TRADING_STYLES = [
   { key: 'day', name: 'Day trading', icon: 'ph-sun-horizon', hold: 'Intraday · flat by close', freq: '~2–8/day', status: 'experiment',
     note: 'Long-only intraday mean-reversion on 15-minute bars — buys an oversold flush in an intraday uptrend and is always flat by the close, so there is no overnight risk. NOT proven: an earlier intraday version lost money live, so this runs as an experiment tracked on its OWN real paper record, kept separate from Swing, with no advertised returns. Select it to watch the live record — it only graduates if that record holds up.' },
   { key: 'swing', name: 'Swing', icon: 'ph-calendar-check', hold: '~1–5 days', freq: '~1–5/week', status: 'live',
-    note: 'The validated strategy running now — long-only daily mean-reversion. Buys deeply oversold dips in an uptrend and holds until the move reverts to the mean. This is what auto-trades your paper account.' },
+    note: 'The validated strategy running now — a long-only daily ensemble: it buys deeply oversold dips in an uptrend (mean reversion) and rides established uptrends (trend-following), holding each until its own setup completes. This is what auto-trades your paper account.' },
   { key: 'position', name: 'Position', icon: 'ph-mountains', hold: 'Weeks–months', freq: 'a few/month', status: 'soon',
     note: 'Longer-hold trend/mean-reversion for multi-week moves. Planned — not yet separately validated, so it will also arrive labelled experimental.' },
 ];
