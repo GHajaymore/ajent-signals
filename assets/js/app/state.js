@@ -238,3 +238,18 @@ export function planTargetPrice(entry, stop, long, cfg) {
   const risk = Math.abs(entry - stop);
   return long ? entry + rr * risk : entry - rr * risk;
 }
+
+// Optional per-contract dollar cap on the stop distance. The engine's volatility stop
+// can be wide (e.g. ~$9.8k on one ES contract); this tightens it so ONE contract risks
+// no more than `maxUsd`, converting dollars→points via the market's point value. 0 or a
+// stop already inside the cap is returned unchanged. Display/plan preference only — the
+// tracked paper record still runs the strategy's own validated stop.
+export function maxStopUsd() { return Math.max(0, Number(state.settings.maxStopUsd) || 0); }
+export function capStopUsdPrice(entry, stopPrice, long, pointValue, maxUsd) {
+  const cap = Math.max(0, Number(maxUsd) || 0);
+  const pv = Number(pointValue) || 0;
+  if (!(cap > 0) || !(pv > 0)) return stopPrice;
+  const maxPts = cap / pv;
+  if (Math.abs(entry - stopPrice) <= maxPts) return stopPrice; // already within the cap
+  return long ? entry - maxPts : entry + maxPts;
+}

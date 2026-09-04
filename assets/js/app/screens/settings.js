@@ -1,4 +1,4 @@
-import { state, saveSettings, perTradeRisk, planConfigFor, setPlanConfig, activeStyleLabel } from '../state.js';
+import { state, saveSettings, perTradeRisk, planConfigFor, setPlanConfig, activeStyleLabel, maxStopUsd } from '../state.js';
 import { fmtMoney } from '../format.js';
 import { resetPaperTrades } from '../paperTrading.js';
 import { wireSignalExport, signalExportHtml } from './signalExport.js';
@@ -138,6 +138,10 @@ function tradePlanPanel() {
     <div class="setting-row-top"><span class="t">Reference target vs the stop</span><span class="v" id="rr-val">${cfg.rr}:1</span></div>
     <input id="rr-range" class="range" type="range" min="0.5" max="3" step="0.25" value="${cfg.rr}">
     <div class="setting-help" style="margin-top:8px">Lower = smaller targets hit more often; higher = bigger targets, hit less often. The 1:1 mark is a reference — the strategy's real exit is the mean-reversion, not a fixed target. Position size is set by your risk-per-trade below.</div>
+    <div class="eyebrow" style="margin:18px 0 6px">Max risk per contract <span style="font-weight:400;color:var(--text-muted);font-size:11px;text-transform:none;letter-spacing:0">· futures</span></div>
+    <div class="setting-row-top"><span class="t">Cap one contract's dollar risk</span><span class="v" id="maxstop-val">${maxStopUsd() ? '$' + maxStopUsd().toLocaleString('en-US') : 'Off'}</span></div>
+    <input id="maxstop-range" class="range" type="range" min="0" max="12000" step="500" value="${maxStopUsd()}">
+    <div class="setting-help" style="margin-top:8px"><b>Off</b> = use the signal's full volatility stop. Set a cap and any wider stop is tightened so one contract risks no more than this — the reference target moves in with it. A tighter-than-volatility stop can get hit more often, and the 24/7 tracked record still runs the strategy's own validated stop.</div>
   </div>`;
 }
 
@@ -402,6 +406,14 @@ export function render(container) {
   if (rrRange) rrRange.addEventListener('input', () => {
     setPlanConfig(activeStyleKey(), { rr: Number(rrRange.value) });
     document.getElementById('rr-val').textContent = `${rrRange.value}:1`;
+  });
+
+  const maxStopRange = document.getElementById('maxstop-range');
+  if (maxStopRange) maxStopRange.addEventListener('input', () => {
+    const v = Number(maxStopRange.value) || 0;
+    state.settings.maxStopUsd = v;
+    saveSettings();
+    document.getElementById('maxstop-val').textContent = v ? `$${v.toLocaleString('en-US')}` : 'Off';
   });
 
   const thresholdRange = document.getElementById('threshold-range');

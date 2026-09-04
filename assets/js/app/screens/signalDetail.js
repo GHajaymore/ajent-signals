@@ -1,4 +1,4 @@
-import { state, saveSettings, toggleWatchlist, isInWatchlist, getEnabledPaperMarkets, dailyEdge, planConfigFor, planStopPrice, planTargetPrice, isDefaultPlan, perTradeRisk } from '../state.js';
+import { state, saveSettings, toggleWatchlist, isInWatchlist, getEnabledPaperMarkets, dailyEdge, planConfigFor, planStopPrice, planTargetPrice, isDefaultPlan, perTradeRisk, capStopUsdPrice, maxStopUsd } from '../state.js';
 import { getStrategy, exitPhrase } from '../strategyMeta.js';
 import { getClosedTrades, getPerformanceSummary } from '../paperTrading.js';
 import { userTradeFor, userStats, unrealizedFor, defaultRiskDollars, openUserTrade, closeUserTrade, headToHead } from '../userBook.js';
@@ -628,7 +628,11 @@ function renderSignalTab(market, verdict, color) {
   // mean-reversion dips exit on reversion. The plan copy adapts to which fired.
   const isTrend = s.strat === 'trend';
   const planEntry = s.plan ? s.plan.entry : 0;
-  const dispStop = s.plan ? planStopPrice(planEntry, s.plan.stop, planLong, planCfg) : 0;
+  const rawStop = s.plan ? planStopPrice(planEntry, s.plan.stop, planLong, planCfg) : 0;
+  // Apply the optional per-contract dollar cap on top of the profile stop. The target
+  // is rr × the stop distance, so it tightens with the stop automatically.
+  const dispStop = s.plan ? capStopUsdPrice(planEntry, rawStop, planLong, market.pointValue, maxStopUsd()) : 0;
+  const stopCapped = s.plan && Math.abs(dispStop - rawStop) > (planEntry * 1e-9 + 1e-9);
   const dispTarget = s.plan ? planTargetPrice(planEntry, dispStop, planLong, planCfg) : 0;
   const rrStr = (Number(planCfg.rr) || 1).toFixed(planCfg.rr % 1 ? 1 : 0);
   const stopLabel = isTrend ? 'Trailing stop · initial'
@@ -706,18 +710,23 @@ function renderSignalTab(market, verdict, color) {
         : `This is a <b style="color:var(--text)">mean-reversion</b> trade: it buys the oversold flush and exits when the <b style="color:var(--text)">move reverts to the mean</b> — rather than at a fixed target, so winners can run past the 1:1 mark. A hard <b style="color:var(--text)">volatility-based stop</b> caps the downside and a time stop closes stale trades. The reference target is the ~1:1 level for orientation, not a hard exit.`}
     </div>
     ${(() => {
-      // Answer the "why is the stop so wide, isn't that $10k?" question honestly.
-      // Levels come from the signal (a volatility-based stop + reward:risk target); the
-      // DOLLAR risk is capped by the user's risk-per-trade via position sizing, NOT by
-      // one full contract. Shown for real futures (meaningful contract multiplier).
+      // Explain the stop in dollar terms — answering "isn't a ~200pt ES stop $10k?".
+      // Shown for real futures (meaningful contract multiplier). Cap-aware.
       const pv = Number(market.pointValue) || 0;
       const stopPts = Math.abs((s.plan && s.plan.entry) - dispStop);
       if (!(pv >= 5) || !(stopPts > 0)) return '';
       const perContract = Math.round(stopPts * pv);
       const cap = perTradeRisk();
       const usd = (n) => `$${Math.round(n).toLocaleString('en-US')}`;
+      const round = (n) => Math.round(n).toLocaleString('en-US');
+      if (stopCapped) {
+        const rawPts = Math.abs(planEntry - rawStop);
+        return `<div class="text-faint" style="font-size:11px;line-height:1.55;margin-top:8px;padding:0 2px">
+          <b style="color:var(--buy)">Stop capped to your max.</b> The signal's volatility stop was ~${round(rawPts)} pts (~${usd(rawPts * pv)} on one ${market.symbol} contract); it's tightened here to your <b style="color:var(--text-muted)">${usd(maxStopUsd())}/contract</b> cap (~${round(stopPts)} pts). The target moved in with it. Note a tighter-than-volatility stop can get hit more often — the tracked record still runs the strategy's own validated stop.
+        </div>`;
+      }
       return `<div class="text-faint" style="font-size:11px;line-height:1.55;margin-top:8px;padding:0 2px">
-        <b style="color:var(--text-muted)">Why so wide.</b> The levels come from the signal — a volatility-based stop set to the market's daily range, so it breathes with ${market.symbol}'s swings rather than a tight fixed distance. That's ~${Math.round(stopPts).toLocaleString('en-US')} pts, so <b style="color:var(--text-muted)">one full ${market.symbol} contract would risk ~${usd(perContract)}</b> ($${pv}/pt). Your account only risks a fixed <b style="color:var(--text-muted)">${usd(cap)}</b> (your risk-per-trade) — the position is <b style="color:var(--text-muted)">sized to that</b>, so a wider stop just means a smaller size, never more dollars. On live futures you'd trade micros (e.g. MES/MNQ, 1/10th) or fewer contracts to stay within it.
+        <b style="color:var(--text-muted)">Why so wide.</b> The levels come from the signal — a volatility-based stop set to the market's daily range, so it breathes with ${market.symbol}'s swings rather than a tight fixed distance. That's ~${round(stopPts)} pts, so <b style="color:var(--text-muted)">one full ${market.symbol} contract would risk ~${usd(perContract)}</b> ($${pv}/pt). Your account only risks a fixed <b style="color:var(--text-muted)">${usd(cap)}</b> (your risk-per-trade) — the position is <b style="color:var(--text-muted)">sized to that</b>, so a wider stop just means a smaller size, never more dollars. Want tighter levels? Cap the per-contract risk in <a href="#/settings" style="color:var(--accent-300)">Settings</a>, or trade micros (MES/MNQ) on live futures.
       </div>`;
     })()}
     ${isDefaultPlan(planCfg) ? '' : `<div class="text-faint" style="font-size:11px;line-height:1.5;margin-top:8px;padding:0 2px">Your custom stop / reward:risk is applied to this plan. The 24/7 tracked paper record is one shared account and still runs the strategy's own validated stop &amp; exit — adjust your plan in <a href="#/settings" style="color:var(--accent-300)">Settings</a>.</div>`}
