@@ -1,7 +1,7 @@
 import { state, saveSettings, toggleWatchlist, isInWatchlist, getEnabledPaperMarkets, dailyEdge, planConfigFor, planStopPrice, planTargetPrice, isDefaultPlan } from '../state.js';
 import { getStrategy, exitPhrase } from '../strategyMeta.js';
 import { getClosedTrades, getPerformanceSummary } from '../paperTrading.js';
-import { userTradeFor, userStats, unrealizedFor, defaultRiskDollars, openUserTrade, closeUserTrade } from '../userBook.js';
+import { userTradeFor, userStats, unrealizedFor, defaultRiskDollars, openUserTrade, closeUserTrade, headToHead } from '../userBook.js';
 import { ajentAvgR } from '../customBook.js';
 
 // Honest per-market note about the DAILY strategy's backtested edge on this
@@ -601,6 +601,12 @@ function userBookPanel(market, verdict, s, dispEntry, dispStop, dispTarget) {
     <div class="panel-title" style="display:flex;align-items:center;gap:8px"><i class="ph-fill ph-scales" style="color:var(--accent)"></i>You vs Ajent</div>
     ${cmp}
     <div class="fair-note"><b>Avg/trade (expectancy) is the fair number</b> — it holds at any scale, even a small account trading a few positions. Net $ just reflects how many trades each took (Ajent trades the whole board; you trade what you pick).</div>
+    ${(() => { const h = headToHead(); if (!h) return ''; const r = (v) => `${v >= 0 ? '+' : ''}${v}R`; const c = (v) => v >= 0 ? 'var(--buy)' : 'var(--sell)'; return `<div class="h2h">
+      <div class="h2h-h">Same-trade head-to-head · ${h.n} trade${h.n === 1 ? '' : 's'}</div>
+      <div class="h2h-row"><span>Your levels</span><span class="h2h-r" style="color:${c(h.youAvgR)}">${r(h.youAvgR)}</span></div>
+      <div class="h2h-row"><span>Ajent's plan</span><span class="h2h-r" style="color:${c(h.ajAvgR)}">${r(h.ajAvgR)}</span></div>
+      <div class="h2h-note">Your entry/stop/target vs Ajent's <b>suggested plan on the same signals</b> — you came out ahead on <b>${h.youWon} of ${h.n}</b>. This holds trade selection constant, so it's purely your decisions.</div>
+    </div>`; })()}
     ${action}
     <a href="#/mystrategy" class="ub-strat-link">Build your own strategy — beat Ajent your way <i class="ph-bold ph-caret-right"></i></a>
     <div class="text-faint" style="font-size:10.5px;margin-top:11px;line-height:1.45">Your book is virtual money kept on this device. Simulated and educational — not advice, no real orders.</div>
@@ -906,7 +912,9 @@ export function render(container) {
         const body = add.closest('.ub-form-body');
         const num = (k) => parseFloat(body && body.querySelector(`[data-ub="${k}"]`)?.value);
         const v = m.verdict(state.settings.threshold);
-        const ok = openUserTrade({ symbol: add.dataset.ubAdd, name: m.name, side: v === 'SELL' ? 'SHORT' : 'LONG', entry: num('entry'), stop: num('stop'), target: num('target'), riskDollars: num('risk'), decimals: m.decimals });
+        const p = m.signal && m.signal.plan;
+        const ajPlan = p && p.entry > 0 ? { entry: p.entry, stop: p.stop, target: p.target1 } : null;
+        const ok = openUserTrade({ symbol: add.dataset.ubAdd, name: m.name, side: v === 'SELL' ? 'SHORT' : 'LONG', entry: num('entry'), stop: num('stop'), target: num('target'), riskDollars: num('risk'), decimals: m.decimals, ajPlan });
         if (ok) render(container);
       } else {
         closeUserTrade(close.dataset.ubClose, m.price, 'manual');

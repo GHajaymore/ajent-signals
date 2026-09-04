@@ -24,12 +24,21 @@ export function userTradeFor(symbol) { return book.open[symbol] || null; }
 // comparison against Ajent is apples-to-apples (both size a trade by 1R = risk $).
 export function defaultRiskDollars() { return perTradeRisk(); }
 
-export function openUserTrade({ symbol, name, side = 'LONG', entry, stop, target, riskDollars, decimals = 2 }) {
+export function openUserTrade({ symbol, name, side = 'LONG', entry, stop, target, riskDollars, decimals = 2, ajPlan = null }) {
   if (!(entry > 0) || !(stop > 0) || !(riskDollars > 0)) return false;
   const risk = Math.abs(entry - stop) || (entry * 0.004);
-  book.open[symbol] = { symbol, name, side, entry, stop, target: target || null, risk, riskDollars: Math.round(riskDollars), decimals, openedAt: Date.now() };
+  // ajPlan = Ajent's OWN suggested entry/stop/target for this signal, captured at
+  // open — a "shadow" trade we track alongside, so we can compare your levels vs
+  // Ajent's on the exact same setup (head-to-head, selection held constant).
+  book.open[symbol] = { symbol, name, side, entry, stop, target: target || null, risk, riskDollars: Math.round(riskDollars), decimals, openedAt: Date.now(), ajPlan: ajPlan && ajPlan.entry > 0 && ajPlan.stop > 0 ? ajPlan : null, ajResultR: null };
   save();
   return true;
+}
+
+// Result-in-R of Ajent's shadow plan at a given price (its stop/target define its R).
+function ajShadowR(ap, price, long) {
+  const r = Math.abs(ap.entry - ap.stop) || 1e-9;
+  return +(((long ? (price - ap.entry) : (ap.entry - price)) / r)).toFixed(3);
 }
 
 export function closeUserTrade(symbol, exitPrice, reason) {
@@ -38,7 +47,11 @@ export function closeUserTrade(symbol, exitPrice, reason) {
   const long = p.side !== 'SHORT';
   const resultR = (long ? (exitPrice - p.entry) : (p.entry - exitPrice)) / (p.risk || 1e-9);
   const pnl = Math.round(resultR * p.riskDollars);
-  book.closed.unshift({ symbol, name: p.name, side: p.side, entry: p.entry, exit: exitPrice, resultR: +resultR.toFixed(3), pnl, riskDollars: p.riskDollars, outcome: pnl > 0 ? 'Win' : pnl < 0 ? 'Loss' : 'Break-even', reason, decimals: p.decimals, openedAt: p.openedAt, closedAt: Date.now() });
+  // Ajent's shadow: use its resolved outcome if its own stop/target already hit,
+  // else mark it to market at the same exit price (same-setup, head-to-head).
+  let ajResultR = null;
+  if (p.ajPlan) ajResultR = p.ajResultR != null ? p.ajResultR : ajShadowR(p.ajPlan, exitPrice, long);
+  book.closed.unshift({ symbol, name: p.name, side: p.side, entry: p.entry, exit: exitPrice, resultR: +resultR.toFixed(3), pnl, riskDollars: p.riskDollars, outcome: pnl > 0 ? 'Win' : pnl < 0 ? 'Loss' : 'Break-even', reason, decimals: p.decimals, ajResultR, openedAt: p.openedAt, closedAt: Date.now() });
   if (book.closed.length > 200) book.closed.length = 200;
   delete book.open[symbol];
   save();
@@ -53,10 +66,29 @@ export function checkUserPositions(engine) {
     const price = m && m.price;
     if (!(price > 0)) continue;
     const long = p.side !== 'SHORT';
+    // Resolve Ajent's shadow first if ITS stop/target hits (its outcome locks in even
+    // if your own leg is still open) — so the head-to-head is true to each plan's path.
+    if (p.ajPlan && p.ajResultR == null) {
+      const ap = p.ajPlan;
+      if (long ? price <= ap.stop : price >= ap.stop) { p.ajResultR = ajShadowR(ap, ap.stop, long); changed = true; }
+      else if (ap.target && (long ? price >= ap.target : price <= ap.target)) { p.ajResultR = ajShadowR(ap, ap.target, long); changed = true; }
+    }
     if (long ? price <= p.stop : price >= p.stop) { closeUserTrade(p.symbol, p.stop, 'stop'); changed = true; }
     else if (p.target && (long ? price >= p.target : price <= p.target)) { closeUserTrade(p.symbol, p.target, 'target'); changed = true; }
   }
+  if (changed) save();
   return changed;
+}
+
+// Same-trade head-to-head: over closed trades where we have Ajent's shadow outcome,
+// compare YOUR levels vs AJENT'S plan on the identical signal (selection held fixed).
+export function headToHead() {
+  const paired = book.closed.filter((t) => t.ajResultR != null && t.resultR != null);
+  if (!paired.length) return null;
+  const youR = paired.reduce((s, t) => s + t.resultR, 0) / paired.length;
+  const ajR = paired.reduce((s, t) => s + t.ajResultR, 0) / paired.length;
+  const youWon = paired.filter((t) => t.resultR > t.ajResultR).length;
+  return { n: paired.length, youAvgR: +youR.toFixed(2), ajAvgR: +ajR.toFixed(2), youWon, trades: paired.slice(0, 6) };
 }
 
 // Unrealized P&L on an open user trade at the current price (for display).

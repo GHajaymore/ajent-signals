@@ -93,6 +93,12 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 
 .fair-note { font: 500 11px var(--font-body); line-height: 1.5; color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 10px; padding: 9px 11px; margin-top: 11px; }
 .fair-note b { color: var(--text); font-weight: 600; }
+.h2h { margin-top: 11px; border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--hairline)); border-radius: 12px; padding: 12px 13px; background: radial-gradient(120% 100% at 100% 0%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 60%), var(--surface-2); }
+.h2h-h { font: 700 10px var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+.h2h-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; font: 600 13px var(--font-body); color: var(--text); }
+.h2h-r { font: 800 15px var(--font-mono); font-variant-numeric: tabular-nums; }
+.h2h-note { font: 500 10.5px var(--font-body); line-height: 1.5; color: var(--text-muted); margin-top: 7px; }
+.h2h-note b { color: var(--text); font-weight: 600; }
 
 /* Your strategy builder */
 .cs-config { display: flex; flex-direction: column; gap: 2px; }
