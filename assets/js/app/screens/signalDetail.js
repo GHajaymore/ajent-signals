@@ -1,5 +1,6 @@
 import { state, saveSettings, toggleWatchlist, isInWatchlist, getEnabledPaperMarkets, dailyEdge, planConfigFor, planStopPrice, planTargetPrice, isDefaultPlan, perTradeRisk, capStopUsdPrice, maxStopUsd } from '../state.js';
 import { hoverAttrs, hoverLayerSvg, wireChartHover } from '../chartHover.js';
+import { shareOrCopy } from '../share.js';
 import { getStrategy, exitPhrase } from '../strategyMeta.js';
 import { getClosedTrades, getPerformanceSummary } from '../paperTrading.js';
 import { userTradeFor, userStats, unrealizedFor, defaultRiskDollars, openUserTrade, closeUserTrade, headToHead } from '../userBook.js';
@@ -36,45 +37,14 @@ function detailSymbol() {
   return state.selectedSymbol;
 }
 
-// Brief bottom toast for share/copy feedback. Self-removing; respects reduced motion.
-function flashToast(msg) {
-  const el = document.createElement('div');
-  el.className = 'app-toast';
-  el.textContent = msg;
-  document.body.appendChild(el);
-  requestAnimationFrame(() => el.classList.add('show'));
-  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 2200);
-}
-
-// Share the current signal's deep-link. Native share sheet where available (mobile),
-// else copy the link. Framed as educational — never a buy/sell recommendation to the
-// recipient. User-initiated only. Returns the outcome.
-async function shareSignal(market) {
-  const verdict = market.verdict(state.settings.threshold); // fresh, matches what's shown
-  const url = location.href; // the signal's own deep-link (now resolves correctly)
-  const title = `${market.symbol} · Ajent Signals`;
+// Share the current signal's deep-link. Framed as educational — never a buy/sell
+// recommendation to the recipient. The verdict is read fresh so it matches the screen.
+function shareSignal(market) {
+  const verdict = market.verdict(state.settings.threshold);
   const text = verdict === 'BUY' || verdict === 'SELL'
     ? `Ajent flagged a ${verdict} setup on ${market.name} (${market.symbol}) — an educational signal, tracked on a real virtual-money record. Not investment advice.`
     : `${market.name} (${market.symbol}) on Ajent Signals — educational, honestly-tracked trading signals. Not investment advice.`;
-  try {
-    if (navigator.share) { await navigator.share({ title, text, url }); return; }
-  } catch (e) { if (e && e.name === 'AbortError') return; /* fall through to copy */ }
-  flashToast((await copyLink(url)) ? 'Link copied' : 'Couldn’t copy — long-press the address bar to share');
-}
-
-// Robust copy: the async Clipboard API where allowed, else a temp-textarea execCommand
-// fallback (older browsers / contexts that block navigator.clipboard).
-async function copyLink(url) {
-  try { await navigator.clipboard.writeText(url); return true; } catch (e) { /* fall through */ }
-  try {
-    const ta = document.createElement('textarea');
-    ta.value = url; ta.setAttribute('readonly', '');
-    ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
-    document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, url.length);
-    const ok = document.execCommand('copy');
-    ta.remove();
-    return ok;
-  } catch (e) { return false; }
+  return shareOrCopy({ title: `${market.symbol} · Ajent Signals`, text, url: location.href });
 }
 import { isHighConviction, getOpenPositions } from '../paperTrading.js';
 import { isMarketAllowed } from '../adaptiveWeights.js';
@@ -765,7 +735,7 @@ function renderSignalTab(market, verdict, color) {
       <span>Trade plan</span>
       ${s.plan.conviction === 'high' ? '<span style="display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;letter-spacing:.03em;color:var(--buy);background:var(--buy-dim);padding:4px 9px;border-radius:999px"><i class="ph-fill ph-arrow-fat-lines-up"></i>HIGH CONVICTION</span>' : ''}
     </div>
-    ${s.plan.conviction === 'high' ? `<div class="text-muted" style="font-size:11.5px;line-height:1.5;margin:0 2px 8px">Deepest-oversold tier — historically ~2&times; the ordinary setup's per-trade edge.${state.settings.scaleByConviction ? ' Sized 1.5&times; (conviction sizing on).' : ''}</div>` : ''}
+    ${s.plan.conviction === 'high' ? `<div class="text-muted" style="font-size:11.5px;line-height:1.5;margin:0 2px 8px">Deepest-oversold tier — historically the strongest per-trade edge.${state.settings.scaleByConviction ? ' Sized larger (conviction sizing on).' : ''}</div>` : ''}
     ${edgeNote(market.symbol)}
     ${planRow('Suggested entry', fmtPrice(s.plan.entry, market.decimals), 'var(--accent)')}
     ${planRow(stopLabel, fmtPrice(dispStop, market.decimals), 'var(--sell)')}
@@ -775,7 +745,7 @@ function renderSignalTab(market, verdict, color) {
     ${planRow('Timeframe', s.timeframe, 'var(--neutral-500)')}
     ${isTrend ? `<div class="panel" style="background:var(--buy-dim);border:1px solid color-mix(in srgb,var(--buy) 22%,transparent);border-radius:11px;padding:10px 12px;margin-top:9px;display:flex;gap:9px;align-items:flex-start">
       <i class="ph-fill ph-trend-up" style="color:var(--buy);font-size:17px;flex:none;margin-top:1px"></i>
-      <div style="font-size:11.5px;line-height:1.55;color:var(--text-muted)"><b style="color:var(--text)">Use a trailing stop.</b> This is a continuation setup — let it run and <b style="color:var(--text)">ratchet your stop up</b> as price rises (about 3&times; volatility below the peak), instead of a fixed target. You exit only when the trend actually breaks, so a big winner isn't cut short.</div>
+      <div style="font-size:11.5px;line-height:1.55;color:var(--text-muted)"><b style="color:var(--text)">Use a trailing stop.</b> This is a continuation setup — let it run and <b style="color:var(--text)">ratchet your stop up</b> as price rises (a volatility-based distance below the peak), instead of a fixed target. You exit only when the trend actually breaks, so a big winner isn't cut short.</div>
     </div>` : ''}
     <div class="text-muted" style="font-size:11.5px;line-height:1.55;margin-top:8px;padding:0 2px">
       ${isTrend

@@ -358,8 +358,8 @@ export function computeRealSignal(candles, def, rng, news = [], opts = {}) {
   if (confidence >= 60) {
     const lead = daily
       ? (direction > 0
-        ? 'Buying a deeply oversold day that flushed below yesterday’s low, inside a long-term uptrend (price above its 200-day average). Dips like this tend to revert — the trade exits on the first day that closes green, typically within a day or two.'
-        : 'Selling a deeply overbought day that broke above yesterday’s high, inside a long-term downtrend. Sharp rallies here tend to fade — the trade exits on the first day that closes red, typically within a day or two.')
+        ? 'Buying a deeply oversold pullback inside a long-term uptrend. Dips like this tend to revert — the trade exits as the move reverts to the mean, typically within a day or two.'
+        : 'Selling a deeply overbought pop inside a long-term downtrend. Sharp rallies here tend to fade — the trade exits as the move reverts, typically within a day or two.')
       : (direction > 0
         ? 'Buying an oversold dip inside a confirmed uptrend — pullbacks in an uptrend usually resume, so a tight target is reached far more often than the wider stop.'
         : 'Selling an overbought pop inside a confirmed downtrend — rallies in a downtrend usually fade, favouring the tight target over the wider stop.');
