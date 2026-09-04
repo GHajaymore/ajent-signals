@@ -17,7 +17,11 @@ function changeEvents(prev, sig) {
   const ev = [];
   const pv = prev && prev.verdict, nv = sig.verdict;
   if (pv && pv !== nv) {
-    if (nv === 'BUY') ev.push(`Fired a BUY — oversold dip (RSI2 ${sig.rsi2}) in an uptrend.`);
+    // The trend engine has no RSI2 — a trend BUY is a continuation, not an oversold dip,
+    // so it must not borrow the mean-reversion wording (or print "RSI2 undefined").
+    if (nv === 'BUY') ev.push(sig.rsi2 == null
+      ? 'Fired a BUY — trend continuation in an established uptrend.'
+      : `Fired a BUY — oversold dip (RSI2 ${sig.rsi2}) in an uptrend.`);
     else if (nv === 'SELL') ev.push(`Fired a SELL — overbought pop (RSI2 ${sig.rsi2}) in a downtrend.`);
     else if (pv === 'BUY' || pv === 'SELL') ev.push('Setup cleared — back to no-trade.');
   }

@@ -37,8 +37,9 @@ export function computeTrend(candles, live) {
   // A fired trend continuation is a real, auto-traded setup — not a coin-flip — so it
   // must read well above 50. Confidence scales with trend strength: how firmly price
   // sits above the follow-MA (in ATR units) and how briskly that MA is rising. Bounded
-  // 70..92 so even a strong trend reads as "high", never "certain". `conviction` lifts
-  // to 'high' once the trend is firmly extended.
+  // 70..92 so even a strong trend reads as "high", never "certain". Conviction stays
+  // 'normal': the 'high' tier is an MR concept (deepest-oversold, ~2× edge, 1.5× size)
+  // that is NOT lab-validated for trend — the confidence number carries trend strength.
   const aboveFollow = (price - s50) / atrN;      // ATR units above the 50-MA
   const slope = (s50 - s50prev) / atrN;          // 50-MA rise over 5 bars, in ATR units
   const strength = Math.max(0, Math.min(1, (aboveFollow - 0.1) / 2.4 + slope * 0.6));
@@ -48,7 +49,7 @@ export function computeTrend(candles, live) {
     // 200-MA and a rising 50-MA. It drives the displayed "Trend: Bullish" and the
     // long-only auto-trade gate (isHighConviction), so a fired trend BUY reads as a real
     // traded setup, not a "we hold out" lean.
-    verdict: 'BUY', direction: 1, price, confidence, conviction: strength > 0.55 ? 'high' : 'normal',
+    verdict: 'BUY', direction: 1, price, confidence, conviction: 'normal',
     htfTrend: 'up', trendMA: s50, atr: atrN,
     plan: { entry: price, stop: price - risk, target1: price + risk, risk, maxHoldMin: TREND.maxHoldMin, trail: true },
   };

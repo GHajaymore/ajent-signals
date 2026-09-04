@@ -734,27 +734,42 @@ function renderBreakdownTab(market, color) {
     return `<div class="reason-row"><i class="ph-bold ${icon}" style="color:${c}"></i><span><b style="color:var(--text)">${label}.</b> ${text}</span></div>`;
   };
 
-  const rsi2Row = rsi2 == null ? ''
-    : rsi2 <= 10 ? factor('Momentum', 'bull', 'Deeply oversold — the counter-move the strategy buys.')
-    : rsi2 < 35 ? factor('Momentum', 'neutral', 'Leaning oversold, but not stretched far enough yet.')
-    : factor('Momentum', 'neutral', 'Not stretched far enough to trigger a trade.');
-
-  const bbRow = pctB == null ? ''
-    : pctB < 0 ? factor('Volatility stretch', 'bull', 'Price has stretched unusually far below its recent range — an extreme (marks the strongest setups).')
-    : pctB < 0.25 ? factor('Volatility stretch', 'neutral', 'Below its recent average, not yet at an extreme.')
-    : pctB > 0.75 ? factor('Volatility stretch', 'neutral', 'Above its recent average.')
-    : factor('Volatility stretch', 'neutral', 'Within its normal range — no extreme.');
-
   const trendRow = trend === 'up' ? factor('Long-term trend', 'bull', 'Price is above its long-term average — the bigger trend is up.')
     : trend === 'down' ? factor('Long-term trend', 'bear', 'Price is below its long-term average — the bigger trend is down.')
     : factor('Long-term trend', 'neutral', 'No clear longer-term trend.');
+
+  // The board runs two engines. A trend-continuation BUY is NOT an oversold snap, so
+  // it must NOT be described (or broken down) as one — that read the rsi2/Bollinger
+  // rows and copy that only apply to the mean-reversion engine. Branch on the strat.
+  const isTrend = s.strat === 'trend';
+  let setupLabel, factorsHtml, footerHtml;
+  if (isTrend) {
+    setupLabel = conv ? 'High-conviction trend' : 'Trend continuation';
+    factorsHtml = factor('Trend structure', 'bull', 'Price is riding above a rising average — an established uptrend, not a counter-move.')
+      + factor('Momentum', 'bull', 'Moving with the trend — the entry rides continuation and holds via a trailing stop, not a bounce.')
+      + trendRow;
+    footerHtml = 'This is a <b style="color:var(--text)">trend-following</b> signal — it rides an <b>established uptrend</b> with momentum and holds via a trailing stop until the trend breaks. It is <b>not</b> a deep-oversold bounce; Ajent runs both engines side by side and shows whichever is set up. Rule-based — no method guarantees a win rate.';
+  } else {
+    setupLabel = conv ? 'High-conviction setup' : 'Standard setup';
+    const rsi2Row = rsi2 == null ? ''
+      : rsi2 <= 10 ? factor('Momentum', 'bull', 'Deeply oversold — the counter-move the strategy buys.')
+      : rsi2 < 35 ? factor('Momentum', 'neutral', 'Leaning oversold, but not stretched far enough yet.')
+      : factor('Momentum', 'neutral', 'Not stretched far enough to trigger a trade.');
+    const bbRow = pctB == null ? ''
+      : pctB < 0 ? factor('Volatility stretch', 'bull', 'Price has stretched unusually far below its recent range — an extreme (marks the strongest setups).')
+      : pctB < 0.25 ? factor('Volatility stretch', 'neutral', 'Below its recent average, not yet at an extreme.')
+      : pctB > 0.75 ? factor('Volatility stretch', 'neutral', 'Above its recent average.')
+      : factor('Volatility stretch', 'neutral', 'Within its normal range — no extreme.');
+    factorsHtml = rsi2Row + bbRow + trendRow;
+    footerHtml = `This is a <b style="color:var(--text)">mean-reversion</b> signal — <b>not</b> a multi-indicator confluence score. It buys a market that has stretched deeply oversold within an uptrend; the most extreme stretches mark the strongest setups. A trade fires only once the setup clears your ${state.settings.threshold}% confidence threshold (adjustable in Settings). Rule-based — no method guarantees a win rate.`;
+  }
 
   return `
   <div class="panel">
     <div class="confluence-head">
       <div>
         <div class="panel-title" style="margin-bottom:2px">Signal strength</div>
-        <div class="text-muted" style="font-size:12px">${conv ? 'High-conviction setup' : 'Standard setup'} · ${intraday ? '15-minute' : 'daily'}</div>
+        <div class="text-muted" style="font-size:12px">${setupLabel} · ${intraday ? '15-minute' : 'daily'}</div>
       </div>
       <div class="confluence-pct" style="color:${color}">${s.confidence}%</div>
     </div>
@@ -762,12 +777,12 @@ function renderBreakdownTab(market, color) {
   </div>
 
   <div class="section-label">What the engine actually sees</div>
-  <div class="panel">${rsi2Row}${bbRow}${trendRow}</div>
+  <div class="panel">${factorsHtml}</div>
 
   ${caveatsHtml(market, market.verdict(state.settings.threshold))}
 
   <div class="text-muted" style="font-size:11.5px;line-height:1.6;margin-top:8px;padding:0 4px">
-    This is a <b style="color:var(--text)">mean-reversion</b> signal — <b>not</b> a multi-indicator confluence score. It buys a market that has stretched deeply oversold within an uptrend; the most extreme stretches mark the strongest setups. A trade fires only once the setup clears your ${state.settings.threshold}% confidence threshold (adjustable in Settings). Rule-based — no method guarantees a win rate.
+    ${footerHtml}
   </div>`;
 }
 
