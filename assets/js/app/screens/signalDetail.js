@@ -439,7 +439,7 @@ export function renderChartPage(container) {
   container.innerHTML = `
   <div class="fade-in">
     <div class="detail-header">
-      <button class="back-btn" data-back><i class="ph-bold ph-arrow-left"></i></button>
+      <button class="back-btn" data-back aria-label="Go back"><i class="ph-bold ph-arrow-left"></i></button>
       <div class="detail-title-block">
         <div class="detail-title">${symbol} · ${market.name}</div>
         <div class="detail-sub">${market.exchange} · ${market.signal.timeframe} · entries & exits</div>
@@ -892,7 +892,7 @@ export function render(container) {
   <div class="fade-in glow-wrap">
     <div class="dash-glow"></div>
     <div class="detail-header">
-      <button class="back-btn" data-back><i class="ph-bold ph-arrow-left"></i></button>
+      <button class="back-btn" data-back aria-label="Go back"><i class="ph-bold ph-arrow-left"></i></button>
       <div class="detail-title-block">
         <div class="detail-title">${market.symbol} · ${market.name}</div>
         <div class="detail-sub" id="signal-detail-sub">${countryFlag(market.country)} ${market.exchange} · ${market.signal.timeframe} · ${dataTag(market)}</div>

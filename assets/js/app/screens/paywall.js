@@ -79,7 +79,7 @@ export function render(container) {
   if (isPro() || hasProToken()) {
     container.innerHTML = `
     <div class="fade-in" style="position:relative;padding-top:6px">
-      <button class="paywall-close" data-back><i class="ph-bold ph-x"></i></button>
+      <button class="paywall-close" data-back aria-label="Close"><i class="ph-bold ph-x"></i></button>
       <div class="paywall-hero">
         <div class="paywall-crown"><i class="ph-fill ph-crown-simple"></i></div>
         <div class="paywall-title">You're on Ajent Pro</div>
@@ -102,7 +102,7 @@ export function render(container) {
 
   container.innerHTML = `
   <div class="fade-in" style="position:relative;padding-top:6px">
-    <button class="paywall-close" data-back><i class="ph-bold ph-x"></i></button>
+    <button class="paywall-close" data-back aria-label="Close"><i class="ph-bold ph-x"></i></button>
 
     <div class="paywall-hero">
       <div class="paywall-crown"><i class="ph-fill ph-crown-simple"></i></div>

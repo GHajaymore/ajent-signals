@@ -40,7 +40,7 @@ export function render(container) {
   container.innerHTML = `
   <div class="fade-in">
     <div class="detail-header">
-      <button class="back-btn" data-back><i class="ph-bold ph-arrow-left"></i></button>
+      <button class="back-btn" data-back aria-label="Go back"><i class="ph-bold ph-arrow-left"></i></button>
       <div class="detail-title-block">
         <div class="detail-title">Straight answers</div>
         <div class="detail-sub">The hard questions — answered honestly</div>

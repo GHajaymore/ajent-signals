@@ -41,7 +41,7 @@ export function render(container) {
   <div class="fade-in glow-wrap">
     <div class="dash-glow"></div>
     <div class="detail-head" style="margin-bottom:14px">
-      <button class="icon-btn" data-back><i class="ph-bold ph-arrow-left"></i></button>
+      <button class="icon-btn" data-back aria-label="Go back"><i class="ph-bold ph-arrow-left"></i></button>
       <div>
         <div class="detail-title">How Ajent Pulse works</div>
         <div class="detail-sub">The strategy behind every signal</div>

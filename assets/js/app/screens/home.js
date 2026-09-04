@@ -410,7 +410,7 @@ export function render(container) {
       </div>
       <div class="header-actions">
         <span class="pill" id="market-status">${statusPillInner(marketStatus(statusMarket(engine)))}</span>
-        <button class="icon-btn" data-nav="#/alerts">
+        <button class="icon-btn" data-nav="#/alerts" aria-label="Notifications">
           <i class="ph-fill ph-bell"></i>
           ${state.hasUnreadAlerts ? '<span class="unread-dot"></span>' : ''}
         </button>
