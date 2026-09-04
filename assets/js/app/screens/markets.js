@@ -15,7 +15,7 @@ import { marketSession } from '../marketHours.js';
 // "Watching" filter so you can scan what's brewing across the whole board.
 function watchMarkets(threshold, q) {
   return state.engine.markets
-    .filter((m) => isRealMarket(m) && m.signal && (m.signal.proximity || 0) > 0 && m.verdict(threshold) === 'NO_TRADE'
+    .filter((m) => isRealMarket(m) && inAssetClass(m) && m.signal && (m.signal.proximity || 0) > 0 && m.verdict(threshold) === 'NO_TRADE'
       && (!q || m.symbol.includes(q) || m.name.toUpperCase().includes(q) || m.exchange.includes(q)))
     .sort((a, b) => (b.signal.proximity || 0) - (a.signal.proximity || 0));
 }
@@ -65,9 +65,53 @@ const CAT_COLOR = {
   Ags: 'var(--accent-400)',
 };
 
+// Asset-class lens — groups the fine-grained categories into the broad classes a
+// trader thinks in. Chips are built DYNAMICALLY from the classes that actually have
+// live markets right now (see availableAssetGroups), so a class the app doesn't
+// cover — e.g. FX or commodity futures today — never shows an empty board. If that
+// coverage is added later, its chip appears on its own. Order = display order.
+const ASSET_GROUPS = [
+  { key: 'index', label: 'Indices', cats: ['Index', 'Global Index'] },
+  { key: 'etf', label: 'ETFs', cats: ['Sector ETFs'] },
+  { key: 'fx', label: 'FX', cats: ['Currencies'] },
+  { key: 'futures', label: 'Futures', cats: ['Energy', 'Metals', 'Rates', 'Ags', 'Volatility'] },
+  { key: 'crypto', label: 'Crypto', cats: ['Crypto'] },
+];
+const ASSET_BY_KEY = Object.fromEntries(ASSET_GROUPS.map((g) => [g.key, g]));
+
 let query = '';
 let filter = 'all'; // all | buy | watch | conv | fav
 let view = 'list';  // list | heat
+let assetClass = 'all'; // all | index | etf | fx | futures | crypto
+
+// True when market m belongs to the selected asset class ('all' matches everything).
+function inAssetClass(m) {
+  const g = ASSET_BY_KEY[assetClass];
+  return !g || g.cats.includes(m.category);
+}
+
+// The asset-class groups that have at least one currently-browsable market (real
+// data + in the active region). Drives which chips render, so none is ever a dead end.
+function availableAssetGroups() {
+  const realOnly = backendConfigured();
+  const cats = new Set();
+  for (const m of state.engine.markets) {
+    if (realOnly && !isRealMarket(m)) continue;
+    if (!inActiveRegion(m)) continue;
+    cats.add(m.category);
+  }
+  return ASSET_GROUPS.filter((g) => g.cats.some((c) => cats.has(c)));
+}
+
+// Chip row: "All" + one chip per available class. Hidden entirely if only one class
+// exists (nothing to switch between). Resets a now-unavailable selection to 'all'.
+function assetChipsHtml() {
+  const groups = availableAssetGroups();
+  if (groups.length < 2) { assetClass = 'all'; return ''; }
+  if (assetClass !== 'all' && !groups.some((g) => g.key === assetClass)) assetClass = 'all';
+  const chip = (key, label) => `<button class="aclass-chip ${assetClass === key ? 'on' : ''}" data-aclass="${key}">${label}</button>`;
+  return `<div class="aclass-scroll"><div class="aclass">${chip('all', 'All')}${groups.map((g) => chip(g.key, g.label)).join('')}</div></div>`;
+}
 
 // A fired, real signal the engine flags as its strongest tier (the deepest,
 // highest-conviction setups). Only meaningful for markets currently printing a signal.
@@ -100,8 +144,11 @@ export function breadthCounts(filter) {
   }
   return { buy, watching, flat };
 }
+// Breadth is scoped to exactly what the list shows: real (when a backend is on) +
+// in-region + in the selected asset class — so the bar's counts match the rows below.
+function inBoard(m) { return (!backendConfigured() || isRealMarket(m)) && inActiveRegion(m) && inAssetClass(m); }
 function breadthHtml() {
-  const { buy, watching, flat } = breadthCounts(inActiveRegion);
+  const { buy, watching, flat } = breadthCounts(inBoard);
   const total = buy + watching + flat || 1;
   return `<div class="breadth" data-counts="${buy},${watching}">
     <div class="breadth-row">
@@ -171,6 +218,7 @@ function heatmapHtml() {
   const markets = state.engine.markets.filter((m) => {
     if (realOnly && !isRealMarket(m)) return false;
     if (!inActiveRegion(m)) return false; // region lens (crypto always shows)
+    if (!inAssetClass(m)) return false; // asset-class lens
     if (q && !(m.symbol.includes(q) || m.name.toUpperCase().includes(q) || m.exchange.includes(q))) return false;
     return true;
   });
@@ -201,6 +249,7 @@ function listHtml() {
   const filtered = engine.markets.filter((m) => {
     if (realOnly && !isRealMarket(m)) return false; // hide SIM/no-data markets
     if (!inActiveRegion(m)) return false; // region lens (crypto always shows)
+    if (!inAssetClass(m)) return false; // asset-class lens
     if (q && !(m.symbol.includes(q) || m.name.toUpperCase().includes(q) || m.exchange.includes(q))) return false;
     const v = m.verdict(threshold);
     if (filter === 'buy' && v !== 'BUY') return false;
@@ -244,6 +293,8 @@ export function render(container) {
 
     ${regionBarHtml(engine)}
 
+    <div id="aclass-wrap">${assetChipsHtml()}</div>
+
     <a class="stk-link" data-nav="#/stocks">
       <span class="stk-link-ic"><i class="ph-fill ph-magnifying-glass-plus"></i></span>
       <span class="stk-link-body"><b>Stock screener</b><small>Swing signals across 38 large-caps · new</small></span>
@@ -265,7 +316,20 @@ export function render(container) {
   const input = document.getElementById('mkt-search');
   input.addEventListener('input', () => { query = input.value; rebuild(); });
 
-  // Region lens — scope the board to a region; refresh its chips, the breadth, and the list.
+  // Asset-class lens — delegated so it survives the chip row being re-rendered when
+  // the region (and thus the available classes) changes.
+  const aclassWrap = container.querySelector('#aclass-wrap');
+  if (aclassWrap) aclassWrap.addEventListener('click', (e) => {
+    const c = e.target.closest('.aclass-chip');
+    if (!c || c.dataset.aclass === assetClass) return;
+    assetClass = c.dataset.aclass;
+    aclassWrap.querySelectorAll('.aclass-chip').forEach((b) => b.classList.toggle('on', b.dataset.aclass === assetClass));
+    const bw = container.querySelector('#breadth-wrap'); if (bw) bw.innerHTML = breadthHtml();
+    rebuild();
+  });
+
+  // Region lens — scope the board to a region; refresh its chips, the asset-class
+  // chips (available classes can change), the breadth, and the list.
   const regionBar = container.querySelector('#region-bar');
   if (regionBar) regionBar.addEventListener('click', (e) => {
     const c = e.target.closest('.rgn-chip');
@@ -273,6 +337,7 @@ export function render(container) {
     state.settings.region = c.dataset.region;
     saveSettings();
     regionBar.innerHTML = regionChipsHtml(engine);
+    if (aclassWrap) aclassWrap.innerHTML = assetChipsHtml(); // may reset assetClass to 'all'
     const bw = container.querySelector('#breadth-wrap'); if (bw) bw.innerHTML = breadthHtml();
     rebuild();
   });
@@ -306,10 +371,18 @@ export function refresh(container) {
   const sub = container.querySelector('#mkt-subtitle');
   if (sub) { const t = subtitleText(); if (sub.innerHTML !== t) sub.innerHTML = t; }
 
+  // Asset-class chips: on cold load the board starts empty, so populate/patch the
+  // chip row once the set of available classes changes (e.g. first feed arrives).
+  const aclassWrap = container.querySelector('#aclass-wrap');
+  if (aclassWrap) {
+    const want = availableAssetGroups().map((g) => g.key).join(',');
+    if (aclassWrap.dataset.groups !== want) { aclassWrap.innerHTML = assetChipsHtml(); aclassWrap.dataset.groups = want; }
+  }
+
   // Breadth bar: rebuild only when the buy/watching counts actually change.
   const bWrap = container.querySelector('#breadth-wrap');
   if (bWrap) {
-    const { buy, watching } = breadthCounts();
+    const { buy, watching } = breadthCounts(inBoard);
     if (bWrap.querySelector('.breadth')?.dataset.counts !== `${buy},${watching}`) bWrap.innerHTML = breadthHtml();
   }
 
@@ -318,7 +391,7 @@ export function refresh(container) {
   if (view === 'heat') {
     const realOnly = backendConfigured();
     const sig = state.engine.markets
-      .filter((m) => !realOnly || isRealMarket(m))
+      .filter((m) => (!realOnly || isRealMarket(m)) && inAssetClass(m))
       .map((m) => `${m.symbol}:${Math.round((m.changePct || 0) * 20)}:${m.verdict(threshold)}:${(m.signal && m.signal.strat) || ''}`).join(',');
     if (wrap.dataset.heatSig !== sig) { wrap.innerHTML = heatmapHtml(); wrap.dataset.heatSig = sig; }
     return;
@@ -337,6 +410,7 @@ export function refresh(container) {
   if (filter === 'buy' || filter === 'conv') {
     const q = query.trim().toUpperCase();
     const want = state.engine.markets.filter((m) => {
+      if (!inAssetClass(m)) return false;
       if (q && !(m.symbol.includes(q) || m.name.toUpperCase().includes(q) || m.exchange.includes(q))) return false;
       if (filter === 'conv') return isHiConv(m, threshold);
       return m.verdict(threshold) === 'BUY';

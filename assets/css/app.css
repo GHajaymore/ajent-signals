@@ -575,6 +575,14 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .fchip { display: inline-flex; align-items: center; gap: 4px; background: var(--surface); border: 1px solid var(--hairline); color: var(--text-muted); font: 600 12.5px var(--font-heading); padding: 7px 13px; border-radius: 20px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
 .fchip.on { background: var(--accent-800); color: var(--accent-100); border-color: transparent; }
 
+/* Asset-class lens — horizontally scrollable so it stays one line on mobile */
+.aclass-scroll { overflow-x: auto; margin: 0 0 14px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.aclass-scroll::-webkit-scrollbar { display: none; }
+.aclass { display: inline-flex; gap: 7px; }
+.aclass-chip { flex: none; white-space: nowrap; background: var(--surface-2); border: 1px solid var(--hairline); color: var(--text-muted); font: 600 12.5px var(--font-heading); padding: 7px 14px; border-radius: 20px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+.aclass-chip:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--hairline)); color: var(--text); }
+.aclass-chip.on { background: var(--accent-800); color: var(--accent-100); border-color: transparent; }
+
 /* List / Heatmap view switch */
 .mkt-view { display: inline-flex; gap: 3px; background: var(--neutral-900); border-radius: 10px; padding: 3px; margin-bottom: 12px; }
 .vchip { display: inline-flex; align-items: center; gap: 5px; border: none; background: transparent; color: var(--text-muted); font: 600 12.5px var(--font-heading); padding: 6px 13px; border-radius: 8px; cursor: pointer; transition: background 0.15s, color 0.15s; }
