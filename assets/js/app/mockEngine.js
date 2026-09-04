@@ -337,7 +337,9 @@ class MarketModel {
       provisional: !!sig.provisional,
       trend,
       volatility: volLevel,
-      expectedHold: sig.timeframe === '1D' ? '1–3 days' : '1–4 hours',
+      // Trend rides the move (trailing stop, weeks-long time stop) — not the ~1–3 day
+      // mean-reversion snap, and never the 15m intraday window.
+      expectedHold: sig.strat === 'trend' ? 'Days–weeks' : (sig.timeframe === '1D' ? '1–3 days' : '1–4 hours'),
       plan,
       reasons: serverReasons(sig, trend),
       indicators: [],
