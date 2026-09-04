@@ -67,7 +67,15 @@ export function customStats() {
     trades: c.length, open: Object.keys(book.open).length,
     winRate: dec ? Math.round((wins.length / dec) * 100) : 0,
     pf: gl ? +(gw / gl).toFixed(2) : (gw > 0 ? null : 0),
+    avgR: c.length ? +(c.reduce((s, t) => s + (t.resultR || 0), 0) / c.length).toFixed(2) : null,
   };
+}
+
+// Ajent's expectancy (avg R per closed trade) — the scale-independent fair metric to
+// compare against the user's avgR.
+export function ajentAvgR(closed) {
+  if (!Array.isArray(closed) || !closed.length) return null;
+  return +(closed.reduce((s, t) => s + (t.resultR || 0), 0) / closed.length).toFixed(2);
 }
 
 // Cumulative-P&L series (oldest→newest) for an equity sparkline.

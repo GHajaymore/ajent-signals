@@ -1,8 +1,8 @@
 import { state } from '../state.js';
 import { isRealMarket } from './markets.js';
 import { evalCustom, getCustomConfig, setCustomConfig, resetCustomConfig, CUSTOM_BOUNDS, CUSTOM_DEFAULT } from '../customStrategy.js';
-import { customStats, customEquity } from '../customBook.js';
-import { getPerformanceSummary } from '../paperTrading.js';
+import { customStats, customEquity, ajentAvgR } from '../customBook.js';
+import { getPerformanceSummary, getClosedTrades } from '../paperTrading.js';
 import { sparklineSvg } from '../components.js';
 
 // "Your strategy" — configure your own indicators, see YOUR signals across the
@@ -78,15 +78,17 @@ function recordPanel() {
   }
   const eq = customEquity();
   const spark = eq.length > 2 ? sparklineSvg(eq, you.net >= 0 ? 'var(--buy)' : 'var(--sell)', 240, 40) : '';
+  const ajR = ajentAvgR(getClosedTrades());
+  const rr = (v) => (v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(2)}R`);
   return `<div class="panel">
     <div class="panel-title">Your strategy's record</div>
     <div class="vs-grid">
-      <div class="vs-col"><div class="vs-who">AJENT</div><div class="vs-net" style="color:${(aj.totalPnl || 0) >= 0 ? 'var(--buy)' : 'var(--sell)'}">${money(aj.totalPnl || 0)}</div><div class="vs-sub">${aj.winRate || 0}% · PF ${pf(aj.profitFactor)}</div></div>
+      <div class="vs-col"><div class="vs-who">AJENT</div><div class="vs-exp" style="color:${(ajR || 0) >= 0 ? 'var(--buy)' : 'var(--sell)'}">${rr(ajR)}<span class="vs-exp-l">avg/trade</span></div><div class="vs-sub">${money(aj.totalPnl || 0)} · ${aj.winRate || 0}% · PF ${pf(aj.profitFactor)}</div></div>
       <div class="vs-mid">vs</div>
-      <div class="vs-col"><div class="vs-who">YOURS</div><div class="vs-net" style="color:${you.net >= 0 ? 'var(--buy)' : 'var(--sell)'}">${money(you.net)}</div><div class="vs-sub">${you.winRate}% · PF ${pf(you.pf)} · ${you.trades}T · ${you.open} open</div></div>
+      <div class="vs-col"><div class="vs-who">YOURS</div><div class="vs-exp" style="color:${(you.avgR || 0) >= 0 ? 'var(--buy)' : 'var(--sell)'}">${rr(you.avgR)}<span class="vs-exp-l">avg/trade</span></div><div class="vs-sub">${money(you.net)} · ${you.winRate}% · ${you.trades}T · ${you.open} open</div></div>
     </div>
     ${spark ? `<div style="margin-top:6px">${spark}</div>` : ''}
-    <div class="fair-note"><b>For a fair read, compare win rate &amp; profit factor</b> — those don't depend on trade count. Net $ mostly reflects <b>how many trades</b> each took: Ajent trades the whole board, yours trades only what your rule picks.</div>
+    <div class="fair-note"><b>Avg/trade (expectancy) is the fair number</b> — it's true at any scale, even a small account trading a few positions. Win rate &amp; PF are fair too. Net $ mostly reflects <b>how many trades</b> each took: Ajent trades the whole board, yours only what your rule picks.</div>
   </div>`;
 }
 

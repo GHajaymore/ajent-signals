@@ -130,7 +130,9 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .vs-col { text-align: center; background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 12px; padding: 12px 8px; }
 .vs-who { font: 700 9.5px var(--font-mono); letter-spacing: 0.12em; color: var(--text-muted); }
 .vs-net { font: 800 22px var(--font-mono); letter-spacing: -0.02em; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
-.vs-sub { font: 500 10.5px var(--font-mono); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.vs-exp { font: 800 22px var(--font-mono); letter-spacing: -0.02em; margin: 4px 0 3px; font-variant-numeric: tabular-nums; line-height: 1; }
+.vs-exp-l { display: block; font: 600 8px var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-top: 3px; }
+.vs-sub { font: 500 10px var(--font-mono); color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .vs-mid { font: 700 11px var(--font-heading); color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.06em; }
 .ub-cta { display: flex; align-items: center; justify-content: center; gap: 8px; height: 44px; border-radius: var(--radius-sm); background: linear-gradient(180deg, var(--accent-400), var(--accent)); color: #08101f; font: 700 14px var(--font-body); cursor: pointer; list-style: none; user-select: none; }
 .ub-cta::-webkit-details-marker { display: none; }

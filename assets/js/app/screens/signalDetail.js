@@ -2,6 +2,7 @@ import { state, saveSettings, toggleWatchlist, isInWatchlist, getEnabledPaperMar
 import { getStrategy, exitPhrase } from '../strategyMeta.js';
 import { getClosedTrades, getPerformanceSummary } from '../paperTrading.js';
 import { userTradeFor, userStats, unrealizedFor, defaultRiskDollars, openUserTrade, closeUserTrade } from '../userBook.js';
+import { ajentAvgR } from '../customBook.js';
 
 // Honest per-market note about the DAILY strategy's backtested edge on this
 // specific market (daily mode only). Never implies an edge the backtest didn't
@@ -566,12 +567,14 @@ function userBookPanel(market, verdict, s, dispEntry, dispStop, dispTarget) {
   const pos = userTradeFor(sym);
   const you = userStats();
   const aj = getPerformanceSummary() || { totalPnl: 0, winRate: 0, profitFactor: null };
+  const ajR = ajentAvgR(getClosedTrades());
   const money = (n) => `${n >= 0 ? '+$' : '−$'}${Math.abs(Math.round(n)).toLocaleString('en-US')}`;
   const pf = (v) => (v == null ? '∞' : (+v).toFixed(2));
+  const rr = (v) => (v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(2)}R`);
   const cmp = `<div class="vs-grid">
-    <div class="vs-col"><div class="vs-who">AJENT</div><div class="vs-net" style="color:${(aj.totalPnl || 0) >= 0 ? 'var(--buy)' : 'var(--sell)'}">${money(aj.totalPnl || 0)}</div><div class="vs-sub">${aj.winRate || 0}% · PF ${pf(aj.profitFactor)}</div></div>
+    <div class="vs-col"><div class="vs-who">AJENT</div><div class="vs-exp" style="color:${(ajR || 0) >= 0 ? 'var(--buy)' : 'var(--sell)'}">${rr(ajR)}<span class="vs-exp-l">avg/trade</span></div><div class="vs-sub">${money(aj.totalPnl || 0)} · ${aj.winRate || 0}% · PF ${pf(aj.profitFactor)}</div></div>
     <div class="vs-mid">vs</div>
-    <div class="vs-col"><div class="vs-who">YOU</div><div class="vs-net" style="color:${you.net >= 0 ? 'var(--buy)' : 'var(--sell)'}">${money(you.net)}</div><div class="vs-sub">${you.winRate}% · PF ${pf(you.pf)} · ${you.trades} trade${you.trades === 1 ? '' : 's'}</div></div>
+    <div class="vs-col"><div class="vs-who">YOU</div><div class="vs-exp" style="color:${(you.avgR || 0) >= 0 ? 'var(--buy)' : 'var(--sell)'}">${rr(you.avgR)}<span class="vs-exp-l">avg/trade</span></div><div class="vs-sub">${money(you.net)} · ${you.winRate}% · ${you.trades}T</div></div>
   </div>`;
   let action = '';
   if (pos) {
@@ -597,7 +600,7 @@ function userBookPanel(market, verdict, s, dispEntry, dispStop, dispTarget) {
   return `<div class="panel ub-panel">
     <div class="panel-title" style="display:flex;align-items:center;gap:8px"><i class="ph-fill ph-scales" style="color:var(--accent)"></i>You vs Ajent</div>
     ${cmp}
-    <div class="fair-note"><b>Compare win rate &amp; profit factor</b> for a fair read — net $ depends on how many trades each took (Ajent trades the whole board; you trade what you pick).</div>
+    <div class="fair-note"><b>Avg/trade (expectancy) is the fair number</b> — it holds at any scale, even a small account trading a few positions. Net $ just reflects how many trades each took (Ajent trades the whole board; you trade what you pick).</div>
     ${action}
     <a href="#/mystrategy" class="ub-strat-link">Build your own strategy — beat Ajent your way <i class="ph-bold ph-caret-right"></i></a>
     <div class="text-faint" style="font-size:10.5px;margin-top:11px;line-height:1.45">Your book is virtual money kept on this device. Simulated and educational — not advice, no real orders.</div>

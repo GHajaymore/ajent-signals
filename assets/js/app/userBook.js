@@ -77,6 +77,9 @@ export function userStats() {
     trades: c.length, open: Object.keys(book.open).length,
     winRate: dec ? Math.round((wins.length / dec) * 100) : 0,
     pf: gl ? +(gw / gl).toFixed(2) : (gw > 0 ? null : 0),
+    // Expectancy: average result in R (per-trade, size- AND count-independent) — the
+    // fair number at any scale, including a small account trading a few positions.
+    avgR: c.length ? +(c.reduce((s, t) => s + (t.resultR || 0), 0) / c.length).toFixed(2) : null,
   };
 }
 
