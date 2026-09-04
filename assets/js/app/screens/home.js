@@ -133,14 +133,18 @@ function isHiConv(m) { return !!(m.signal && m.signal.plan && m.signal.plan.conv
 
 function setupRow(m, v) {
   const isBuy = v === 'BUY';
+  const isTrend = m.signal && m.signal.strat === 'trend';
   const color = isBuy ? 'var(--buy)' : 'var(--sell)';
   const conf = m.signal.confidence;
   const hi = isHiConv(m);
+  // A trend BUY is a continuation, not a dip — don't mislabel it "Buy the dip".
+  const typeIcon = isBuy ? (isTrend ? 'ph-trend-up' : 'ph-caret-up') : 'ph-caret-down';
+  const typeLabel = isBuy ? (isTrend ? 'Ride the trend' : 'Buy the dip') : 'Sell the pop';
   return `<div class="setup-row${hi ? ' hi-conv' : ''}" data-nav="#/signal/${m.symbol}" data-sym="${m.symbol}">
     ${symTile(m.symbol, 34)}
     <div class="setup-body">
       <div class="setup-name">${m.name} <span style="vertical-align:middle">${dataTag(m)}</span>${hi ? ' <span class="conv-badge"><i class="ph-fill ph-star"></i>High conviction</span>' : ''}</div>
-      <div class="setup-type" style="color:${color}"><i class="ph-fill ${isBuy ? 'ph-caret-up' : 'ph-caret-down'}"></i>${isBuy ? 'Buy the dip' : 'Sell the pop'}</div>
+      <div class="setup-type" style="color:${color}"><i class="ph-fill ${typeIcon}"></i>${typeLabel}</div>
     </div>
     <div class="setup-conf">
       <span class="setup-conf-val" style="color:${color}">${conf}%</span>
