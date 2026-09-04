@@ -6,7 +6,7 @@ const CHECK_SVG = '<svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L1
 const ROWS = [
   { key: 'read', label: 'I have read the full disclaimer above' },
   { key: 'risk', label: 'I understand trading real markets carries substantial risk of loss, and that this app is simulated (virtual money)' },
-  { key: 'terms', label: 'I accept the <a href="https://ghajaymore.github.io/ajent-signals/terms/" target="_blank" rel="noopener" style="color:var(--accent-300)">Terms of Use</a> and <a href="https://ghajaymore.github.io/ajent-signals/privacy/" target="_blank" rel="noopener" style="color:var(--accent-300)">Privacy Policy</a>' },
+  { key: 'terms', label: 'I accept the <a href="../terms/" target="_blank" rel="noopener" style="color:var(--accent-300)">Terms of Use</a> and <a href="../privacy/" target="_blank" rel="noopener" style="color:var(--accent-300)">Privacy Policy</a>' },
   { key: 'age', label: 'I am at least 18 years old (or the age of majority where I live)' },
 ];
 
@@ -33,8 +33,8 @@ export function render(container) {
 
     <div style="margin-bottom:20px">
       ${ROWS.map((r) => `
-        <div class="checkrow" data-key="${r.key}">
-          <span class="checkbox ${acks[r.key] ? 'checked' : ''}">${CHECK_SVG}</span>
+        <div class="checkrow" data-key="${r.key}" role="checkbox" aria-checked="${acks[r.key] ? 'true' : 'false'}" tabindex="0">
+          <span class="checkbox ${acks[r.key] ? 'checked' : ''}" aria-hidden="true">${CHECK_SVG}</span>
           <span style="font-size:13.5px;line-height:1.4">${r.label}</span>
         </div>`).join('')}
     </div>
@@ -43,12 +43,22 @@ export function render(container) {
     <p class="text-faint" style="text-align:center;font-size:11px;margin-top:14px">CFTC Rule 4.41 · Not affiliated with any exchange listed in-app</p>
   </div>`;
 
+  // Toggle in place (no full re-render) so keyboard focus stays on the row the user
+  // just acted on — a full re-render would drop focus to the top each time.
+  const toggle = (row) => {
+    const key = row.dataset.key;
+    state.acks[key] = !state.acks[key];
+    const on = state.acks[key];
+    row.setAttribute('aria-checked', on ? 'true' : 'false');
+    row.querySelector('.checkbox').classList.toggle('checked', on);
+    const btn = document.getElementById('gate-submit');
+    if (btn) btn.disabled = !Object.values(state.acks).every(Boolean);
+  };
   container.querySelectorAll('.checkrow').forEach((row) => {
-    row.addEventListener('click', (e) => {
+    row.addEventListener('click', (e) => { if (e.target.closest('a')) return; toggle(row); });
+    row.addEventListener('keydown', (e) => {
       if (e.target.closest('a')) return;
-      const key = row.dataset.key;
-      state.acks[key] = !state.acks[key];
-      render(container);
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(row); }
     });
   });
 
