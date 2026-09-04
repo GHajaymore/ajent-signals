@@ -43,13 +43,23 @@ export const ASSET_CLASSES = {
       swing: { status: 'experiment', markets: ['BTC', 'ETH'] },
     },
   },
+  etf: {
+    key: 'etf',
+    name: 'Sector ETFs',
+    model: 'tracked',
+    // Phase 1 (2026-09-04): lab-validated (test/phase1.mjs) — the swing edge holds on
+    // these NEW underlyings (8/8 sectors positive). Traded into the shared swing record.
+    universe: ['SMH', 'XLK', 'XLF', 'XLE', 'XLV', 'XLY'],
+    styles: {
+      swing: { status: 'live', markets: ['SMH', 'XLK', 'XLF', 'XLE', 'XLV', 'XLY'] },
+    },
+  },
 
-  // ── Phase 1 / 2 stubs — DECLARED, not wired (no live cell, no universe traded).
-  // Uncomment + validate per cell before flipping any status to 'live'. Kept here so
-  // the registry documents the roadmap without implying these markets exist yet.
-  // forex:  { key: 'forex',  name: 'Forex',  model: 'tracked',  universe: [], styles: { swing: { status: 'planned' }, day: { status: 'planned' } } },
-  // etf:    { key: 'etf',    name: 'ETFs',   model: 'tracked',  universe: [], styles: { swing: { status: 'planned' } } },
-  // stocks: { key: 'stocks', name: 'Stocks', model: 'screener', scan: {},     styles: { swing: { status: 'planned' } } },
+  // FOREX was DROPPED — the lab (test/phase1.mjs) found the recipe does NOT hold on
+  // forex majors (mixed/negative, thin sample, same verdict as crypto). Not added.
+
+  // ── Phase 2 stub — DECLARED, not wired (screener model, see docs/phase-0-multi-asset.md).
+  // stocks: { key: 'stocks', name: 'Stocks', model: 'screener', scan: {}, styles: { swing: { status: 'planned' } } },
 };
 
 // The trading styles that can appear across classes (a style is a column; a class is

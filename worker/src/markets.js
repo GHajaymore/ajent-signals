@@ -22,6 +22,15 @@ export const MARKETS = {
   // RSI-2 mean-reversion strategy applied to real BTC-USD / ETH-USD daily candles.
   BTC: { yahoo: 'BTC-USD', country: 'US', crypto: true, assetClass: 'crypto', name: 'Bitcoin' },
   ETH: { yahoo: 'ETH-USD', country: 'US', crypto: true, assetClass: 'crypto', name: 'Ether' },
+  // Sector ETFs — Phase 1 (2026-09-04). Lab-validated (test/phase1.mjs): the swing
+  // mean-reversion edge holds on these new underlyings (8/8 sectors positive; SMH
+  // PF 6.25, XLK 3.14, XLF 2.45). US cash session. Traded into the swing record.
+  SMH: { yahoo: 'SMH', country: 'US', assetClass: 'etf', name: 'Semiconductors' },
+  XLK: { yahoo: 'XLK', country: 'US', assetClass: 'etf', name: 'Technology' },
+  XLF: { yahoo: 'XLF', country: 'US', assetClass: 'etf', name: 'Financials' },
+  XLE: { yahoo: 'XLE', country: 'US', assetClass: 'etf', name: 'Energy' },
+  XLV: { yahoo: 'XLV', country: 'US', assetClass: 'etf', name: 'Health Care' },
+  XLY: { yahoo: 'XLY', country: 'US', assetClass: 'etf', name: 'Consumer Disc.' },
 };
 
 const TZ = { US: 'America/New_York', CA: 'America/Toronto', AU: 'Australia/Sydney', EU: 'Europe/Berlin', JP: 'Asia/Tokyo' };

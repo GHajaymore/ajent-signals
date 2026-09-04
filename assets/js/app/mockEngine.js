@@ -1,7 +1,7 @@
 // Mock signal-engine — mirrors the shapes in design_handoff_ajent/API_AND_DATA_MODEL.md.
 // Illustrative only: replace with a licensed real-time feed + real confluence engine in production.
 
-export const CATEGORY_ORDER = ['Index', 'Global Index', 'Currencies', 'Energy', 'Metals', 'Rates', 'Crypto', 'Volatility', 'Ags'];
+export const CATEGORY_ORDER = ['Index', 'Sector ETFs', 'Global Index', 'Currencies', 'Energy', 'Metals', 'Rates', 'Crypto', 'Volatility', 'Ags'];
 
 // The label to show for a SIM placeholder's timeframe, matching the active
 // strategy (Proven daily = 1D, Active intraday = 15m). Read straight from the
@@ -65,6 +65,15 @@ const MARKET_DEFS = [
   { symbol: 'ZB', name: '30-Year T-Bond', category: 'Rates', exchange: 'CBOT', country: 'US', decimals: 3, pointValue: 1000, basePrice: 118.25, atrPct: 0.005 },
   { symbol: 'BTC', name: 'Bitcoin', category: 'Crypto', exchange: 'CME', country: 'US', decimals: 0, pointValue: 5, basePrice: 68210, atrPct: 0.022 },
   { symbol: 'ETH', name: 'Ether', category: 'Crypto', exchange: 'CME', country: 'US', decimals: 1, pointValue: 50, basePrice: 3384.2, atrPct: 0.026 },
+  // Sector ETFs — Phase 1 (2026-09-04). Lab-validated (test/phase1.mjs): the swing
+  // mean-reversion edge holds on these NEW underlyings (8/8 sectors positive), unlike
+  // forex, which was dropped. Traded by the worker into the swing record.
+  { symbol: 'SMH', name: 'Semiconductors', category: 'Sector ETFs', exchange: 'NASDAQ', country: 'US', decimals: 2, pointValue: 1, basePrice: 240, atrPct: 0.018 },
+  { symbol: 'XLK', name: 'Technology', category: 'Sector ETFs', exchange: 'NYSE', country: 'US', decimals: 2, pointValue: 1, basePrice: 235, atrPct: 0.011 },
+  { symbol: 'XLF', name: 'Financials', category: 'Sector ETFs', exchange: 'NYSE', country: 'US', decimals: 2, pointValue: 1, basePrice: 48, atrPct: 0.010 },
+  { symbol: 'XLE', name: 'Energy', category: 'Sector ETFs', exchange: 'NYSE', country: 'US', decimals: 2, pointValue: 1, basePrice: 92, atrPct: 0.014 },
+  { symbol: 'XLV', name: 'Health Care', category: 'Sector ETFs', exchange: 'NYSE', country: 'US', decimals: 2, pointValue: 1, basePrice: 148, atrPct: 0.009 },
+  { symbol: 'XLY', name: 'Consumer Disc.', category: 'Sector ETFs', exchange: 'NYSE', country: 'US', decimals: 2, pointValue: 1, basePrice: 205, atrPct: 0.011 },
   { symbol: 'VIX', name: 'Cboe Volatility Index', category: 'Volatility', exchange: 'CFE', country: 'US', decimals: 2, pointValue: 1000, basePrice: 14.22, atrPct: 0.05 },
   { symbol: 'ZC', name: 'Corn', category: 'Ags', exchange: 'CBOT', country: 'US', decimals: 2, pointValue: 50, basePrice: 445.25, atrPct: 0.012 },
   { symbol: 'ZS', name: 'Soybeans', category: 'Ags', exchange: 'CBOT', country: 'US', decimals: 2, pointValue: 50, basePrice: 1151.5, atrPct: 0.012 },
