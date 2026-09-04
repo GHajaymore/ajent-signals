@@ -146,16 +146,34 @@ function renderRoute() {
   wireGlobalNav();
 }
 
+// Make a non-native clickable element reachable and operable by keyboard: focusable via
+// Tab, activated by Enter/Space. It's announced as a button only when it holds no nested
+// interactive descendant (a role=button around a real button is invalid ARIA). Native
+// <a>/<button> already do all this, so they're left alone. The global :focus-visible
+// ring (tokens.css) gives the visible focus outline.
+function makeKeyboardActivatable(el, activate) {
+  if (el.tagName === 'A' || el.tagName === 'BUTTON' || el.hasAttribute('tabindex')) return;
+  el.tabIndex = 0;
+  if (!el.querySelector('a,button,input,select,textarea,[tabindex]')) el.setAttribute('role', 'button');
+  el.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
+  });
+}
+
 function wireGlobalNav() {
   contentEl.querySelectorAll('[data-nav]').forEach((el) => {
     if (el.dataset.navWired) return;
     el.dataset.navWired = '1';
-    el.addEventListener('click', () => { location.hash = el.dataset.nav; });
+    const go = () => { location.hash = el.dataset.nav; };
+    el.addEventListener('click', go);
+    makeKeyboardActivatable(el, go);
   });
   contentEl.querySelectorAll('[data-back]').forEach((el) => {
     if (el.dataset.navWired) return;
     el.dataset.navWired = '1';
-    el.addEventListener('click', () => { history.back(); });
+    const back = () => { history.back(); };
+    el.addEventListener('click', back);
+    makeKeyboardActivatable(el, back);
   });
 }
 
