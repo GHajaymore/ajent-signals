@@ -66,25 +66,25 @@ const svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http
     <rect width="62" height="62" rx="17" fill="url(#mk)"/>
     <path d="M14 40 L26 40 L32 22 L45 58 L52 34 L60 34" fill="none" stroke="#08130d" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
     <text x="82" y="26" font-family="${FONT}" font-size="24" font-weight="800" letter-spacing="0.3" fill="#eef0f7">Ajent Signals</text>
-    <text x="82" y="52" font-family="${FONT}" font-size="14.5" font-weight="700" letter-spacing="3.5" fill="#4d9bff">LONG &amp; SHORT · MEAN REVERSION</text>
+    <text x="82" y="52" font-family="${FONT}" font-size="14.5" font-weight="700" letter-spacing="3.5" fill="#4d9bff">LONG-ONLY · SIGNAL ENSEMBLE</text>
   </g>
 
   <!-- headline -->
   <text x="78" y="300" font-family="${FONT}" font-size="98" font-weight="800" letter-spacing="-2.5" fill="#eef0f7">Buy the dip.</text>
-  <text x="78" y="406" font-family="${FONT}" font-size="98" font-weight="800" letter-spacing="-2.5" fill="url(#acc)">Short the rip.</text>
+  <text x="78" y="406" font-family="${FONT}" font-size="98" font-weight="800" letter-spacing="-2.5" fill="url(#acc)">Ride the trend.</text>
 
   <!-- subtitle -->
-  <text x="80" y="470" font-family="${FONT}" font-size="29" font-weight="500" fill="rgba(238,240,247,0.62)">Signals fade overstretched markets &#8212; tracked honestly on a real record.</text>
+  <text x="80" y="470" font-family="${FONT}" font-size="29" font-weight="500" fill="rgba(238,240,247,0.62)">Buys oversold dips and rides established uptrends &#8212; tracked honestly.</text>
 
   <!-- honest chips (no performance claims) -->
   <g transform="translate(80,510)">
-    ${chip(0, '43 markets')}
-    ${chip(196, 'Long &amp; short')}
-    ${chip(414, '100% virtual money')}
+    ${chip(0, 'Global markets')}
+    ${chip(232, 'Dips + trends')}
+    ${chip(452, '100% virtual money')}
   </g>
 
   <!-- footer -->
-  <text x="80" y="600" font-family="${FONT}" font-size="19" font-weight="500" fill="rgba(238,240,247,0.4)">ghajaymore.github.io/ajent-signals&#8195;&#183;&#8195;Educational tool, not investment advice</text>
+  <text x="80" y="600" font-family="${FONT}" font-size="19" font-weight="500" fill="rgba(238,240,247,0.4)">ajent.ajailabs.app&#8195;&#183;&#8195;Educational tool, not investment advice</text>
 </svg>`;
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
