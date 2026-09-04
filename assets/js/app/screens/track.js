@@ -1,4 +1,6 @@
 import { getClosedTrades, getPerformanceSummary, getOpenPositions, tradePnl } from '../paperTrading.js';
+import { userStats } from '../userBook.js';
+import { customStats, ajentAvgR } from '../customBook.js';
 import { positionCallPill, updateCallPill } from '../tradeGuidance.js';
 import { getStrategy, getAdaptive } from '../strategyMeta.js';
 import { fmtPrice } from '../format.js';
@@ -545,6 +547,35 @@ function downloadCsv(filename, csv) {
   setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
 }
 
+// "You vs Ajent" on the record's home — the user's own book + strategy scored
+// against Ajent by expectancy (the scale-fair metric). Selection stays your own,
+// so net $ is secondary; avg R/trade is the headline.
+function youVsAjentCard(perf, ajTradeCount) {
+  const you = userStats();
+  const cs = customStats();
+  if (!(you.trades || you.open || cs.trades || cs.open)) {
+    return `<div class="panel">
+      <div class="panel-title" style="display:flex;align-items:center;gap:8px"><i class="ph-fill ph-scales" style="color:var(--accent)"></i>You vs Ajent</div>
+      <div class="text-muted" style="font-size:12.5px;line-height:1.55;padding:2px 0 10px">Take a signal your own way, or build your own strategy — and your record goes head-to-head with Ajent right here, by <b style="color:var(--text)">avg R per trade</b> (fair at any scale).</div>
+      <a href="#/mystrategy" class="ub-strat-link">Build your strategy &amp; compete <i class="ph-bold ph-caret-right"></i></a>
+    </div>`;
+  }
+  const ajR = ajentAvgR(getClosedTrades());
+  const rr = (v) => (v == null ? '—' : `${v >= 0 ? '+' : ''}${v}R`);
+  const col = (who, avgR, net, sub) => `<div class="vs-col"><div class="vs-who">${who}</div><div class="vs-exp" style="color:${(avgR || 0) >= 0 ? 'var(--buy)' : 'var(--sell)'}">${rr(avgR)}<span class="vs-exp-l">avg/trade</span></div><div class="vs-sub">${money(net)} · ${sub}</div></div>`;
+  const cols = [col('AJENT', ajR, perf.totalPnl, `${perf.winRate}% · ${ajTradeCount}T`)];
+  if (you.trades || you.open) cols.push(col('YOUR TRADES', you.avgR, you.net, `${you.winRate}% · ${you.trades}T`));
+  if (cs.trades || cs.open) cols.push(col('YOUR STRATEGY', cs.avgR, cs.net, `${cs.winRate}% · ${cs.trades}T`));
+  const grid = cols.length === 2
+    ? `<div class="vs-grid">${cols[0]}<div class="vs-mid">vs</div>${cols[1]}</div>`
+    : `<div class="yva-3">${cols.join('')}</div>`;
+  return `<div class="panel">
+    <div class="panel-title" style="display:flex;align-items:center;gap:8px"><i class="ph-fill ph-scales" style="color:var(--accent)"></i>You vs Ajent</div>
+    ${grid}
+    <div class="fair-note"><b>Avg R/trade is the fair read</b> — count- and size-independent, so it's true even at a small account. Net $ just reflects how many trades each took. <a href="#/mystrategy" style="color:var(--accent-300)">Tune your strategy ›</a></div>
+  </div>`;
+}
+
 export function render(container) {
   const perf = getPerformanceSummary();
   if (!perf) { container.innerHTML = emptyState(); wireSelector(container); return; }
@@ -569,6 +600,8 @@ export function render(container) {
     ${honestBanner()}
 
     ${strategyCard()}
+
+    ${youVsAjentCard(perf, closed.length)}
 
     <div class="stat2-grid">
       <div class="stat-card"><div class="stat-label">Win rate</div><div class="stat-value" style="color:var(--buy)">${perf.winRate}%</div><div class="stat-sub">${perf.wins}W / ${perf.losses}L</div></div>
