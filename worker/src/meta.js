@@ -24,13 +24,29 @@ export const STRATEGY = {
   approach: 'An adaptive ensemble of proven edges: it buys markets stretched oversold within a healthy uptrend (fading the dip) and rides markets in established uptrends (following the trend), exiting each as its setup completes, capped by a volatility-based stop. Long-only, and it evolves from its own real record.',
 };
 
-// The public view of the strategy — safe to send to clients. Excludes the exact
-// indicator/threshold/stop dials (the proprietary recipe).
-export function publicStrategy(adaptive) {
-  const s = STRATEGY;
+// Multi-asset foundation (Phase 0): recipe config per (assetClass × style) CELL.
+// STRATEGY is the index/swing cell; Phase-1 cells (forex/swing, etf/swing…) add
+// their own entries here once lab-validated. The Day experiment keeps its recipe
+// in daytrade.js (isolated, unproven) — it isn't a proven cell, so it's not listed.
+// See classes.js + docs/phase-0-multi-asset.md.
+export const STRATEGIES = {
+  'index/swing': STRATEGY,
+};
+
+// The recipe for a cell, falling back to the proven index/swing default so callers
+// that don't (yet) pass a class/style keep working unchanged.
+export function strategyFor(classKey = 'index', styleKey = 'swing') {
+  return STRATEGIES[`${classKey}/${styleKey}`] || STRATEGY;
+}
+
+// The public view of a cell's strategy — safe to send to clients. Excludes the exact
+// indicator/threshold/stop dials (the proprietary recipe). class/style default to
+// index/swing so existing callers (`publicStrategy(a)`) are unaffected.
+export function publicStrategy(adaptive, classKey = 'index', styleKey = 'swing') {
+  const s = strategyFor(classKey, styleKey);
   const a = adaptive || null;
   return {
-    key: s.key, name: s.name, label: 'Momentum mean-reversion · daily',
+    key: s.key, name: s.name, label: s.publicLabel || 'Momentum mean-reversion · daily',
     approach: s.approach, direction: s.direction, proven: s.proven,
     adaptive: s.adaptive, version: s.version,
     // Generalized adaptive state — no raw recipe dials, but the portfolio-level
