@@ -570,14 +570,7 @@ function chartSvg(market, color, chartH) {
 // real exit logic, not the user's profile. Honest: every call is a real indicator
 // state (RSI2 ≥ 65 = mean reached = take profit; price at the risk level = stop).
 function actionSuggestion(market, s, verdict) {
-  const rsi = s.rsi2;
-  const has = typeof rsi === 'number';
-  const rtxt = has ? Math.round(rsi) : '—';
   const price = market.price ?? s.price;
-  const strat = getStrategy();
-  const ind = strat.indicator;                       // e.g. "RSI-2"
-  const exitAbove = (s.plan && s.plan.exitAbove) || strat.exitAbove;
-  const entryBelow = strat.entryBelow;
   const pos = getOpenPositions().find((p) => p.symbol === market.symbol);
   // News/event regime filter: a scheduled high-impact event holds new entries.
   if (!pos && verdict === 'BUY' && s.newsHold) {
@@ -591,7 +584,9 @@ function actionSuggestion(market, s, verdict) {
     if (pos.strat === 'trend') {
       return { icon: 'ph-trend-up', tone: 'var(--flat)', title: 'Ride the trend', text: `This is a trend-continuation trade — let it run. It exits when the trend breaks or price hits the ${fmtPrice(pos.stop, market.decimals)} stop.` };
     }
-    if (has && rsi >= exitAbove) {
+    // Book-profit is a recipe-dependent decision computed on the SERVER — the client
+    // reads the derived call, never the raw indicator threshold.
+    if (pos.call === 'profit') {
       return { icon: 'ph-flag-checkered', tone: 'var(--buy)', title: 'Book profit now', text: 'The oversold move has reverted to the mean — this is where the strategy takes profit.' };
     }
     return { icon: 'ph-hourglass-medium', tone: 'var(--flat)', title: 'Hold the trade', text: `The bounce hasn't fully reverted to the mean yet. Hold until it does (book profit) or price hits the ${fmtPrice(pos.stop, market.decimals)} stop (cut the loss).` };
@@ -601,9 +596,6 @@ function actionSuggestion(market, s, verdict) {
   }
   if (verdict === 'BUY') {
     return { icon: 'ph-arrow-up-right', tone: 'var(--buy)', title: 'Buy the flush', text: 'Deeply oversold in an uptrend — the dip the strategy buys. It takes profit as the move reverts to the mean, and stops out at the risk level below.' };
-  }
-  if (has && rsi >= exitAbove) {
-    return { icon: 'ph-minus-circle', tone: 'var(--flat)', title: 'No setup — already bounced', text: 'This market has already recovered from oversold — the strategy buys the flush, not the bounce. Nothing to do here.' };
   }
   return { icon: 'ph-hourglass-medium', tone: 'var(--flat)', title: 'No setup — waiting', text: 'Not stretched enough to buy — the strategy waits for a deeper oversold flush in an uptrend. Watching.' };
 }

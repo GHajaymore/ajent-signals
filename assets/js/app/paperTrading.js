@@ -297,7 +297,9 @@ export function applyServerRecord(data) {
     store.open[p.symbol] = {
       symbol: p.symbol, name: p.name, side: p.side || 'LONG', entry: p.entry, stop: p.stop,
       target1: p.target1, risk: p.risk, riskDollars: p.riskDollars, conviction: p.conviction,
-      maxHoldMin: p.maxHoldMin, exitRule: p.exitRule || 'firstUpClose', openedAt: p.openedAt, openedLive: true,
+      // strat (mr/trend) + the server-derived `call` drive the position guidance without
+      // the recipe. maxHoldMin/exitRule are stripped server-side; keep only what's here.
+      strat: p.strat, call: p.call, maxHoldMin: p.maxHoldMin, openedAt: p.openedAt, openedLive: true,
     };
   }
   save();

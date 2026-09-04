@@ -355,7 +355,9 @@ export default {
         // Single batched blob (1 KV get) — no KV list(), which is capped at
         // 1,000/day on the free tier and was throwing here under normal polling.
         const rec = await store.get('RECORD', 'ALL');
-        const open = rec && rec.open ? Object.values(rec.open) : [];
+        // Strip recipe-revealing fields from open positions (exit threshold, exit rule
+        // name, hold cap). The client uses the derived `call` the scheduler set instead.
+        const open = rec && rec.open ? Object.values(rec.open).map(({ exitAbove, exitRule, maxHoldMin, ...p }) => p) : [];
         const closed = (rec && rec.closed ? rec.closed : []).slice(0, 200);
         return json({ open, closed, summary: summarize(closed), notice: NOTICE });
       } catch (e) { return json({ error: 'trades: ' + String((e && e.message) || e).slice(0, 200) }, 500); }

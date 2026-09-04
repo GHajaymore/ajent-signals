@@ -1,22 +1,13 @@
-// Client-side view of the strategy's parameters — the ONE place the app reads
-// "what is the strategy?" from. Defaults mirror the worker (worker/src/meta.js);
-// when the backend is connected the live values from GET /signals (`strategy`)
-// override them via setStrategyMeta(), so the UI and the book-profit / stop logic
-// always match whatever the server actually runs. Change the strategy on the
-// server and the whole app follows — no hardcoded RSI/ATR numbers scattered around.
+// Client-side view of the strategy's IDENTITY only — name, whether it's proven, its
+// direction. The proprietary recipe (indicators, thresholds, stop multiples, MA lengths)
+// is NEVER shipped to the client: signals and the book-profit / stop calls are computed
+// server-side and arrive as derived results. Keep this free of any recipe number.
 const DEFAULT = {
   key: 'swing',
   name: 'Ajent Pulse',
   proven: true,
-  label: 'Swing · daily Connors RSI-2',
-  indicator: 'RSI-2',
-  indicatorPeriod: 2,
+  label: 'Swing · daily, long-only',
   direction: 'long',
-  entryBelow: 15,
-  exitAbove: 65,
-  deepBelow: 5,
-  stopAtrMult: 2,
-  trendSma: 200,
 };
 let live = null;
 export function setStrategyMeta(m) {

@@ -207,6 +207,19 @@ export async function runTick(env, store) {
       } else if (typeof res === 'string' && res.startsWith('exit:')) {
         events.push({ type: 'position.close', event: res.slice(5), symbol, name: meta.name, price: live ?? displaySig.price, strategy: strategyLabel, signal: displaySig, at: now });
       }
+      // Derive the position's book-profit / hold CALL here (the recipe stays on the
+      // server) so the client can show it WITHOUT the exit threshold, which /trades
+      // strips. Only for a still-open position.
+      const openPos = record.open[symbol];
+      if (openPos) {
+        if (openPos.strat === 'trend') openPos.call = 'trend';
+        else {
+          const rsiNow = mrSig && typeof mrSig.rsi2 === 'number' ? mrSig.rsi2 : null;
+          const long = (openPos.side || 'LONG') === 'LONG';
+          const exit = openPos.exitAbove;
+          openPos.call = (rsiNow != null && exit != null && (long ? rsiNow >= exit : rsiNow <= (100 - exit))) ? 'profit' : 'hold';
+        }
+      }
     } catch (e) { /* skip this market this tick — its last-known signal is carried forward */ }
   }
   // Persist each blob independently so one failure (e.g. a KV quota blip) can't

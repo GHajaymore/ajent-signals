@@ -1,29 +1,21 @@
-// Indicator-driven call for an OPEN position: what the strategy says to do now,
-// read from the live indicators — Book profit (the oversold stretch has reverted:
-// RSI2 back above 65 for a long), Cut (price at the risk level), or Hold. Honest:
-// every call is a real indicator state, never a fabricated target. Long-only today,
-// but the short mirror is handled for safety if it ever returns.
-import { getStrategy } from './strategyMeta.js';
+// The call for an OPEN position (Book profit / Cut / Hold / Ride the trend). The
+// book-profit decision depends on the proprietary recipe, so the SERVER computes it and
+// sends a derived `call` — the client never sees the raw indicator threshold. Until that
+// arrives the client falls back to PUBLIC levels only (price vs the position's own stop).
+const CALL_MAP = {
+  profit: { status: 'profit', label: 'Book profit', tone: 'var(--buy)', icon: 'ph-flag-checkered' },
+  cut: { status: 'cut', label: 'Cut · stop', tone: 'var(--sell)', icon: 'ph-hand-palm' },
+  trend: { status: 'hold', label: 'Ride the trend', tone: 'var(--flat)', icon: 'ph-trend-up' },
+  hold: { status: 'hold', label: 'Hold', tone: 'var(--flat)', icon: 'ph-hourglass-medium' },
+};
 
 export function positionCall(market, pos) {
+  if (pos && pos.call && CALL_MAP[pos.call]) return CALL_MAP[pos.call];
   const long = (pos.side || 'LONG') === 'LONG';
   const price = market ? (market.price ?? (market.signal && market.signal.price)) : null;
-  const rsi = market && market.signal ? market.signal.rsi2 : null;
-  // Exit level comes from the strategy config (server-synced), never a hardcoded
-  // number — so if the strategy's book-profit threshold changes, this follows.
-  const exitAbove = (pos && pos.exitAbove) || getStrategy().exitAbove;
-  if (price != null && (long ? price <= pos.stop : price >= pos.stop)) {
-    return { status: 'cut', label: 'Cut · stop', tone: 'var(--sell)', icon: 'ph-hand-palm' };
-  }
-  // A trend position rides the trend (server-managed exit on a trend break) — no
-  // mean-reversion book-profit signal; just hold until stop or the trend breaks.
-  if (pos && pos.strat === 'trend') {
-    return { status: 'hold', label: 'Ride the trend', tone: 'var(--flat)', icon: 'ph-trend-up' };
-  }
-  if (typeof rsi === 'number' && (long ? rsi >= exitAbove : rsi <= (100 - exitAbove))) {
-    return { status: 'profit', label: 'Book profit', tone: 'var(--buy)', icon: 'ph-flag-checkered' };
-  }
-  return { status: 'hold', label: 'Hold', tone: 'var(--flat)', icon: 'ph-hourglass-medium' };
+  if (price != null && (long ? price <= pos.stop : price >= pos.stop)) return CALL_MAP.cut;
+  if (pos && pos.strat === 'trend') return CALL_MAP.trend;
+  return CALL_MAP.hold;
 }
 
 function callInner(c) { return `<i class="ph-fill ${c.icon}"></i>${c.label}`; }
