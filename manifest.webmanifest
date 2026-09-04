@@ -1,7 +1,8 @@
 {
   "name": "Ajent Signals",
   "short_name": "Ajent",
-  "description": "Educational long & short mean-reversion trading signals across indices, crypto and commodities — tracked honestly with virtual money.",
+  "description": "Educational long-only trading signals across indices, ETFs, crypto and stocks — buys deeply oversold dips and rides established uptrends, tracked honestly on a real virtual-money record. Not investment advice.",
+  "categories": ["finance", "education", "productivity"],
   "start_url": "./app/",
   "scope": "./",
   "display": "standalone",
