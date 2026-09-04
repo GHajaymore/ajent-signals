@@ -596,12 +596,69 @@ function dualEquityChart(ajClosed, youClosed) {
   const y = (v) => pad + (1 - (v - vMin) / vspan) * (h - 2 * pad);
   const path = (pts, color, dash) => pts.length ? `<path d="${pts.map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ')}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"${dash ? ' stroke-dasharray="4 4"' : ''}/>${pts.length ? `<circle cx="${x(pts[pts.length - 1].t).toFixed(1)}" cy="${y(pts[pts.length - 1].v).toFixed(1)}" r="2.6" fill="${color}"/>` : ''}` : '';
   const youFinal = you.length ? you[you.length - 1].v : 0;
-  return `<div class="yva-chart"><svg viewBox="0 0 ${w} ${h}" width="100%" style="height:auto;display:block">
+  const youColor = youFinal >= 0 ? 'var(--buy)' : 'var(--sell)';
+  const enc = (o) => encodeURIComponent(JSON.stringify(o));
+  return `<div class="yva-chart"><svg class="yva-svg" viewBox="0 0 ${w} ${h}" width="100%" style="height:auto;display:block"
+      data-aj="${enc(aj)}" data-you="${enc(you)}" data-tmin="${tMin}" data-tmax="${tMax}" data-vmin="${vMin}" data-vmax="${vMax}" data-w="${w}" data-h="${h}" data-pad="${pad}" data-youcolor="${youFinal >= 0 ? 'buy' : 'sell'}">
     <line x1="${pad}" y1="${y(0).toFixed(1)}" x2="${w - pad}" y2="${y(0).toFixed(1)}" stroke="var(--hairline)" stroke-dasharray="3 4"/>
     ${path(aj, 'var(--accent)')}
-    ${path(you, youFinal >= 0 ? 'var(--buy)' : 'var(--sell)')}
+    ${path(you, youColor)}
+    <rect class="dv-hit" x="0" y="0" width="${w}" height="${h}" fill="transparent" style="cursor:crosshair"/>
+    <g class="dv" style="display:none;pointer-events:none">
+      <line class="dv-x" y1="${pad}" y2="${h - pad}" stroke="var(--text-muted)" stroke-width="1" stroke-dasharray="3 3" opacity="0.55"/>
+      <circle class="dv-aj" r="3" fill="var(--accent)" stroke="var(--bg)" stroke-width="1.5"/>
+      <circle class="dv-you" r="3" fill="${youColor}" stroke="var(--bg)" stroke-width="1.5"/>
+      <g class="dv-tip"><rect class="dv-bg" rx="4" height="15" fill="var(--surface-2)" stroke="var(--hairline)"/><text class="dv-tx" font-size="8.5" font-weight="700" dominant-baseline="middle" font-family="var(--font-mono)"></text></g>
+    </g>
   </svg>
-  <div class="yva-legend"><span><i style="background:var(--accent)"></i>Ajent</span><span><i style="background:${youFinal >= 0 ? 'var(--buy)' : 'var(--sell)'}"></i>You</span></div></div>`;
+  <div class="yva-legend"><span><i style="background:var(--accent)"></i>Ajent</span><span><i style="background:${youColor}"></i>You</span></div></div>`;
+}
+
+// Bespoke hover for the dual (time-based, two-series) equity chart: a crosshair with a
+// dot on each line and a tip showing both P&Ls at the hovered time. Equity is a step
+// function between trades, so each series' value = the last point at or before the time.
+function wireDualHover(container) {
+  (container || document).querySelectorAll('svg.yva-svg').forEach((svg) => {
+    if (svg.dataset.dvWired) return;
+    svg.dataset.dvWired = '1';
+    let aj = [], you = [];
+    try { aj = JSON.parse(decodeURIComponent(svg.dataset.aj || '[]')); } catch (e) { /* ignore */ }
+    try { you = JSON.parse(decodeURIComponent(svg.dataset.you || '[]')); } catch (e) { /* ignore */ }
+    const tMin = +svg.dataset.tmin, tMax = +svg.dataset.tmax, vMin = +svg.dataset.vmin, vMax = +svg.dataset.vmax;
+    const w = +svg.dataset.w, h = +svg.dataset.h, pad = +svg.dataset.pad;
+    const span = (tMax - tMin) || 1, vspan = (vMax - vMin) || 1;
+    const yFor = (v) => pad + (1 - (v - vMin) / vspan) * (h - 2 * pad);
+    const g = svg.querySelector('.dv'), lineEl = svg.querySelector('.dv-x'), dAj = svg.querySelector('.dv-aj'), dYou = svg.querySelector('.dv-you');
+    const bg = svg.querySelector('.dv-bg'), tx = svg.querySelector('.dv-tx');
+    if (!g) return;
+    const valAt = (arr, t) => { let v = null; for (const p of arr) { if (p.t <= t) v = p.v; else break; } return v; };
+    const usd = (n) => `${n >= 0 ? '+$' : '−$'}${Math.abs(Math.round(n)).toLocaleString('en-US')}`;
+    const move = (clientX) => {
+      const rect = svg.getBoundingClientRect(); if (!rect.width) return;
+      const xvb = (clientX - rect.left) / rect.width * w;
+      const t = tMin + Math.max(0, Math.min(1, (xvb - pad) / (w - 2 * pad))) * span;
+      const av = valAt(aj, t), yv = valAt(you, t);
+      lineEl.setAttribute('x1', xvb.toFixed(1)); lineEl.setAttribute('x2', xvb.toFixed(1));
+      if (av != null) { dAj.style.display = ''; dAj.setAttribute('cx', xvb.toFixed(1)); dAj.setAttribute('cy', yFor(av).toFixed(1)); } else dAj.style.display = 'none';
+      if (yv != null) { dYou.style.display = ''; dYou.setAttribute('cx', xvb.toFixed(1)); dYou.setAttribute('cy', yFor(yv).toFixed(1)); } else dYou.style.display = 'none';
+      const parts = [];
+      if (av != null) parts.push(`Ajent ${usd(av)}`);
+      if (yv != null) parts.push(`You ${usd(yv)}`);
+      const label = parts.join('  ·  ') || '—';
+      tx.textContent = label;
+      const tw = label.length * 5.1 + 12;
+      const tipX = Math.max(2, Math.min(w - tw - 2, xvb - tw / 2));
+      bg.setAttribute('x', tipX.toFixed(1)); bg.setAttribute('y', '1'); bg.setAttribute('width', tw.toFixed(1));
+      tx.setAttribute('x', (tipX + 6).toFixed(1)); tx.setAttribute('y', '9'); tx.setAttribute('fill', 'var(--text)');
+      g.style.display = '';
+    };
+    const hide = () => { g.style.display = 'none'; };
+    svg.addEventListener('mousemove', (e) => move(e.clientX));
+    svg.addEventListener('mouseleave', hide);
+    svg.addEventListener('touchstart', (e) => { if (e.touches[0]) move(e.touches[0].clientX); }, { passive: true });
+    svg.addEventListener('touchmove', (e) => { if (e.touches[0]) move(e.touches[0].clientX); }, { passive: true });
+    svg.addEventListener('touchend', hide);
+  });
 }
 
 // Your OWN open trades (manual book + auto strategy) in one place, with live
@@ -764,8 +821,9 @@ export function render(container) {
     render(container);
   }));
 
-  // Crosshair + P&L tooltip on the equity curve, same as the signal charts.
+  // Crosshair + P&L tooltip on the equity curve and the You-vs-Ajent comparison.
   wireChartHover(container);
+  wireDualHover(container);
 }
 
 // Live, in-place refresh: only re-paint the per-market Buy/Sell/Flat tags in the
