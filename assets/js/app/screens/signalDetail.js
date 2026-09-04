@@ -120,12 +120,12 @@ function loadCandles(symbol, ySym, rangeKey) {
       // Patch the chart in place if the user is still looking at it.
       if (state.selectedSymbol === symbol && state.detailTab === 'chart' && activeRange === rangeKey) {
         const el = document.getElementById('chart-canvas');
-        if (el) el.innerHTML = chartCanvasHtml(symbol, rangeKey);
+        if (el) { el.innerHTML = chartCanvasHtml(symbol, rangeKey); wireChartHover(el); }
       }
       // Full-screen chart page has its own canvas.
       if (activeRange === rangeKey && location.hash.startsWith('#/chart/')) {
         const fc = document.getElementById('full-chart-canvas');
-        if (fc) fc.innerHTML = chartCanvasHtml(symbol, rangeKey, 340);
+        if (fc) { fc.innerHTML = chartCanvasHtml(symbol, rangeKey, 340); wireChartHover(fc); }
       }
     });
 }
@@ -177,6 +177,22 @@ function levelParts(levels, yFor, h, decimals, w) {
   return { lines, chips };
 }
 
+// Data the hover handler needs, stashed on the <svg> so it survives re-renders. The
+// price series + scale let it map a cursor X to the price (Y value) at that point.
+function hoverAttrs(seriesForHover, times, lo, hi, h, w, dec) {
+  const enc = (o) => encodeURIComponent(JSON.stringify(o));
+  return `class="pchart" data-lo="${lo}" data-hi="${hi}" data-h="${h}" data-w="${w}" data-dec="${dec}" data-series="${enc(seriesForHover)}"${times && times.length ? ` data-times="${enc(times)}"` : ''}`;
+}
+// Crosshair + price chip, hidden until the pointer moves over the plot. JS positions it.
+function hoverLayerSvg(w, h) {
+  return `<rect class="hv-hit" x="0" y="0" width="${w}" height="${h}" fill="transparent" style="cursor:crosshair"/>
+  <g class="hv" style="display:none;pointer-events:none">
+    <line class="hv-x" y1="0" y2="${h}" stroke="var(--text-muted)" stroke-width="1" stroke-dasharray="3 3" opacity="0.55"/>
+    <circle class="hv-dot" r="3.4" fill="var(--text)" stroke="var(--bg)" stroke-width="1.5"/>
+    <g class="hv-tip"><rect class="hv-bg" rx="4" height="16" fill="var(--surface-2)" stroke="var(--hairline)"/><text class="hv-tx" font-size="9.5" font-weight="700" fill="var(--text)" dominant-baseline="middle" font-family="var(--font-mono)"></text></g>
+  </g>`;
+}
+
 function priceChartSvg(series, color, { levels = [], decimals = 2, markers = [], h = 188, times = [] } = {}) {
   const w = 500;
   const hasAxis = Array.isArray(times) && times.length === (series ? series.length : -1) && times.length >= 2;
@@ -220,7 +236,7 @@ function priceChartSvg(series, color, { levels = [], decimals = 2, markers = [],
   }
   const lv = levelParts(levels, yFor, h, decimals, w);
   return `
-  <svg viewBox="0 0 ${w} ${vbH}" width="100%" style="height:auto;display:block">
+  <svg ${hoverAttrs(series, times, lo, hi, h, w, decimals)} viewBox="0 0 ${w} ${vbH}" width="100%" style="height:auto;display:block">
     <defs>
       <linearGradient id="fill${uid}" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="${color}" stop-opacity="0.26"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/>
@@ -246,6 +262,7 @@ function priceChartSvg(series, color, { levels = [], decimals = 2, markers = [],
       return `<path d="${t}" fill="${c}" stroke="var(--bg)" stroke-width="0.8"/>`;
     }).join('')}
     ${lv.chips}
+    ${hoverLayerSvg(w, h)}
   </svg>`;
 }
 
@@ -321,7 +338,7 @@ function candleChartSvg(candles, { levels = [], decimals = 2, markers = [], h = 
     return `<path d="${t}" fill="${c}" stroke="var(--bg)" stroke-width="0.8"/>`;
   }).join('');
   return `
-  <svg viewBox="0 0 ${w} ${vbH}" width="100%" style="height:auto;display:block">
+  <svg ${hoverAttrs(candles.map((c) => c.c), times, lo, hi, h, w, decimals)} viewBox="0 0 ${w} ${vbH}" width="100%" style="height:auto;display:block">
     ${grid}
     ${volBars}
     ${axisSvg}
@@ -329,6 +346,7 @@ function candleChartSvg(candles, { levels = [], decimals = 2, markers = [], h = 
     ${bars}
     ${markerSvg}
     ${lv.chips}
+    ${hoverLayerSvg(w, h)}
   </svg>`;
 }
 
@@ -494,6 +512,52 @@ export function renderChartPage(container) {
     renderChartPage(container);
   }));
   wireChartType(container, () => renderChartPage(container));
+  wireChartHover(container);
+}
+
+// Crosshair + price (Y-value) tooltip on hover / touch-drag. Reads the series and scale
+// stashed on each .pchart svg, so it re-attaches cleanly after any chart re-render.
+function wireChartHover(root) {
+  (root || document).querySelectorAll('svg.pchart').forEach((svg) => {
+    if (svg.dataset.hvWired) return;
+    svg.dataset.hvWired = '1';
+    let series = [], times = null;
+    try { series = JSON.parse(decodeURIComponent(svg.dataset.series || '[]')); } catch (e) { /* ignore */ }
+    try { times = svg.dataset.times ? JSON.parse(decodeURIComponent(svg.dataset.times)) : null; } catch (e) { /* ignore */ }
+    if (!Array.isArray(series) || series.length < 2) return;
+    const lo = +svg.dataset.lo, hi = +svg.dataset.hi, h = +svg.dataset.h, w = +svg.dataset.w, dec = +svg.dataset.dec;
+    const yFor = (v) => h - ((v - lo) / (hi - lo)) * h;
+    const step = w / (series.length - 1);
+    const g = svg.querySelector('.hv'), lineEl = svg.querySelector('.hv-x'), dot = svg.querySelector('.hv-dot');
+    const bg = svg.querySelector('.hv-bg'), tx = svg.querySelector('.hv-tx');
+    if (!g || !lineEl || !dot || !bg || !tx) return;
+    const spanMs = times ? (times[times.length - 1] - times[0]) || 1 : 0;
+    const move = (clientX) => {
+      const rect = svg.getBoundingClientRect();
+      if (!rect.width) return;
+      let idx = Math.round(((clientX - rect.left) / rect.width * w) / step);
+      idx = Math.max(0, Math.min(series.length - 1, idx));
+      const price = series[idx];
+      if (typeof price !== 'number' || !isFinite(price)) return;
+      const x = idx * step, y = yFor(price);
+      lineEl.setAttribute('x1', x.toFixed(1)); lineEl.setAttribute('x2', x.toFixed(1));
+      dot.setAttribute('cx', x.toFixed(1)); dot.setAttribute('cy', y.toFixed(1));
+      const label = price.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + (times ? '  ·  ' + fmtAxisTick(times[idx], spanMs) : '');
+      tx.textContent = label;
+      const tw = label.length * 5.7 + 12;
+      const tipX = Math.max(2, Math.min(w - tw - 2, x - tw / 2));
+      const tipY = y - 22 < 2 ? Math.min(h - 18, y + 8) : y - 22;
+      bg.setAttribute('x', tipX.toFixed(1)); bg.setAttribute('y', tipY.toFixed(1)); bg.setAttribute('width', tw.toFixed(1));
+      tx.setAttribute('x', (tipX + 6).toFixed(1)); tx.setAttribute('y', (tipY + 8).toFixed(1));
+      g.style.display = '';
+    };
+    const hide = () => { g.style.display = 'none'; };
+    svg.addEventListener('mousemove', (e) => move(e.clientX));
+    svg.addEventListener('mouseleave', hide);
+    svg.addEventListener('touchstart', (e) => { if (e.touches[0]) move(e.touches[0].clientX); }, { passive: true });
+    svg.addEventListener('touchmove', (e) => { if (e.touches[0]) move(e.touches[0].clientX); }, { passive: true });
+    svg.addEventListener('touchend', hide);
+  });
 }
 
 function wireChartRange(container, market, verdict, color) {
@@ -513,6 +577,7 @@ function wireChartRange(container, market, verdict, color) {
     });
   });
   wireChartType(container, rebuild);
+  wireChartHover(container);
 }
 
 function chartSvg(market, color, chartH) {
