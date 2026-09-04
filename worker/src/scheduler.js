@@ -17,21 +17,21 @@ function changeEvents(prev, sig) {
   const ev = [];
   const pv = prev && prev.verdict, nv = sig.verdict;
   if (pv && pv !== nv) {
-    // The trend engine has no RSI2 — a trend BUY is a continuation, not an oversold dip,
-    // so it must not borrow the mean-reversion wording (or print "RSI2 undefined").
+    // Vague, recipe-free wording — no RSI2 readings or thresholds in the timeline. A
+    // trend BUY is a continuation (no rsi2), not an oversold dip.
     if (nv === 'BUY') ev.push(sig.rsi2 == null
       ? 'Fired a BUY — trend continuation in an established uptrend.'
-      : `Fired a BUY — oversold dip (RSI2 ${sig.rsi2}) in an uptrend.`);
-    else if (nv === 'SELL') ev.push(`Fired a SELL — overbought pop (RSI2 ${sig.rsi2}) in a downtrend.`);
+      : 'Fired a BUY — oversold dip in an uptrend.');
+    else if (nv === 'SELL') ev.push('Fired a SELL — overbought pop in a downtrend.');
     else if (pv === 'BUY' || pv === 'SELL') ev.push('Setup cleared — back to no-trade.');
   }
   const pp = (prev && prev.proximity) || 0, np = sig.proximity || 0;
   if (nv === 'NO_TRADE') {
-    if (pp < 60 && np >= 60) ev.push(`Approaching a setup — ${np}% of the way (RSI2 ${sig.rsi2}).`);
-    else if (pp < 100 && np >= 100 && !ev.length) ev.push(`At the trigger — waiting on the flush below the prior day's low (RSI2 ${sig.rsi2}).`);
+    if (pp < 60 && np >= 60) ev.push(`Approaching a setup — ${np}% of the way.`);
+    else if (pp < 100 && np >= 100 && !ev.length) ev.push('At the trigger — waiting on confirmation.');
   }
   const pr = prev && prev.rsi2, nr = sig.rsi2;
-  if (typeof pr === 'number' && pr >= 5 && typeof nr === 'number' && nr < 5) ev.push('Deeply oversold (RSI2 < 5) — high-conviction tier.');
+  if (typeof pr === 'number' && pr >= 5 && typeof nr === 'number' && nr < 5) ev.push('Deepest-oversold reading — high-conviction tier.');
   return ev;
 }
 
@@ -139,16 +139,20 @@ export async function runTick(env, store) {
   const histBlob = (await store.get('HISTORY', 'ALL')) || {};
   const hist = histBlob.hist || {};
   let histChanged = false;
-  // One-time self-heal: trend BUYs logged before the strat-aware wording landed stored
-  // "oversold dip (RSI2 undefined)" — a mislabel (a trend BUY is a continuation, not a
-  // dip) with a bug artifact. Rewrite the description in place; the fact (a BUY fired) is
-  // untouched. Idempotent — after the sweep nothing matches, so it never rewrites again.
+  // One-time self-heal of stored timeline events: (1) trend BUYs once logged the mislabel
+  // "oversold dip (RSI2 undefined)"; (2) older events leaked recipe details — RSI2
+  // readings, the "< 5" threshold, and the "flush below the prior day's low" entry
+  // trigger. Rewrite the DESCRIPTIONS in place (the facts — a BUY fired, a % of the way —
+  // are untouched). Idempotent: after the sweep nothing matches, so it never rewrites again.
   for (const sym of Object.keys(hist)) {
     for (const e of hist[sym]) {
-      if (e && typeof e.text === 'string' && e.text.includes('RSI2 undefined')) {
-        e.text = 'Fired a BUY — trend continuation in an established uptrend.';
-        histChanged = true;
-      }
+      if (!e || typeof e.text !== 'string') continue;
+      if (e.text.includes('RSI2 undefined')) { e.text = 'Fired a BUY — trend continuation in an established uptrend.'; histChanged = true; continue; }
+      let t = e.text
+        .replace(/Deeply oversold \(RSI2 < 5\)/g, 'Deepest-oversold reading')
+        .replace(/ on the flush below the prior day's low/g, ' on confirmation')
+        .replace(/\s*\(RSI2 [^)]*\)/g, '');
+      if (t !== e.text) { e.text = t; histChanged = true; }
     }
   }
   for (const symbol of Object.keys(MARKETS)) {

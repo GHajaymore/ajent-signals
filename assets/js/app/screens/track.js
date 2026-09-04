@@ -531,9 +531,10 @@ function watchingList() {
       ${markets.map((m) => {
         const prox = Math.max(0, Math.min(100, m.signal.proximity || 0));
         const up = m.signal.htfTrend === 'up';
-        const trig = up ? `RSI2 ${m.signal.rsi2} · buy fires under 15`
-          : m.signal.htfTrend === 'down' ? `RSI2 ${m.signal.rsi2} · downtrend — no long setup`
-          : `RSI2 ${m.signal.rsi2} · no clear trend`;
+        // Recipe-free: proximity (how close to firing), never the RSI reading or threshold.
+        const trig = up ? `${prox}% of the way to a setup`
+          : m.signal.htfTrend === 'down' ? 'Downtrend — no long setup'
+          : 'No clear trend';
         return `<div class="closed-row" data-nav="#/signal/${m.symbol}" style="cursor:pointer">
           <div class="closed-sym">${m.symbol}</div>
           <div class="closed-body">

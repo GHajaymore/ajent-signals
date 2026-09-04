@@ -18,7 +18,7 @@ function buyCard(s) {
 function watchRow(s) {
   return `<div class="stk-watch">
     <span class="stk-sym">${s.symbol}</span>
-    <span class="stk-w-meta">RSI ${s.rsi2 ?? '—'} · ${s.htfTrend === 'up' ? 'uptrend' : 'downtrend'}</span>
+    <span class="stk-w-meta">${s.htfTrend === 'up' ? 'uptrend' : 'downtrend'}</span>
     <div class="stk-prox"><div class="stk-prox-bar"><i style="width:${Math.max(2, s.proximity || 0)}%"></i></div><span>${s.proximity || 0}%</span></div>
   </div>`;
 }
