@@ -44,8 +44,12 @@ export function computeTrend(candles, live) {
   const strength = Math.max(0, Math.min(1, (aboveFollow - 0.1) / 2.4 + slope * 0.6));
   const confidence = Math.round(70 + strength * 22);
   return {
+    // htfTrend is 'up' by construction — the trend only fires when price sits above the
+    // 200-MA and a rising 50-MA. It drives the displayed "Trend: Bullish" and the
+    // long-only auto-trade gate (isHighConviction), so a fired trend BUY reads as a real
+    // traded setup, not a "we hold out" lean.
     verdict: 'BUY', direction: 1, price, confidence, conviction: strength > 0.55 ? 'high' : 'normal',
-    trendMA: s50, atr: atrN,
+    htfTrend: 'up', trendMA: s50, atr: atrN,
     plan: { entry: price, stop: price - risk, target1: price + risk, risk, maxHoldMin: TREND.maxHoldMin, trail: true },
   };
 }
