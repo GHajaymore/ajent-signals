@@ -4,7 +4,7 @@ const SLIDES = [
   {
     icon: 'ph-chart-bar', color: 'var(--buy)',
     title: 'Welcome to Ajent Signals',
-    body: 'Educational trading signals across 40+ global markets — index & FX futures, commodities and crypto. Virtual money only, no broker, no real funds ever.',
+    body: 'Educational trading signals across global markets — stock-index futures, sector ETFs, crypto, and a large-cap stock screener. Virtual money only, no broker, no real funds ever.',
   },
   {
     icon: 'ph-trend-up', color: 'var(--accent-300)',
@@ -20,6 +20,11 @@ const SLIDES = [
     icon: 'ph-flask', color: 'var(--accent-200)',
     title: 'Learn by paper trading',
     body: 'Ajent auto-trades its own signals with virtual money so you can see how they actually perform. Choose your markets, risk and reward:risk any time in Settings.',
+  },
+  {
+    icon: 'ph-flag-checkered', color: 'var(--flat)',
+    title: 'Bring your best',
+    body: 'Here’s the challenge: take every signal your own way — or build your own strategy — and go head-to-head against Ajent on a live record. If you can beat it, keep your edge. If you can’t, you’ll know exactly why it’s worth it. Free to start, no card.',
     cta: 'Get started',
   },
 ];
