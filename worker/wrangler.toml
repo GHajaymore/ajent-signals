@@ -5,8 +5,24 @@ compatibility_date = "2024-09-23"
 # The 24/7 loop — every 5 minutes whether or not anyone's app is open, so trade
 # entries/exits (esp. 24/7 crypto) are caught within ~5m instead of 15m. One
 # batched KV write per tick = ~288/day, well under the 1,000/day free limit.
+# The production client currently calls the *.workers.dev URL, so keep it alive.
+# (Adding a route otherwise disables it.) Do NOT remove until the branded domain
+# below actually resolves and the client has been switched to it.
+workers_dev = true
+
 [triggers]
 crons = ["*/5 * * * *"]
+
+# Branded API endpoint — READY BUT NOT YET LIVE. ajailabs.app DNS is still
+# authoritative on GoDaddy (ns*.domaincontrol.com), so this Worker custom domain
+# cannot resolve until the GoDaddy→Cloudflare DNS migration completes and the zone
+# activates on Cloudflare. First-level subdomain so the free *.ajailabs.app
+# Universal SSL cert will cover it (a deeper api.ajent.ajailabs.app would need the
+# paid Advanced Certificate Manager). Once it resolves: point app/index.html + sw.js
+# at https://ajent-api.ajailabs.app and retire the personal workers.dev URL.
+[[routes]]
+pattern = "ajent-api.ajailabs.app"
+custom_domain = true
 
 # KV store for signals + the paper record.
 # Create it once:  wrangler kv namespace create AJENT_KV

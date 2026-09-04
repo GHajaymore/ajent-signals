@@ -154,8 +154,8 @@ function setupRow(m, v) {
 }
 
 // When nothing has fired, show the markets closest to a setup so the screen is
-// informative in cash — ranked by the server's proximity score (how near RSI2 is
-// to its trigger, given the trend). Honest: these are NOT signals, just "watching".
+// informative in cash — ranked by the server's proximity score (how near the
+// market is to a setup, given the trend). Honest: these are NOT signals, just "watching".
 function watchingRow(m) {
   const s = m.signal;
   const prox = Math.max(0, Math.min(100, s.proximity || 0));
@@ -176,7 +176,7 @@ function watchingRow(m) {
 
 function topSetupsHtml(engine, threshold) {
   // Only REAL signals qualify — simulated placeholders never surface as setups.
-  // High-conviction setups (deepest RSI2 + Bollinger extreme) sort to the top, so
+  // High-conviction setups (the deepest, strongest tier) sort to the top, so
   // the strongest opportunities stand out from the wider stream.
   const setups = engine.markets
     .map((m) => ({ m, v: m.verdict(threshold) }))
@@ -611,7 +611,7 @@ export function refresh(container) {
         .filter((m) => m.signalIsReal && m.signal && (m.signal.proximity || 0) > 0)
         .sort((a, b) => (b.signal.proximity || 0) - (a.signal.proximity || 0))
         .slice(0, 4)
-        .map((m) => `${m.symbol}:${m.signal.proximity}:${m.signal.rsi2}`).join(',');
+        .map((m) => `${m.symbol}:${m.signal.proximity}:${m.signal.verdict}`).join(',');
     }
     if (setupsWrap.dataset.sig !== sig) {
       setupsWrap.innerHTML = topSetupsHtml(engine, threshold);

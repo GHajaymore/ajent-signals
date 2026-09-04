@@ -236,8 +236,10 @@ function signalAlert(m, verdict) {
 function tradeCloseAlert(c) {
   const win = (c.pnl || 0) >= 0;
   const why = c.exitReason === 'stop' ? 'hit its stop'
-    : /Close$/.test(c.exitReason || '') ? 'closed on the bounce'
-    : c.exitReason === 'timeStop' ? 'closed at its time limit' : 'closed';
+    : c.exitReason === 'trailStop' ? 'trailed out of the trend'
+    : c.exitReason === 'timeStop' ? 'closed at its time limit'
+    : c.exitReason === 'target' ? 'reached its target'
+    : c.exitReason === 'exit' ? 'closed on the exit signal' : 'closed';
   const long = (c.side || 'LONG') === 'LONG';
   pushAlert({ type: win ? 'TARGET' : 'STOP', symbol: c.symbol, title: `${win ? 'Win' : 'Loss'} · ${c.symbol}`,
     body: `${c.name || c.symbol} ${why} — ${win ? '+' : ''}${Math.round(c.pnl || 0)} (${long ? 'long' : 'short'}, ${fmtPrice(c.entry, c.decimals)}→${fmtPrice(c.exit, c.decimals)}).`,

@@ -5,7 +5,7 @@ import { isRealMarket } from './markets.js';
 
 // The markets nearest a BUY setup right now (real proximity score), so the Alerts
 // tab is useful even before anything fires — it shows what may alert next. Honest:
-// proximity is the server's real "how close is RSI2 to the trigger" measure.
+// proximity is the server's real "how close is this market to a setup" measure.
 function brewingMarkets() {
   const threshold = state.settings.threshold;
   const realOnly = backendConfigured();
@@ -16,7 +16,6 @@ function brewingMarkets() {
 }
 function brewingRow(m) {
   const prox = Math.max(0, Math.min(100, Math.round(m.signal.proximity || 0)));
-  const rsi = m.signal.rsi2;
   return `<div class="closed-row" data-nav="#/signal/${m.symbol}" style="cursor:pointer">
     <div class="closed-sym">${m.symbol}</div>
     <div class="closed-body">

@@ -29,8 +29,8 @@ function loadSettings() {
 // The daily strategy is LONG-ONLY (buys deeply oversold dips in uptrends; the
 // short side backtested as a drag — it lost money on international indices — so
 // it's dropped). Its edge is strongest on US large-cap indices (S&P, Nasdaq, Dow,
-// Russell). Clean 10y test — RSI2<10 flush entry + "first up close" exit, longs
-// only: profit factor ~1.6, win rate ~74%, ~1.6-day avg hold, profitable in every
+// Russell). Clean 10y test — long-only, exit on the recovery: profit factor ~1.6,
+// win rate ~74%, ~1.6-day avg hold, profitable in every
 // one of five sequential ~2y walk-forward windows AND out-of-sample on four more
 // global indices (ASX 1.6, Euro Stoxx 1.6, Nikkei, TSX). It LOST on India's Nifty
 // 50. Daily mode auto-trades that validated set by default (US indices carry the
@@ -69,7 +69,7 @@ export const DAILY_AUTOTRADE_MARKETS = ['ES', 'NQ', 'YM', 'RTY', 'XJO', 'SX5E', 
 export const INTRADAY_AUTOTRADE_MARKETS = ['ES', 'NQ', 'RTY', 'SX5E', 'DAX', 'TSX', 'HSI', 'BTC', 'ETH', 'SI', 'CL'];
 
 const defaultSettings = {
-  // Default = 'daily' ("Proven"): the decade-validated Connors swing (10y +
+  // Default = 'daily' ("Proven"): the decade-validated swing strategy (10y +
   // walk-forward + out-of-sample). Reverted from 'intraday' after two weeks of
   // live losses on the Active mode — its ~60-day edge hasn't held up live, so the
   // safer, more-validated strategy is the honest default. Active stays one tap
@@ -85,7 +85,7 @@ const defaultSettings = {
   // stopValue is its magnitude. rr = reward:risk (gain:loss) ratio → the reference
   // target sits rr × the stop distance away (1 = 1:1). This personalises the plan
   // shown on a signal; the 24/7 tracked paper record is one shared account and
-  // always runs the strategy's validated 2× ATR stop + RSI2 exit.
+  // always runs the strategy's own validated server-side stop + exit.
   planByStyle: { swing: { stopMode: 'atr', stopValue: 2, rr: 1 } },
   // Default auto-trade set matches the default (daily) mode's validated markets.
   paperMarkets: [...DAILY_AUTOTRADE_MARKETS],
@@ -96,7 +96,7 @@ const defaultSettings = {
   // Default 0.35 → ~74% geometric win rate (a buffer above the 70% target).
   targetRatio: 0.35,
   accountBalance: 25000,
-  // Optional: risk 1.5x on high-conviction (deep RSI2<5) daily setups. Backtested
+  // Optional: risk 1.5x on the highest-conviction daily setups. Backtested
   // to improve return-per-unit-risk and Sharpe, but it deepens drawdowns too — a
   // genuine, double-edged tradeoff — so it's off by default.
   scaleByConviction: false,
@@ -222,8 +222,8 @@ export function isDefaultPlan(cfg) {
 export function activeStyleLabel() {
   return ({ swing: 'Swing', day: 'Day', scalping: 'Scalping', position: 'Position' })[state.settings.tradingStyle] || 'Swing';
 }
-// Stop price from the config. `serverStop` is the strategy's own 2× ATR stop, so
-// atr mode can recover the ATR unit. `long` = long trade.
+// Stop price from the config. `serverStop` is the strategy's own volatility-based
+// stop, so atr mode can recover the ATR unit. `long` = long trade.
 export function planStopPrice(entry, serverStop, long, cfg) {
   const c = { ...DEFAULT_PLAN, ...cfg };
   if (c.stopMode === 'pct') { const d = entry * (Number(c.stopValue) || 0) / 100; return long ? entry - d : entry + d; }

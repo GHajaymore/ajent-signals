@@ -81,13 +81,12 @@ function caveatsHtml(market, verdict) {
   const s = market.signal, c = [];
   if (verdict === 'BUY' && s.strat === 'trend') {
     // Trend risks are the opposite of the mean-reversion ones — don't reuse the
-    // "bounce bet / deepest-oversold tier / Bollinger" caveats here.
+    // deepest-pullback caveats here.
     c.push('This rides an existing uptrend — if the trend rolls over, the trailing stop exits with some give-back from the peak, not at the very top.');
-    c.push('A continuation entry has a smaller per-trade edge than the deepest-oversold snaps — it earns its place by firing on different days (diversification), not by being the strongest single setup.');
+    c.push('A continuation entry has a smaller per-trade edge than the deepest pullbacks — it earns its place by firing on different days (diversification), not by being the strongest single setup.');
   } else if (verdict === 'BUY') {
     c.push('This is a bounce bet — if the dip keeps falling, it loses. Profit needs a recovery, not more downside.');
-    if (!(s.plan && s.plan.conviction === 'high')) c.push('Standard tier, not the deepest-oversold tier — the per-trade edge is smaller than a high-conviction setup.');
-    if (s.pctB != null && s.pctB >= 0) c.push('Price hasn’t pierced below the lower Bollinger band — a less-stretched setup than the strongest ones.');
+    if (!(s.plan && s.plan.conviction === 'high')) c.push('Standard tier, not the deepest tier — the per-trade edge is smaller than a high-conviction setup.');
   } else if (verdict === 'SELL') {
     c.push('Provisional short — historically the weaker side on stock indices (they drift up over time). The live record is the judge.');
     c.push('A short bets on a fade; if the pop keeps running, it loses.');
@@ -565,10 +564,10 @@ function chartSvg(market, color, chartH) {
   return priceChartSvg(series, color, { levels, decimals: market.decimals, markers, h: chartH, times, entry: showLevels ? s.plan.entry : null, stop: showLevels ? csStop : null });
 }
 
-// Indicator-driven "what to do now": the app reading the live indicators (RSI2,
-// the stop level) and suggesting book-profit / cut / hold / enter — the strategy's
-// real exit logic, not the user's profile. Honest: every call is a real indicator
-// state (RSI2 ≥ 65 = mean reached = take profit; price at the risk level = stop).
+// Signal-driven "what to do now": the server's real exit logic decides book-profit /
+// cut / hold / enter (delivered as a `call` on the position), and the display reads
+// that plus the public stop level — not the user's profile. Honest: every call is a
+// real server-computed state, never a guess (the exact rule stays server-side).
 function actionSuggestion(market, s, verdict) {
   const price = market.price ?? s.price;
   const pos = getOpenPositions().find((p) => p.symbol === market.symbol);
@@ -656,7 +655,8 @@ function userBookPanel(market, verdict, s, dispEntry, dispStop, dispTarget) {
 function renderSignalTab(market, verdict, color) {
   const s = market.signal;
   // Stop + reference target in the plan honour the user's per-strategy profile
-  // (stop distance and reward:risk). The tracked record still uses 2× ATR + RSI2.
+  // (stop distance and reward:risk). The tracked record runs the strategy's own
+  // server-side stop + exit, independent of this user preference.
   const planCfg = planConfigFor();
   const planLong = verdict !== 'SELL';
   // Trend continuation setups ride the move with a ratcheting TRAILING stop; the
@@ -789,9 +789,9 @@ function renderBreakdownTab(market, color) {
   const s = market.signal;
   if (!market.signalIsReal) {
     return `<div class="panel"><div class="panel-title">Signal breakdown</div>
-      <div class="text-muted" style="font-size:12.5px;line-height:1.6;margin-top:6px">A live-data computation for this market is temporarily unavailable, so there's no real signal to break down right now. When the feed returns, this shows exactly what the mean-reversion engine sees — the fast RSI, the Bollinger stretch, and the trend.</div></div>`;
+      <div class="text-muted" style="font-size:12.5px;line-height:1.6;margin-top:6px">A live-data computation for this market is temporarily unavailable, so there's no real signal to break down right now. When the feed returns, this shows what the engine sees — how stretched the pullback is and where the bigger trend stands.</div></div>`;
   }
-  const { rsi2, pctB, htfTrend: trend } = s;
+  const trend = s.htfTrend;
   const conv = s.plan && s.plan.conviction === 'high';
   const intraday = s.timeframe !== '1D';
 
@@ -806,8 +806,8 @@ function renderBreakdownTab(market, color) {
     : factor('Long-term trend', 'neutral', 'No clear longer-term trend.');
 
   // The board runs two engines. A trend-continuation BUY is NOT an oversold snap, so
-  // it must NOT be described (or broken down) as one — that read the rsi2/Bollinger
-  // rows and copy that only apply to the mean-reversion engine. Branch on the strat.
+  // it must NOT be described (or broken down) as one — that used copy that only
+  // applies to the mean-reversion engine. Branch on the strat.
   const isTrend = s.strat === 'trend';
   let setupLabel, factorsHtml, footerHtml;
   if (isTrend) {
@@ -818,17 +818,11 @@ function renderBreakdownTab(market, color) {
     footerHtml = 'This is a <b style="color:var(--text)">trend-following</b> signal — it rides an <b>established uptrend</b> with momentum and holds via a trailing stop until the trend breaks. It is <b>not</b> a deep-oversold bounce; Ajent runs both engines side by side and shows whichever is set up. Rule-based — no method guarantees a win rate.';
   } else {
     setupLabel = conv ? 'High-conviction setup' : 'Standard setup';
-    const rsi2Row = rsi2 == null ? ''
-      : rsi2 <= 10 ? factor('Momentum', 'bull', 'Deeply oversold — the counter-move the strategy buys.')
-      : rsi2 < 35 ? factor('Momentum', 'neutral', 'Leaning oversold, but not stretched far enough yet.')
-      : factor('Momentum', 'neutral', 'Not stretched far enough to trigger a trade.');
-    const bbRow = pctB == null ? ''
-      : pctB < 0 ? factor('Volatility stretch', 'bull', 'Price has stretched unusually far below its recent range — an extreme (marks the strongest setups).')
-      : pctB < 0.25 ? factor('Volatility stretch', 'neutral', 'Below its recent average, not yet at an extreme.')
-      : pctB > 0.75 ? factor('Volatility stretch', 'neutral', 'Above its recent average.')
-      : factor('Volatility stretch', 'neutral', 'Within its normal range — no extreme.');
-    factorsHtml = rsi2Row + bbRow + trendRow;
-    footerHtml = `This is a <b style="color:var(--text)">mean-reversion</b> signal — <b>not</b> a multi-indicator confluence score. It buys a market that has stretched deeply oversold within an uptrend; the most extreme stretches mark the strongest setups. A trade fires only once the setup clears your ${state.settings.threshold}% confidence threshold (adjustable in Settings). Rule-based — no method guarantees a win rate.`;
+    const stretchRow = conv
+      ? factor('Pullback', 'bull', 'An unusually deep pullback within the uptrend — the strongest tier the strategy buys.')
+      : factor('Pullback', 'bull', 'A pullback stretched far enough to fade — the counter-move the strategy buys, inside an uptrend.');
+    factorsHtml = stretchRow + trendRow;
+    footerHtml = `This is a <b style="color:var(--text)">mean-reversion</b> signal — <b>not</b> a multi-indicator confluence score. It buys a market that has pulled back within an uptrend; the deepest pullbacks mark the strongest setups. A trade fires only once the setup clears your ${state.settings.threshold}% confidence threshold (adjustable in Settings). Rule-based — no method guarantees a win rate.`;
   }
 
   return `
@@ -886,7 +880,7 @@ function renderChartTab(market, color, verdict) {
   const s = market.signal;
   const hasSetup = verdict !== 'NO_TRADE';
   // Key levels use the same honest plan as the Signal tab: user's stop + reward:risk
-  // reference target, and the real RSI2 exit — no invented Target 2/3.
+  // reference target, and the strategy's real server-side exit — no invented Target 2/3.
   const clvLong = verdict !== 'SELL';
   const clvCfg = planConfigFor();
   const clvStop = s.plan ? capStopUsdPrice(s.plan.entry, planStopPrice(s.plan.entry, s.plan.stop, clvLong, clvCfg), clvLong, market.pointValue, maxStopUsd()) : 0;

@@ -9,38 +9,10 @@ import { isMarketOpen } from './marketHours.js';
 
 const LS_KEY = 'ajent_paper_trades_v1';
 const MAX_CLOSED = 300;
-// Bump when a fix invalidates previously-recorded results.
-//  v2 — discarded history polluted by the price-stream-mismatch bug (phantom
-//       gaps when a market's price switched between the real feed and the sim).
-//  v3 — stops were tighter than the quote-feed noise floor, so nearly every
-//       trade was noise-stopped; geometry now floors risk at ~0.5% of price.
-//  v4 — signals moved from 5-minute to 15-minute candles (better signal-to-
-//       noise); prior results were recorded on the noisier timeframe.
-//  v5 — trades now open at the live price (not the lagging candle entry), which
-//       was booking instant losses when price moved between candle and quote.
-//  v6 — switched to the Ajent Pulse mean-reversion core with tight-target,
-//       high-win-rate geometry; prior results were a different strategy.
-//  v7 — added the daily swing (Connors) strategy + a time stop; results are now
-//       strategy-mode dependent, so start the record clean.
-//  v8 — daily swing now exits on the classic "first up close" (backtested PF
-//       ~1.17 → ~1.6) instead of a fixed 1:1 target, so prior daily results were
-//       booked on a different, weaker exit and must be cleared.
-//  v9 — daily entry graded by conviction (RSI2<5 / below-Bollinger flagged elite)
-//       and the time stop trimmed to 5 days, after a walk-forward showed RSI2<10
-//       is profitable in every ~2y window while <5 had a losing one. Records from
-//       the earlier fixed-target exit are invalid.
-// v10 — daily strategy is now LONG-ONLY. Backtests showed the short side (selling
-//       overbought pops) was a drag — PF 1.11 overall and an outright loss on
-//       international indices — so it's dropped. Prior records included shorts.
-// v11 — intraday rebuilt to match: long-only Connors flush entry + an RSI2-recovery
-//       exit (replacing the fixed tight target, which backtested as a net loser).
-//       Prior intraday records used the losing fixed-target exit.
-// v12 — intraday retuned for frequency ("Active" mode): entry loosened to RSI2<15,
-//       flush gate dropped, exit at RSI2>50 (was >60) — ~3x the trades at ~66% win
-//       and PF ~1.5-2.6 on the validated markets. Prior records used the old gate.
-// v13 — intraday now trades BOTH directions with NO trend gate: long RSI2<10, short
-//       RSI2>90, exit at RSI2=50. ~doubled signals AND made shorts profitable
-//       (PF ~1.22). Prior records were long-only/trend-gated.
+// Bump SCHEMA whenever a fix or strategy change invalidates previously-recorded
+// results, so stale local records are cleared instead of mixing with the new ones.
+// (The exact strategy dials that drove each bump are server-side only — the recipe
+// never lives in this client file. See memory: ajent-signals-recipe-lock.)
 const SCHEMA = 13;
 
 function fresh() { return { v: SCHEMA, open: {}, closed: [], lastClosedSignalAt: {} }; }
@@ -149,8 +121,8 @@ export function maybeOpenPositions(engine, threshold, riskDollars = 250, enabled
       decimals: market.decimals,
       // Virtual dollars staked on this trade — captured at open so the recorded
       // outcome is a real dollar figure, not an abstract multiple. Optionally
-      // scaled up 1.5x on high-conviction (deep RSI2<5) setups, whose backtested
-      // per-trade expectancy is ~2x the ordinary tier's.
+      // scaled up on high-conviction setups, whose backtested per-trade
+      // expectancy runs richer than the ordinary tier's.
       riskDollars: Math.max(1, Math.round(riskDollars * ((scaleByConviction && s.plan.conviction === 'high') ? 1.5 : 1))),
       conviction: s.plan.conviction || 'normal',
       // Snapshot each factor's stance at entry so the adaptive layer can credit
@@ -161,8 +133,9 @@ export function maybeOpenPositions(engine, threshold, riskDollars = 250, enabled
       // Time stop for swing (daily) trades — close at market after N minutes if
       // neither target nor stop is hit. null = no time stop (intraday).
       maxHoldMin: s.plan.maxHoldMin || null,
-      // Exit rule: 'firstUpClose' (daily swing — exit the first green daily bar)
-      // or 'fixed' (intraday — target/stop). Defaults to fixed for safety.
+      // Exit style for this local record: 'fixed' (target/stop) by default. Any
+      // dynamic exit is set by the plan; the server keeps its own exit logic on
+      // its record and never sends it here.
       exitRule: s.plan.exitRule || 'fixed',
       // Whether this fill was on the real feed. A position must be judged on the
       // same price stream it opened on — never against the simulator's
@@ -197,14 +170,14 @@ export function checkOpenPositions(engine, onAlert) {
       continue;
     }
 
-    const firstUpClose = pos.exitRule === 'firstUpClose';
-    const rsi2Exit = pos.exitRule === 'rsi2Exit';
-    const dynamicExit = firstUpClose || rsi2Exit;
+    // A plan may flag a dynamic exit; today all client-tracked trades use a fixed
+    // target/stop (the server runs its own dynamic exits on its own record and
+    // never sends the rule here), so this is normally false.
+    const dynamicExit = !!pos.exitRule && pos.exitRule !== 'fixed';
 
     // Break-even management (fixed-target trades only): once +1R in our favor,
-    // pull the stop to entry so a winner that reverses scratches at ~$0. The
-    // dynamic Connors exits (first-up-close / rsi2-recovery) book the bounce
-    // quickly and were backtested without break-even management, so they opt out.
+    // pull the stop to entry so a winner that reverses scratches at ~$0. Dynamic
+    // exits book the move on their own signal, so they opt out.
     if (!dynamicExit && !pos.beMoved) {
       const oneRLevel = isLong ? pos.entry + risk : pos.entry - risk;
       const reached = isLong ? price >= oneRLevel : price <= oneRLevel;
@@ -212,23 +185,18 @@ export function checkOpenPositions(engine, onAlert) {
     }
 
     const hitStop = isLong ? price <= pos.stop : price >= pos.stop;
-    // Only fixed-target (legacy) trades exit at a preset target1; dynamic-exit
-    // trades never do — they ride to the mean-reversion exit below.
+    // Only fixed-target trades exit at a preset target1; a dynamic-exit trade
+    // rides to its own exit signal below instead.
     const hitTarget = !dynamicExit && (isLong ? price >= pos.target1 : price <= pos.target1);
-    // Dynamic mean-reversion exit:
-    //  • firstUpClose (daily): exit on the first COMPLETED daily bar strictly after
-    //    the entry day that closes in our favor (green for a long).
-    //  • rsi2Exit (intraday): exit once fast RSI2 recovers past 60 (long) — the
-    //    bounce has reached the mean. The fresh signal carries both each refresh.
+    // Optional dynamic exit: close on the first completed daily bar after entry
+    // that finishes in our favor, when the plan supplies that daily signal.
     let dynExited = false;
-    if (firstUpClose && market.signal && market.signal.lastDaily) {
+    if (dynamicExit && market.signal && market.signal.lastDaily) {
       const ld = market.signal.lastDaily;
       const laterDay = ld.t && new Date(ld.t).toDateString() !== new Date(pos.openedAt).toDateString() && ld.t > pos.openedAt;
       dynExited = laterDay && (isLong ? ld.up === true : ld.up === false);
-    } else if (rsi2Exit && market.signal && typeof market.signal.rsi2 === 'number') {
-      dynExited = isLong ? market.signal.rsi2 > 50 : market.signal.rsi2 < 50;
     }
-    // Swing/intraday trades close at market after the time stop if still open.
+    // Trades close at market after the time stop if still open.
     const timedOut = pos.maxHoldMin && (Date.now() - pos.openedAt) > pos.maxHoldMin * 60000;
     if (!hitTarget && !hitStop && !dynExited && !timedOut) continue;
 

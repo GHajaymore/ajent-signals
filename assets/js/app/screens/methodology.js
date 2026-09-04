@@ -23,9 +23,9 @@ export function render(container) {
   const estWin = Math.round(100 / (1 + rr));
   const daily = state.settings.strategyMode !== 'intraday';
 
-  // The exit section differs by strategy: daily swing uses the Connors "first up
-  // close" exit (backtested ~72% win / PF ~1.6 on US indices); intraday uses the
-  // fixed tight-target geometry whose win rate comes from the reward:risk ratio.
+  // The exit section differs by strategy: the daily swing books the snap-back on
+  // its own recovery signal; intraday uses fixed tight-target geometry whose win
+  // rate comes from the reward:risk ratio.
   const exitSection = `
     <div class="section-label">3 · The exit — ride the snap-back</div>
     <div class="panel">

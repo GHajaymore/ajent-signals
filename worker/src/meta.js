@@ -24,6 +24,45 @@ export const STRATEGY = {
   approach: 'An adaptive ensemble of proven edges: it buys markets stretched oversold within a healthy uptrend (fading the dip) and rides markets in established uptrends (following the trend), exiting each as its setup completes, capped by a volatility-based stop. Long-only, and it evolves from its own real record.',
 };
 
+// The public, display-safe view of ONE signal — an explicit ALLOWLIST, so a recipe
+// field added to the internal signal later can never silently leak to the browser.
+// Drops the raw indicator readings (rsi2, pctB), the trend-MA value, and the plan's
+// hidden dials (exit threshold, stop/size multiples, hold cap, trail). Keeps only
+// what the UI renders: verdict, price, confidence, a coarse conviction label, the
+// trend direction, ATR (a generic public volatility measure the user's own custom
+// strategy also uses), and the tradeable plan levels (entry / stop / target / risk).
+const SIGNAL_PUBLIC = ['symbol', 'name', 'updatedAt', 'verdict', 'direction', 'price', 'confidence', 'conviction', 'htfTrend', 'atr', 'live', 'liveTime', 'prevClose', 'history', 'newsHold', 'strat'];
+const PLAN_PUBLIC = ['entry', 'stop', 'target1', 'risk', 'riskReward'];
+export function publicSignal(s) {
+  if (!s || typeof s !== 'object') return s;
+  const out = {};
+  for (const k of SIGNAL_PUBLIC) if (s[k] !== undefined) out[k] = s[k];
+  if (s.plan && typeof s.plan === 'object') {
+    const plan = {};
+    for (const k of PLAN_PUBLIC) if (s.plan[k] !== undefined) plan[k] = s.plan[k];
+    out.plan = plan;
+  }
+  return out;
+}
+
+// Strip recipe-revealing fields from a paper-trade position (open OR closed) before
+// it leaves the server. A blocklist (positions carry many legit display fields —
+// entry, stop, outcome, pnl…); these named fields are the only recipe leaks.
+const POSITION_SECRET = ['exitAbove', 'exitRule', 'maxHoldMin', 'maxHoldBars', 'stopMult', 'sizeMult', 'rsi2', 'pctB', 'trendMA'];
+// The exit-reason codes are also a display field, but some internal codes name the
+// recipe ('rsiRecover', 'firstUpClose', 'rsi2Exit'). Collapse everything to a small
+// PUBLIC vocabulary — anything that isn't a generic technique becomes 'exit' (booked
+// on the strategy's own exit signal). This is the only value the client ever sees.
+const EXIT_REASON_PUBLIC = { stop: 'stop', target: 'target', target1: 'target', timeStop: 'timeStop', time: 'timeStop', trailStop: 'trailStop', trail: 'trailStop' };
+export function publicExitReason(code) { return EXIT_REASON_PUBLIC[code] || 'exit'; }
+export function publicPosition(p) {
+  if (!p || typeof p !== 'object') return p;
+  const out = {};
+  for (const k of Object.keys(p)) if (!POSITION_SECRET.includes(k)) out[k] = p[k];
+  if (p.exitReason !== undefined) out.exitReason = publicExitReason(p.exitReason);
+  return out;
+}
+
 // Multi-asset foundation (Phase 0): recipe config per (assetClass × style) CELL.
 // STRATEGY is the index/swing cell; Phase-1 cells (forex/swing, etf/swing…) add
 // their own entries here once lab-validated. The Day experiment keeps its recipe

@@ -344,7 +344,7 @@ class MarketModel {
       reasons: serverReasons(sig, trend),
       indicators: [],
       confluence: { bull: 0, bear: 0, neutral: 0 },
-      rsi2: sig.rsi2, pctB: sig.pctB, htfTrend: sig.htfTrend, conviction: sig.conviction,
+      htfTrend: sig.htfTrend, conviction: sig.conviction,
       proximity: typeof sig.proximity === 'number' ? sig.proximity : 0,
       strat: sig.strat || 'mr', // which ensemble engine produced this signal
       createdAt: sig.updatedAt || Date.now(),

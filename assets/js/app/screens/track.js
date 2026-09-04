@@ -518,7 +518,7 @@ function watchMarkets() {
     .sort((a, b) => (b.signal.proximity || 0) - (a.signal.proximity || 0))
     .slice(0, 5);
 }
-function watchSig() { return watchMarkets().map((m) => `${m.symbol}:${m.signal.proximity}:${m.signal.rsi2}`).join(','); }
+function watchSig() { return watchMarkets().map((m) => `${m.symbol}:${m.signal.proximity}:${m.signal.htfTrend}`).join(','); }
 
 // What's nearest to triggering a trade, by the server's proximity score — so an
 // empty record still tells you what to watch. Not signals, just "closest".

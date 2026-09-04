@@ -115,7 +115,7 @@ async function wireDayExperiment(container) {
 
 // Trade-plan profile — the user's preferred stop distance and reward:risk for the
 // SUGGESTED plan shown on a signal. The app's own book-profit / stop suggestion is
-// indicator-driven (RSI2), separate from this; the tracked record uses 2× ATR.
+// signal-driven and computed server-side, separate from this user preference.
 const STOP_RANGE = { atr: { min: 1, max: 4, step: 0.5, unit: '× vol', dflt: 2 }, pct: { min: 0.25, max: 5, step: 0.25, unit: '%', dflt: 1.5 } };
 function stopValLabel(cfg) {
   return cfg.stopMode === 'pct' ? `${cfg.stopValue}%` : `${cfg.stopValue}× volatility`;
@@ -209,8 +209,8 @@ const NOTIF_ROWS = [
 ];
 
 function computeRisk(market, balance, riskPct) {
-  // NO_TRADE / no-data markets have no plan — estimate risk from a ~2xATR stop
-  // (the strategy's own stop distance) so the position-size calculator still works.
+  // NO_TRADE / no-data markets have no plan — estimate risk from a volatility-based
+  // stop (a couple of ATRs) so the position-size calculator still works.
   const plan = market.signal && market.signal.plan;
   const atr = market.atr || market.price * 0.01;
   const entry = plan ? plan.entry : market.price;

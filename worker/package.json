@@ -8,6 +8,7 @@
     "deploy": "wrangler deploy",
     "tail": "wrangler tail",
     "sim": "node test/sim.mjs",
+    "test:recipe": "node test/no-recipe-leak.mjs",
     "test:webhooks": "node test/webhooks.mjs",
     "test:billing": "node test/billing.mjs"
   },

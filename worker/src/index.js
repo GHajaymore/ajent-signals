@@ -5,7 +5,7 @@ import { runTick } from './scheduler.js';
 import { runDayTick } from './daytradeScheduler.js';
 import { scanStocks } from './stocks.js';
 import { MARKETS } from './markets.js';
-import { STRATEGY, publicStrategy } from './meta.js';
+import { STRATEGY, publicStrategy, publicSignal, publicPosition } from './meta.js';
 import { addSubscription, removeSubscription, pushToAll } from './push.js';
 import { requirePro } from './auth.js';
 import { registerWebhook, listWebhooks, deleteWebhook, deliverEvents, sampleEvent, EDU_DISCLAIMER } from './webhooks.js';
@@ -100,13 +100,9 @@ export default {
       const store = db(env);
       const sigBlob = await store.get('SIGNALS_DAY', 'ALL');
       const recBlob = await store.get('RECORD_DAY', 'ALL');
-      const signals = ((sigBlob && sigBlob.signals) || []).map((s) => {
-        if (!s || !s.plan) return s;
-        const { exitAbove, stopMult, sizeMult, maxHoldBars, ...plan } = s.plan;
-        return { ...s, plan };
-      });
-      const open = recBlob && recBlob.open ? Object.values(recBlob.open).map(({ exitAbove, maxHoldBars, ...p }) => p) : [];
-      const closed = (recBlob && recBlob.closed ? recBlob.closed : []).slice(0, 100);
+      const signals = ((sigBlob && sigBlob.signals) || []).map(publicSignal);
+      const open = recBlob && recBlob.open ? Object.values(recBlob.open).map(publicPosition) : [];
+      const closed = (recBlob && recBlob.closed ? recBlob.closed : []).slice(0, 100).map(publicPosition);
       return json({
         updatedAt: (sigBlob && sigBlob.updatedAt) || Date.now(),
         experiment: true,
@@ -343,11 +339,9 @@ export default {
       // threshold from each signal's plan too; book-profit/cut is computed
       // server-side and delivered as an `action` on open positions (/trades).
       const strategy = publicStrategy(a);
-      const signals = ((blob && blob.signals) || []).map((s) => {
-        if (!s || !s.plan) return s;
-        const { exitAbove, stopMult, sizeMult, ...plan } = s.plan; // drop recipe fields
-        return { ...s, plan };
-      });
+      // Allowlist projection — strips the raw indicator readings (rsi2/pctB), the
+      // trend-MA value, and the plan's hidden dials so the recipe never leaves here.
+      const signals = ((blob && blob.signals) || []).map(publicSignal);
       return json({ updatedAt: (blob && blob.updatedAt) || Date.now(), signals, strategy, notice: NOTICE });
     }
     if (url.pathname === '/trades') {
@@ -357,8 +351,8 @@ export default {
         const rec = await store.get('RECORD', 'ALL');
         // Strip recipe-revealing fields from open positions (exit threshold, exit rule
         // name, hold cap). The client uses the derived `call` the scheduler set instead.
-        const open = rec && rec.open ? Object.values(rec.open).map(({ exitAbove, exitRule, maxHoldMin, ...p }) => p) : [];
-        const closed = (rec && rec.closed ? rec.closed : []).slice(0, 200);
+        const open = rec && rec.open ? Object.values(rec.open).map(publicPosition) : [];
+        const closed = (rec && rec.closed ? rec.closed : []).slice(0, 200).map(publicPosition);
         return json({ open, closed, summary: summarize(closed), notice: NOTICE });
       } catch (e) { return json({ error: 'trades: ' + String((e && e.message) || e).slice(0, 200) }, 500); }
     }

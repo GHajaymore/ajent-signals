@@ -69,8 +69,8 @@ let query = '';
 let filter = 'all'; // all | buy | watch | conv | fav
 let view = 'list';  // list | heat
 
-// A fired, real signal the engine flags as its strongest tier (deepest RSI2 +
-// Bollinger extreme). Only meaningful for markets currently printing a signal.
+// A fired, real signal the engine flags as its strongest tier (the deepest,
+// highest-conviction setups). Only meaningful for markets currently printing a signal.
 function isHiConv(m, threshold) {
   return m.signalIsReal && m.verdict(threshold) !== 'NO_TRADE'
     && m.signal && m.signal.plan && m.signal.plan.conviction === 'high';
@@ -327,7 +327,7 @@ export function refresh(container) {
   // "Watching" is a custom proximity-ranked list (not .mkt-row), so patch it by
   // rebuilding when the ranking/proximity changes; never fall through to patchRow.
   if (filter === 'watch') {
-    const sig = watchMarkets(threshold, query.trim().toUpperCase()).map((m) => `${m.symbol}:${m.signal.proximity}:${m.signal.rsi2}`).join(',');
+    const sig = watchMarkets(threshold, query.trim().toUpperCase()).map((m) => `${m.symbol}:${m.signal.proximity}:${m.signal.htfTrend}`).join(',');
     if (wrap.dataset.watchSig !== sig) { wrap.innerHTML = listHtml(); wireStars(wrap); wrap.dataset.watchSig = sig; }
     return;
   }
