@@ -25,7 +25,7 @@ export function hasProToken() { return !!proToken(); }
 // New users get the full experience free for TRIAL_DAYS, then drop to the Free
 // tier (limited markets + extra-delayed signals) unless they go Pro. The clock
 // starts on first launch and is stored locally.
-const TRIAL_DAYS = 30;
+export const TRIAL_DAYS = 30;
 function trialStartMs() {
   try {
     let t = localStorage.getItem('ajent_trial_start');

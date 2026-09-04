@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { isNative, isPro, purchase, restore, priceString, hasTrial } from '../iap.js';
-import { backendConfigured, startCheckout, hasProToken, checkoutAvailable } from '../backendApi.js';
+import { backendConfigured, startCheckout, hasProToken, checkoutAvailable, TRIAL_DAYS } from '../backendApi.js';
 import { getPerformanceSummary } from '../paperTrading.js';
 import { fmtMoney } from '../format.js';
 
@@ -66,11 +66,14 @@ function ctaLabel(billing) {
   // Use real StoreKit data when running natively; fall back to static copy on web.
   if (isNative()) {
     const price = priceString(billing);
-    if (hasTrial(billing)) return 'Start 7-day free trial';
+    // Native: the App Store's own sheet states the real intro-offer length (set in App
+    // Store Connect), so don't hardcode a day count here that could contradict it.
+    if (hasTrial(billing)) return 'Start free trial';
     if (price) return `Subscribe · ${price}${billing === 'annual' ? '/yr' : '/mo'}`;
     return 'Subscribe';
   }
-  return 'Start 7-day free trial';
+  // Web trial length is ours (TRIAL_DAYS) — keep the CTA in sync with the real value.
+  return `Start ${TRIAL_DAYS}-day free trial`;
 }
 
 export function render(container) {
@@ -112,7 +115,7 @@ export function render(container) {
 
     <div class="pw-challenge">
       <div class="pw-challenge-h"><i class="ph-fill ph-scales"></i>The challenge</div>
-      <p>Don't take our word for it. On your <b>30-day free trial</b>, take every signal <b>your own way</b> — your entry, stop and target — or build your <b>own strategy</b> with your own indicators, and watch it go head-to-head with Ajent on a live, unedited record.</p>
+      <p>Don't take our word for it. On your <b>${TRIAL_DAYS}-day free trial</b>, take every signal <b>your own way</b> — your entry, stop and target — or build your <b>own strategy</b> with your own indicators, and watch it go head-to-head with Ajent on a live, unedited record.</p>
       <a href="#/mystrategy" class="pw-challenge-cta">Build your strategy &amp; compete <i class="ph-bold ph-caret-right"></i></a>
     </div>
 
