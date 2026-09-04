@@ -867,11 +867,11 @@ function renderChartTab(market, color, verdict) {
     <div class="level-row"><span class="text-muted">Reference target · ${clvRr}:1</span><span style="color:var(--buy);font-weight:600" class="tabular">${fmtPrice(clvTarget, market.decimals)}</span></div>
     <div class="level-row"><span class="text-muted">Entry</span><span style="font-weight:600" class="tabular">${fmtPrice(s.plan.entry, market.decimals)}</span></div>
     <div class="level-row"><span class="text-muted">Stop loss</span><span style="color:var(--sell);font-weight:600" class="tabular">${fmtPrice(clvStop, market.decimals)}</span></div>
-    <div class="level-row"><span class="text-muted">Exit trigger</span><span style="color:var(--buy);font-weight:600" class="tabular">Reverts to the mean</span></div>
+    <div class="level-row"><span class="text-muted">Exit trigger</span><span style="color:var(--buy);font-weight:600" class="tabular">${s.strat === 'trend' ? 'Trailing stop' : 'Reverts to the mean'}</span></div>
   </div>` : `
   <div class="panel">
     <div class="panel-title">Key levels</div>
-    <div class="text-muted" style="font-size:12.5px;line-height:1.6;padding:6px 2px">No active setup — entry, stop and target levels appear once a BUY signal fires. The strategy is long-only: it buys deeply oversold dips in an uptrend and stands aside otherwise.</div>
+    <div class="text-muted" style="font-size:12.5px;line-height:1.6;padding:6px 2px">No active setup — entry, stop and target levels appear once a BUY signal fires. The strategy is long-only: it buys deeply oversold dips and rides established uptrends, and stands aside otherwise.</div>
   </div>`}`;
 }
 
