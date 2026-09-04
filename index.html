@@ -257,6 +257,11 @@
   footer .foot-copy { color:var(--faint); font-size:11px; }
   footer b { color:var(--page-text); }
   footer a { color:var(--accent200); }
+  /* Vestibular safety: honour reduced-motion — stop the glow breathe, live pulse, and
+     any transitions rather than animating for a viewer who opted out. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; }
+  }
 </style>
 
 <div class="wrap">

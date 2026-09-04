@@ -316,7 +316,17 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .flash-down { animation: flashDown 0.6s ease-out; }
 @keyframes flashUp { 0% { color: var(--buy); } 100% { color: inherit; } }
 @keyframes flashDown { 0% { color: var(--sell); } 100% { color: inherit; } }
-@media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } .flash-up, .flash-down { animation: none; } }
+/* Respect a viewer who asks for reduced motion (vestibular safety): neutralise every
+   decorative animation/transition — the ticker scroll, pulses, glows, breathe, fades —
+   near-instantly, app-wide, rather than the few classes this used to name. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 
 /* Watchlist */
 .wl-row {
