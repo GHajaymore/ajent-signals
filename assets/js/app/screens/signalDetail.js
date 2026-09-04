@@ -165,8 +165,9 @@ function fmtAxisTick(ms, spanMs) {
 function levelParts(levels, yFor, h, decimals, w) {
   let lines = '', chips = '';
   for (const l of levels) {
-    const y = yFor(l.v);
-    if (y < 6 || y > h - 6) continue;
+    // Clamp to the plot so a level outside the (price-driven) range still shows, pinned
+    // to the top/bottom edge, instead of vanishing — its chip carries the real price.
+    const y = Math.max(7, Math.min(h - 7, yFor(l.v)));
     const label = l.v.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
     const chipW = 8 + label.length * 5.4;
     lines += `<line x1="0" y1="${y.toFixed(1)}" x2="${(w - chipW - 3).toFixed(1)}" y2="${y.toFixed(1)}" stroke="${l.stroke}" stroke-width="1" stroke-dasharray="3 4" opacity="0.8"/>`;
@@ -182,8 +183,15 @@ function priceChartSvg(series, color, { levels = [], decimals = 2, markers = [],
   const axisH = hasAxis ? 18 : 0;               // room below the plot for date labels
   const vbH = h + axisH;
   if (!series || series.length < 2) return `<svg viewBox="0 0 ${w} ${vbH}" width="100%" style="height:auto;display:block"></svg>`;
-  const vals = series.concat(levels.map((l) => l.v)).concat(markers.map((m) => m.value));
-  const min = Math.min(...vals), max = Math.max(...vals);
+  // Scale to the PRICE (and trade markers) so the line fills the plot. Reference levels
+  // can nudge the range but never dominate it: their pull is capped at ±45% of the
+  // price's own span, so a far stop/target sits near the edge instead of flattening the
+  // price into a thin band (levelParts pins anything still outside to the edge).
+  const priceVals = series.concat(markers.map((m) => m.value));
+  let min = Math.min(...priceVals), max = Math.max(...priceVals);
+  const pspan = (max - min) || Math.abs(max) * 0.01 || 1;
+  const loCap = min - pspan * 0.45, hiCap = max + pspan * 0.45;
+  for (const l of levels) { min = Math.min(min, Math.max(l.v, loCap)); max = Math.max(max, Math.min(l.v, hiCap)); }
   const span = (max - min) || Math.abs(min) * 0.01 || 1;
   const pad = span * 0.14;
   const lo = min - pad, hi = max + pad;
@@ -252,8 +260,14 @@ function candleChartSvg(candles, { levels = [], decimals = 2, markers = [], h = 
   if (!candles || candles.length < 2) return `<svg viewBox="0 0 ${w} ${vbH}" width="100%" style="height:auto;display:block"></svg>`;
   const highs = candles.map((c) => (c.h != null ? c.h : c.c));
   const lows = candles.map((c) => (c.l != null ? c.l : c.c));
-  const vals = highs.concat(lows).concat(levels.map((l) => l.v)).concat(markers.map((m) => m.value));
-  const min = Math.min(...vals), max = Math.max(...vals);
+  // Scale to the candles (and markers); cap the reference levels' pull to ±45% of the
+  // price span so a far stop/target can't flatten the candles (levelParts pins anything
+  // still outside to the edge).
+  const priceVals = highs.concat(lows).concat(markers.map((m) => m.value));
+  let min = Math.min(...priceVals), max = Math.max(...priceVals);
+  const pspan = (max - min) || Math.abs(max) * 0.01 || 1;
+  const loCap = min - pspan * 0.45, hiCap = max + pspan * 0.45;
+  for (const l of levels) { min = Math.min(min, Math.max(l.v, loCap)); max = Math.max(max, Math.min(l.v, hiCap)); }
   const span = (max - min) || Math.abs(min) * 0.01 || 1;
   const pad = span * 0.08;
   const lo = min - pad, hi = max + pad;
@@ -346,7 +360,7 @@ function areaChart(market, candles, color, showLevels, chartH) {
   // Signal/Chart tab levels rather than a fixed 1:1 target.
   const chLong = s.verdict !== 'SELL';
   const chCfg = planConfigFor();
-  const chStop = s.plan ? planStopPrice(s.plan.entry, s.plan.stop, chLong, chCfg) : 0;
+  const chStop = s.plan ? capStopUsdPrice(s.plan.entry, planStopPrice(s.plan.entry, s.plan.stop, chLong, chCfg), chLong, market.pointValue, maxStopUsd()) : 0;
   const chTarget = s.plan ? planTargetPrice(s.plan.entry, chStop, chLong, chCfg) : 0;
   const levels = showLevels && s.plan ? [
     { v: chTarget, stroke: 'var(--buy)', label: 'T' },
@@ -506,7 +520,7 @@ function chartSvg(market, color, chartH) {
   const showLevels = market.verdict(state.settings.threshold) !== 'NO_TRADE' && s.plan;
   const csLong = s.verdict !== 'SELL';
   const csCfg = planConfigFor();
-  const csStop = s.plan ? planStopPrice(s.plan.entry, s.plan.stop, csLong, csCfg) : 0;
+  const csStop = s.plan ? capStopUsdPrice(s.plan.entry, planStopPrice(s.plan.entry, s.plan.stop, csLong, csCfg), csLong, market.pointValue, maxStopUsd()) : 0;
   const csTarget = s.plan ? planTargetPrice(s.plan.entry, csStop, csLong, csCfg) : 0;
   const levels = showLevels ? [
     { v: csTarget, stroke: 'var(--buy)', label: 'T' },
@@ -854,7 +868,7 @@ function renderChartTab(market, color, verdict) {
   // reference target, and the real RSI2 exit — no invented Target 2/3.
   const clvLong = verdict !== 'SELL';
   const clvCfg = planConfigFor();
-  const clvStop = s.plan ? planStopPrice(s.plan.entry, s.plan.stop, clvLong, clvCfg) : 0;
+  const clvStop = s.plan ? capStopUsdPrice(s.plan.entry, planStopPrice(s.plan.entry, s.plan.stop, clvLong, clvCfg), clvLong, market.pointValue, maxStopUsd()) : 0;
   const clvTarget = s.plan ? planTargetPrice(s.plan.entry, clvStop, clvLong, clvCfg) : 0;
   const clvRr = (Number(clvCfg.rr) || 1).toFixed(clvCfg.rr % 1 ? 1 : 0);
   if (!activeRange) activeRange = RANGES[state.settings.chartRange] ? state.settings.chartRange : '1D';
