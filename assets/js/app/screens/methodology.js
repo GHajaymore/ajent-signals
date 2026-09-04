@@ -50,8 +50,8 @@ export function render(container) {
 
     <div class="panel" style="text-align:center;padding:20px 16px">
       <i class="ph-fill ph-chart-bar" style="font-size:30px;color:var(--buy)"></i>
-      <div style="font:800 20px var(--font-heading);margin-top:8px">Mean reversion, in the direction of the trend</div>
-      <p class="text-muted" style="font-size:13px;line-height:1.65;margin-top:8px">Ajent Pulse doesn't chase breakouts. It waits for price to stretch <b style="color:var(--text)">against</b> a healthy uptrend — a deep oversold dip — then bets it snaps back. The daily swing is <b style="color:var(--text)">long-only</b> — buy the dip in an uptrend, stand aside otherwise.</p>
+      <div style="font:800 20px var(--font-heading);margin-top:8px">Two proven edges, one long-only ensemble</div>
+      <p class="text-muted" style="font-size:13px;line-height:1.65;margin-top:8px">Ajent Pulse's core edge is <b style="color:var(--text)">mean reversion</b> — it doesn't chase breakouts; it waits for price to stretch <b style="color:var(--text)">against</b> a healthy uptrend (a deep oversold dip) and bets it snaps back. Paired with it is a <b style="color:var(--text)">trend-following</b> engine that rides <b style="color:var(--text)">established uptrends</b>. Both are <b style="color:var(--text)">long-only</b> — when neither is set up, it stands aside.</p>
     </div>
 
     <div class="section-label">1 · The setup</div>
@@ -71,11 +71,19 @@ export function render(container) {
 
     ${exitSection}
 
+    <div class="section-label">4 · The second edge — riding established trends</div>
+    <div class="panel">
+      <p class="text-muted" style="font-size:12.5px;line-height:1.65;margin-top:0">Mean reversion is only half of it. When a market is instead in a <b style="color:var(--text)">firmly established uptrend</b> — price riding above a rising long-term average with momentum behind it — Ajent goes long to <b style="color:var(--text)">ride the continuation</b>. No oversold dip required. Instead of a fixed target it holds via a <b style="color:var(--text)">ratcheting trailing stop</b> that follows price up and only exits when the trend actually breaks — so winners are allowed to run.</p>
+      <div class="reason-row" style="margin-top:6px"><i class="ph-bold ph-arrows-split" style="color:var(--accent-300)"></i><span><b style="color:var(--text)">Why both.</b> The two edges fire on <b>different days</b> — dips in choppy pullbacks, continuations in strong trends — so together they stay active across more market conditions than either alone. That's diversification, not a bigger bet.</span></div>
+      <div class="reason-row"><i class="ph-bold ph-gauge" style="color:var(--flat)"></i><span><b style="color:var(--text)">Honest tier.</b> A continuation entry is <b>lower-conviction</b> than the deepest-oversold snap and reads that way in the app — a more moderate confidence — because it earns its place by firing when mean reversion is quiet, not by being the single strongest setup.</span></div>
+      <div class="text-muted" style="font-size:12px;line-height:1.65;margin-top:10px">Lab-validated as a robustly <b style="color:var(--buy)">positive, diversifying</b> edge before it was switched on — it need not beat mean reversion, only add to it on different days. As always, the exact rule is proprietary and the edge is <b>never a promise</b>; judge it by the live record.</div>
+    </div>
+
     <div class="panel" style="border:1px solid var(--hairline)">
       <div class="reason-row" style="align-items:flex-start"><i class="ph-fill ph-warning-circle" style="color:var(--accent-300)"></i><span><b style="color:var(--text)">The honest catch.</b> ${catchNote}</span></div>
     </div>
 
-    <div class="section-label">4 · Data &amp; limits</div>
+    <div class="section-label">5 · Data &amp; limits</div>
     <div class="panel">
       <div class="text-muted" style="font-size:12.5px;line-height:1.65">
         Signals compute from ${daily ? '<b style="color:var(--text)">real daily candles</b> over the last two years' : '<b style="color:var(--text)">real 15-minute candles</b> over the trailing month'} via a free, unofficial price feed (best-effort, not a licensed data source). Index signals use the real-time cash index; some futures are ~15–25 min delayed on the free tier and are labelled <b>Delayed</b>. When live data is unavailable a market falls back to a labelled <b>SIM</b> placeholder and is not paper-traded.
