@@ -139,6 +139,18 @@ export async function runTick(env, store) {
   const histBlob = (await store.get('HISTORY', 'ALL')) || {};
   const hist = histBlob.hist || {};
   let histChanged = false;
+  // One-time self-heal: trend BUYs logged before the strat-aware wording landed stored
+  // "oversold dip (RSI2 undefined)" — a mislabel (a trend BUY is a continuation, not a
+  // dip) with a bug artifact. Rewrite the description in place; the fact (a BUY fired) is
+  // untouched. Idempotent — after the sweep nothing matches, so it never rewrites again.
+  for (const sym of Object.keys(hist)) {
+    for (const e of hist[sym]) {
+      if (e && typeof e.text === 'string' && e.text.includes('RSI2 undefined')) {
+        e.text = 'Fired a BUY — trend continuation in an established uptrend.';
+        histChanged = true;
+      }
+    }
+  }
   for (const symbol of Object.keys(MARKETS)) {
     try {
       const meta = MARKETS[symbol];
