@@ -7,6 +7,7 @@ import { fmtPrice } from '../format.js';
 import { state, getEnabledPaperMarkets, setPaperMarketEnabled, setAllPaperMarkets, setPaperMarkets, FREE_MARKET_LIMIT } from '../state.js';
 import { isEntitled } from '../backendApi.js';
 import { CATEGORY_ORDER } from '../mockEngine.js';
+import { hoverAttrs, hoverLayerSvg, wireChartHover } from '../chartHover.js';
 
 // Coarse region grouping for the quick paper-trade presets, from each market's
 // country code. Anything unmapped falls into "Other".
@@ -328,12 +329,13 @@ function equityChart(equity) {
   const zeroY = yFor(0).toFixed(1);
   const uid = 'eq' + Math.random().toString(36).slice(2, 6);
   const end = pts[pts.length - 1];
-  return `<svg viewBox="0 0 ${w} ${h}" width="100%" style="height:auto;display:block">
+  return `<svg ${hoverAttrs(equity, null, lo, hi, h, w, 0, 'usd')} viewBox="0 0 ${w} ${h}" width="100%" style="height:auto;display:block">
     <defs><linearGradient id="${uid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity="0.24"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>
     <line x1="0" y1="${zeroY}" x2="${w}" y2="${zeroY}" stroke="var(--hairline)" stroke-width="1" stroke-dasharray="4 4"/>
     <path d="${d} L${w},${h} L0,${h} Z" fill="url(#${uid})"/>
     <path d="${d}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
     <circle cx="${end[0].toFixed(1)}" cy="${end[1].toFixed(1)}" r="3" fill="${color}"/>
+    ${hoverLayerSvg(w, h)}
   </svg>`;
 }
 
@@ -761,6 +763,9 @@ export function render(container) {
     closeUserTrade(sym, (m && m.price) || 0, 'manual');
     render(container);
   }));
+
+  // Crosshair + P&L tooltip on the equity curve, same as the signal charts.
+  wireChartHover(container);
 }
 
 // Live, in-place refresh: only re-paint the per-market Buy/Sell/Flat tags in the
