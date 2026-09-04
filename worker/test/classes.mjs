@@ -2,7 +2,7 @@
 // stay consistent with markets.js so later phases can safely route through it.
 //   node worker/test/classes.mjs
 import { MARKETS } from '../src/markets.js';
-import { ASSET_CLASSES, CELL_STATUS, STYLES, classFor, assetClassOf, cellStatus, cellMarkets, allCells } from '../src/classes.js';
+import { ASSET_CLASSES, CELL_STATUS, STYLES, classFor, assetClassOf, cellStatus, cellMarkets, allCells, blobKey } from '../src/classes.js';
 
 let pass = 0, fail = 0;
 const ok = (cond, msg) => { if (cond) { pass++; } else { fail++; console.error('  ✗', msg); } };
@@ -49,6 +49,13 @@ ok(!cellMarkets('index', 'swing').includes('XJO'), 'XJO is not in the swing trad
 ok(!cellMarkets('index', 'day').includes('RTY'), 'RTY is not in the day traded set (net loser intraday)');
 ok(STYLES.includes('swing') && STYLES.includes('day'), 'STYLES lists swing + day');
 ok(allCells().some((c) => c.classKey === 'index' && c.styleKey === 'day' && c.status === 'experiment'), 'allCells surfaces index/day experiment');
+
+// 5. blobKey PRESERVES the live record's existing keys (critical — no data orphaning).
+ok(blobKey('SIGNALS', 'index', 'swing') === 'SIGNALS', 'index/swing SIGNALS → bare SIGNALS (live record)');
+ok(blobKey('RECORD', 'index', 'swing') === 'RECORD', 'index/swing RECORD → bare RECORD (live record)');
+ok(blobKey('SIGNALS', 'index', 'day') === 'SIGNALS_DAY', 'index/day → SIGNALS_DAY (Day experiment)');
+ok(blobKey('RECORD', 'index', 'day') === 'RECORD_DAY', 'index/day → RECORD_DAY (Day experiment)');
+ok(blobKey('SIGNALS', 'forex', 'swing') === 'SIGNALS__forex__swing', 'new cell → namespaced key');
 
 console.log(`\nclasses.mjs — ${pass} passed, ${fail} failed\n`);
 if (fail) process.exit(1);

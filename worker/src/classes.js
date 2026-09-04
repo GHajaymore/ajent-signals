@@ -78,6 +78,18 @@ export function cellMarkets(classKey, styleKey) {
   return (s && s.markets) || (c && c.universe) || [];
 }
 
+// KV blob key for a cell's SIGNALS / RECORD blob. The mapping PRESERVES the existing
+// keys so no live data is ever orphaned (see docs/phase-0-multi-asset.md §3.3):
+//   index/swing → the bare 'SIGNALS'/'RECORD' (the real, months-old tracked record)
+//   index/day   → 'SIGNALS_DAY'/'RECORD_DAY'  (the Day experiment's isolated record)
+//   any new cell → 'SIGNALS__<class>__<style>' etc.
+// NEVER rename the index/swing keys — that would lose the live record.
+export function blobKey(kind, classKey, styleKey) {
+  if (classKey === 'index' && styleKey === 'swing') return kind;
+  if (classKey === 'index' && styleKey === 'day') return `${kind}_DAY`;
+  return `${kind}__${classKey}__${styleKey}`;
+}
+
 // Every declared cell, flattened — handy for iterating (schedulers, later phases).
 export function allCells() {
   const out = [];
