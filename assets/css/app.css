@@ -367,6 +367,17 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .detail-title { font: 600 15.5px var(--font-heading); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .detail-sub { font-size: 11.5px; color: var(--text-muted); }
 .star-btn { flex: none; font-size: 20px; color: var(--flat); }
+.share-btn { flex: none; font-size: 18px; color: var(--text-muted); background: none; border: none; cursor: pointer; padding: 2px; line-height: 1; transition: color .15s; }
+.share-btn:hover, .share-btn:active { color: var(--text); }
+.app-toast {
+  position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 78px);
+  transform: translate(-50%, 12px); z-index: 3000;
+  background: var(--surface-2); color: var(--text); border: 1px solid var(--hairline);
+  border-radius: 999px; padding: 9px 16px; font: 600 12.5px var(--font-body);
+  box-shadow: 0 8px 24px rgba(0,0,0,.35); opacity: 0; pointer-events: none;
+  transition: opacity .25s, transform .25s; max-width: 88vw; text-align: center;
+}
+.app-toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 .segmented { display: flex; gap: 6px; background: var(--surface); border: 1px solid var(--neutral-800); border-radius: var(--radius-sm); padding: 4px; margin-bottom: 16px; }
 .seg-btn {

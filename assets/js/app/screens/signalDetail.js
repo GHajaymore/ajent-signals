@@ -35,6 +35,47 @@ function detailSymbol() {
   if (sym && state.engine.get(sym)) { state.selectedSymbol = sym; return sym; }
   return state.selectedSymbol;
 }
+
+// Brief bottom toast for share/copy feedback. Self-removing; respects reduced motion.
+function flashToast(msg) {
+  const el = document.createElement('div');
+  el.className = 'app-toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 2200);
+}
+
+// Share the current signal's deep-link. Native share sheet where available (mobile),
+// else copy the link. Framed as educational — never a buy/sell recommendation to the
+// recipient. User-initiated only. Returns the outcome.
+async function shareSignal(market) {
+  const verdict = market.verdict(state.settings.threshold); // fresh, matches what's shown
+  const url = location.href; // the signal's own deep-link (now resolves correctly)
+  const title = `${market.symbol} · Ajent Signals`;
+  const text = verdict === 'BUY' || verdict === 'SELL'
+    ? `Ajent flagged a ${verdict} setup on ${market.name} (${market.symbol}) — an educational signal, tracked on a real virtual-money record. Not investment advice.`
+    : `${market.name} (${market.symbol}) on Ajent Signals — educational, honestly-tracked trading signals. Not investment advice.`;
+  try {
+    if (navigator.share) { await navigator.share({ title, text, url }); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; /* fall through to copy */ }
+  flashToast((await copyLink(url)) ? 'Link copied' : 'Couldn’t copy — long-press the address bar to share');
+}
+
+// Robust copy: the async Clipboard API where allowed, else a temp-textarea execCommand
+// fallback (older browsers / contexts that block navigator.clipboard).
+async function copyLink(url) {
+  try { await navigator.clipboard.writeText(url); return true; } catch (e) { /* fall through */ }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = url; ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+    document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, url.length);
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  } catch (e) { return false; }
+}
 import { isHighConviction, getOpenPositions } from '../paperTrading.js';
 import { isMarketAllowed } from '../adaptiveWeights.js';
 import { fetchHistory, backendConfigured } from '../backendApi.js';
@@ -956,6 +997,7 @@ export function render(container) {
         <div class="detail-title">${market.symbol} · ${market.name}</div>
         <div class="detail-sub" id="signal-detail-sub">${countryFlag(market.country)} ${market.exchange} · ${market.signal.timeframe} · ${dataTag(market)}</div>
       </div>
+      <button class="share-btn" id="share-btn" aria-label="Share this signal" title="Share this signal"><i class="ph-bold ph-share-network"></i></button>
       <button class="star-btn" id="fav-btn" title="${isInWatchlist(market.symbol) ? 'In your watchlist' : 'Add to watchlist'}"><i class="${isInWatchlist(market.symbol) ? 'ph-fill' : 'ph'} ph-star"></i></button>
     </div>
 
@@ -975,6 +1017,8 @@ export function render(container) {
     toggleWatchlist(market.symbol);
     render(container);
   });
+  const shareBtn = document.getElementById('share-btn');
+  if (shareBtn) shareBtn.addEventListener('click', () => shareSignal(market));
   if (tab === 'chart') wireChartRange(container, market, verdict, color);
   if (tab === 'signal') loadTimeline(container, market.symbol);
   // "Trade it your way" — DELEGATED on the container (once) so it survives the live
