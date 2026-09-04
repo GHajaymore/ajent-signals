@@ -454,11 +454,39 @@ function openSig() {
   return getOpenPositions().map((p) => { const q = posLivePnl(p); return `${p.symbol}:${q ? q.r.toFixed(3) : '?'}`; }).join(',');
 }
 
+// Broad co-movement bucket for a held symbol. Equity indices and sector ETFs are all
+// "equity beta" — they largely rise and fall together — so they count as ONE bet, not
+// many. Crypto is its own (correlated) bucket. Used only to tell the honest truth about
+// concentration; it changes no trading logic.
+function corrGroup(symbol) {
+  const m = state.engine.get(symbol);
+  const cat = m && m.category;
+  if (cat === 'Index' || cat === 'Global Index' || cat === 'Sector ETFs') return 'equity';
+  if (cat === 'Crypto') return 'crypto';
+  return 'other';
+}
+
+// When the open book is dominated by one correlated group, say so — otherwise "10 open
+// trades" reads as 10 independent edges when it's really one directional bet. Honest
+// context for reading the record, not advice.
+function concentrationNote(open) {
+  if (open.length < 3) return ''; // 1-2 positions: not worth a caveat
+  const counts = {};
+  for (const p of open) { const g = corrGroup(p.symbol); counts[g] = (counts[g] || 0) + 1; }
+  const equity = counts.equity || 0;
+  if (equity >= 3 && equity / open.length >= 0.6) {
+    const label = equity === open.length ? `All ${open.length}` : `${equity} of ${open.length}`;
+    return `<div class="conc-note"><i class="ph-fill ph-warning-circle"></i><span>${label} open trades are <b>equity-market longs</b> — stocks worldwide move largely together, so the record's swing here reflects <b>one broad direction</b> (stocks up or down), not ${open.length} independent bets. Judge the edge over the full history, not a single correlated stretch.</span></div>`;
+  }
+  return '';
+}
+
 function openList() {
   const open = getOpenPositions();
   if (!open.length) return '';
   return `
     <div class="section-label">Open positions · ${open.length}</div>
+    ${concentrationNote(open)}
     <div class="card" style="padding:2px 12px">
       ${open.map(openRow).join('')}
     </div>`;
