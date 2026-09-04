@@ -35,5 +35,17 @@ export function evalCustom(market, cfg) {
   let trendOk = true, trendMA = null;
   if (cfg.useTrend) { const sArr = sma(h, cfg.trendSma); trendMA = sArr[sArr.length - 1]; trendOk = trendMA != null && price > trendMA; }
   if (r == null) return { ready: false };
-  return { ready: true, rsi: Math.round(r), price, trendOk, trendMA, fires: r < cfg.entryBelow && trendOk };
+  const fires = r < cfg.entryBelow && trendOk;
+  // Confidence is derived from the USER's OWN configured thresholds — never a fixed
+  // number. `depth` = how far RSI has pushed past their entry line (a stronger take on
+  // their setup); a lift is added when their trend filter confirms. Bounded 70..92 to
+  // match the engine's scale so both boards read on one axis. `proximity` (for names
+  // not yet firing) is how close RSI is to their entry line, 0..100.
+  const span = Math.max(1, cfg.entryBelow);
+  const depth = Math.max(0, Math.min(1, (cfg.entryBelow - r) / span));
+  const trendLift = (cfg.useTrend && trendOk) ? 0.15 : 0;
+  const strength = Math.min(1, depth + trendLift);
+  const confidence = Math.round(70 + strength * 22);
+  const proximity = r <= cfg.entryBelow ? 100 : Math.max(0, Math.round(100 * cfg.entryBelow / r));
+  return { ready: true, rsi: Math.round(r), price, trendOk, trendMA, fires, confidence, proximity };
 }

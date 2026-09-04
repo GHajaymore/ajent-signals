@@ -54,7 +54,7 @@ function boardHtml(cfg) {
   const list = ranked.slice(0, 12).map(({ m, c, aj }) => `
     <div class="cs-row" data-nav="#/signal/${m.symbol}">
       <span class="cs-sym">${m.symbol}</span>
-      <span class="cs-rsi">RSI ${c.rsi}${c.trendOk ? '' : ' <span class="cs-dn">· downtrend</span>'}</span>
+      <span class="cs-rsi">RSI ${c.rsi}${c.trendOk ? '' : ' <span class="cs-dn">· downtrend</span>'}${c.fires ? ` <span class="cs-conf">· ${c.confidence}%</span>` : ''}</span>
       <span class="cs-tags">
         ${c.fires ? '<span class="cs-tag you">YOU</span>' : ''}
         ${aj ? '<span class="cs-tag aj">AJENT</span>' : ''}

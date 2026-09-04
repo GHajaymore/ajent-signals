@@ -34,8 +34,18 @@ export function computeTrend(candles, live) {
   // against the CURRENT ATR each tick, not the entry-time value.
   if (!fires) return { verdict: 'NO_TRADE', trendMA: s50, price, atr: atrN };
   const risk = Math.max(atrN * TREND.stopAtrMult, price * 0.004);
+  // A fired trend continuation is a real, auto-traded setup — not a coin-flip — so it
+  // must read well above 50. Confidence scales with trend strength: how firmly price
+  // sits above the follow-MA (in ATR units) and how briskly that MA is rising. Bounded
+  // 70..92 so even a strong trend reads as "high", never "certain". `conviction` lifts
+  // to 'high' once the trend is firmly extended.
+  const aboveFollow = (price - s50) / atrN;      // ATR units above the 50-MA
+  const slope = (s50 - s50prev) / atrN;          // 50-MA rise over 5 bars, in ATR units
+  const strength = Math.max(0, Math.min(1, (aboveFollow - 0.1) / 2.4 + slope * 0.6));
+  const confidence = Math.round(70 + strength * 22);
   return {
-    verdict: 'BUY', direction: 1, price, conviction: 'normal', trendMA: s50, atr: atrN,
+    verdict: 'BUY', direction: 1, price, confidence, conviction: strength > 0.55 ? 'high' : 'normal',
+    trendMA: s50, atr: atrN,
     plan: { entry: price, stop: price - risk, target1: price + risk, risk, maxHoldMin: TREND.maxHoldMin, trail: true },
   };
 }

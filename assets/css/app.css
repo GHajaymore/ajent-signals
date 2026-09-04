@@ -156,6 +156,7 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .cs-sym { font: 700 13.5px var(--font-mono); width: 56px; flex: none; }
 .cs-rsi { font: 500 11.5px var(--font-mono); color: var(--text-muted); flex: 1; font-variant-numeric: tabular-nums; }
 .cs-dn { color: var(--sell); }
+.cs-conf { color: var(--buy); font-weight: 700; }
 .cs-tags { display: flex; gap: 5px; flex: none; }
 .cs-tag { font: 700 8.5px var(--font-mono); letter-spacing: 0.05em; padding: 2px 6px; border-radius: 5px; }
 .cs-tag.you { color: #08101f; background: var(--accent); }
