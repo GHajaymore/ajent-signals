@@ -56,7 +56,12 @@ async function loadTimeline(container, symbol) {
 // fabricated confidence booster. Mirrors the discipline of showing losses too.
 function caveatsHtml(market, verdict) {
   const s = market.signal, c = [];
-  if (verdict === 'BUY') {
+  if (verdict === 'BUY' && s.strat === 'trend') {
+    // Trend risks are the opposite of the mean-reversion ones — don't reuse the
+    // "bounce bet / deepest-oversold tier / Bollinger" caveats here.
+    c.push('This rides an existing uptrend — if the trend rolls over, the trailing stop exits with some give-back from the peak, not at the very top.');
+    c.push('A continuation entry has a smaller per-trade edge than the deepest-oversold snaps — it earns its place by firing on different days (diversification), not by being the strongest single setup.');
+  } else if (verdict === 'BUY') {
     c.push('This is a bounce bet — if the dip keeps falling, it loses. Profit needs a recovery, not more downside.');
     if (!(s.plan && s.plan.conviction === 'high')) c.push('Standard tier, not the deepest-oversold tier — the per-trade edge is smaller than a high-conviction setup.');
     if (s.pctB != null && s.pctB >= 0) c.push('Price hasn’t pierced below the lower Bollinger band — a less-stretched setup than the strongest ones.');
