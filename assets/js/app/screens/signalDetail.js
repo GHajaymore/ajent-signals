@@ -702,7 +702,7 @@ function renderSignalTab(market, verdict, color) {
     </div>` : ''}
     <div class="text-muted" style="font-size:11.5px;line-height:1.55;margin-top:8px;padding:0 2px">
       ${isTrend
-        ? `This is a <b style="color:var(--text)">trend-continuation</b> trade: it buys an established uptrend and rides it, exiting on a <b style="color:var(--text)">trailing stop</b> that ratchets up with price — so winners run and the exit only fires when momentum breaks. The reference target is the ~1:1 level for orientation, not a cap.`
+        ? `The <b style="color:var(--text)">reference target</b> above is only the ~1:1 level, shown for orientation — with a trailing stop there's no fixed take-profit, so a winner can run well past it.`
         : `This is a <b style="color:var(--text)">mean-reversion</b> trade: it buys the oversold flush and exits when the <b style="color:var(--text)">move reverts to the mean</b> — rather than at a fixed target, so winners can run past the 1:1 mark. A hard <b style="color:var(--text)">volatility-based stop</b> caps the downside and a time stop closes stale trades. The reference target is the ~1:1 level for orientation, not a hard exit.`}
     </div>
     ${isDefaultPlan(planCfg) ? '' : `<div class="text-faint" style="font-size:11px;line-height:1.5;margin-top:8px;padding:0 2px">Your custom stop / reward:risk is applied to this plan. The 24/7 tracked paper record is one shared account and still runs the strategy's own validated stop &amp; exit — adjust your plan in <a href="#/settings" style="color:var(--accent-300)">Settings</a>.</div>`}
