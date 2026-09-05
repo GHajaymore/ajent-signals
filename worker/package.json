@@ -8,6 +8,7 @@
     "deploy": "wrangler deploy",
     "tail": "wrangler tail",
     "sim": "node test/sim.mjs",
+    "test": "node test/unit.mjs && node test/classes.mjs && node test/no-recipe-leak.mjs",
     "test:recipe": "node test/no-recipe-leak.mjs",
     "graduate": "node test/graduate.mjs",
     "test:webhooks": "node test/webhooks.mjs",
