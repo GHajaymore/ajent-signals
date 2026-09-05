@@ -297,7 +297,10 @@ async function syncServerRecord() {
     const route = parseHash(); if (route[0] === 'track' || route[0] === 'home' || route[0] === 'alerts') refreshRoute();
   }
 }
-if (backendConfigured()) { syncServerRecord(); setInterval(syncServerRecord, 30000); }
+// Poll the paper record every 60s. The server re-scans at most every ~2 min, so polling
+// faster just refetches identical data and burns the request budget; 60s catches every
+// update within a minute. (User-facing summary: DATA_REFRESH_NOTE in screens/settings.js.)
+if (backendConfigured()) { syncServerRecord(); setInterval(syncServerRecord, 60000); }
 
 // When the backend is connected, the app is a pure display of the Worker's real
 // signals — no client-side SIM/proxy. Pull /signals and drive each market from
@@ -328,7 +331,7 @@ async function syncServerSignals() {
     if (LIVE_SCREENS.has(route) || route === 'alerts') refreshRoute();
   }
 }
-if (backendConfigured()) { syncServerSignals(); setInterval(syncServerSignals, 20000); }
+if (backendConfigured()) { syncServerSignals(); setInterval(syncServerSignals, 60000); }
 
 // Real-time overlay: poll the Worker's /live endpoint (server-side fetch,
 // edge-cached ~10s) and overlay fresh prices between the 5-min signal ticks —

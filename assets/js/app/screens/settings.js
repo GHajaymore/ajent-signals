@@ -8,6 +8,10 @@ import { isStandalone, isIOS, installAvailable, promptInstall } from '../install
 import { pushSupported, pushPermission, enablePush, disablePush } from '../pushClient.js';
 import { isEntitled } from '../backendApi.js';
 
+// User-facing summary of how fresh the data is (kept honest — see the scan cadence in the
+// Worker and the client poll intervals in main.js). Reused wherever we surface freshness.
+export const DATA_REFRESH_NOTE = 'The strategy re-scans the markets about every 2 minutes while a market session is open (roughly every 5 minutes on weekends, when only crypto trades). The app refreshes what you see about once a minute. Live prices for crypto and FX tick near real-time (~15s); index, futures and ETF markets use a free, delayed public feed. Ajent Pro adds a ~12-second live price overlay.';
+
 // Trading styles (industry-standard, by holding period). 'swing' is live and
 // validated; 'day' is a SELECTABLE but clearly-labelled EXPERIMENT (intraday, not
 // proven — an earlier intraday version lost money live, so it is tracked on its own
@@ -274,6 +278,9 @@ export function render(container) {
     </div>
 
     ${signalExportHtml()}
+
+    <div class="panel-title" style="margin-top:22px;margin-bottom:4px">Data &amp; refresh</div>
+    <div class="setting-help" style="margin-top:0">${DATA_REFRESH_NOTE}</div>
 
     <div class="footer-note">Ajent Signals is an educational tool and does not execute trades.<br>Markets tagged REAL compute indicators from a free public price feed (unofficial, best-effort, delayed). Markets without a live feed show no signal and are hidden — never a fabricated one · v1.0.0<br><a href="../privacy/">Privacy</a> · <a href="../terms/">Terms</a> · <a href="#/methodology">How it works</a></div>
   </div>`;
