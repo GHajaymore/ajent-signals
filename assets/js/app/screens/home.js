@@ -10,30 +10,48 @@ import { groupForSymbol, ASSET_GROUPS, labelForKey } from '../assetClass.js';
 // user can watch just Stocks, or just FX, etc. Board classes slice the shared record;
 // Stocks + Day have their own records, fetched and cached here.
 const focusRecords = { stocks: null, day: null };
+// Asset class (focusClass) and trading style (tradingStyle) are SEPARATE axes. Day is
+// a STYLE, not a class — it exists only for Index Futures, on its own record. When the
+// Day style is active for a class that supports it, the dashboard shows the day record;
+// otherwise it shows the swing slice for the class.
+function dayActive() {
+  return activeStyleKey() === 'day' && stylesForClass(state.focusClass).includes('day');
+}
 function focusClosed() {
+  if (dayActive()) return (focusRecords.day && focusRecords.day.closed) || [];
   const f = state.focusClass;
   if (f === 'all') return getClosedTrades();
   if (f === 'stocks') return (focusRecords.stocks && focusRecords.stocks.closed) || [];
-  if (f === 'day') return (focusRecords.day && focusRecords.day.closed) || [];
   return getClosedTrades().filter((c) => groupForSymbol(c.symbol) === f);
 }
 function focusOpen() {
+  if (dayActive()) return (focusRecords.day && focusRecords.day.open) || [];
   const f = state.focusClass;
   if (f === 'all') return getOpenPositions();
   if (f === 'stocks') return (focusRecords.stocks && focusRecords.stocks.open) || [];
-  if (f === 'day') return (focusRecords.day && focusRecords.day.open) || [];
   return getOpenPositions().filter((p) => groupForSymbol(p.symbol) === f);
 }
 function focusMarketList() {
+  if (dayActive()) return []; // day is an own-record cell — no board markets
   const f = state.focusClass;
   if (f === 'all') return state.engine.markets;
-  if (f === 'stocks' || f === 'day') return []; // own-record cells — no board markets
+  if (f === 'stocks') return []; // own-record cell
   return state.engine.markets.filter((m) => groupForSymbol(m.symbol) === f);
 }
-// The focus-class chip row: All + each board class that has live data + Stocks + Day.
+// Honest label for a focus key. labelForKey only knows board classes and returns
+// 'Other' for anything else (a truthy value), so stocks/day must be checked FIRST or
+// the greeting reads "· Other".
+function focusClassLabel(k) {
+  if (k === 'stocks') return 'Stocks';
+  if (k === 'day') return 'Day-trading';
+  return labelForKey(k) || k;
+}
+// The focus-class chip row slices the SWING board: All + each board class present +
+// Stocks. 'Day' is NOT here — swing-vs-day is the Trading style switcher's job, so a
+// single control owns that axis (they'd otherwise be two switches for the same state).
 function focusSelectorHtml() {
   const present = new Set(state.engine.markets.filter((m) => m.hasServerSignal || m.signalIsReal).map((m) => groupForSymbol(m.symbol)));
-  const chips = [{ key: 'all', label: 'All' }, ...ASSET_GROUPS.filter((g) => present.has(g.key)).map((g) => ({ key: g.key, label: g.label })), { key: 'stocks', label: 'Stocks' }, { key: 'day', label: 'Day' }];
+  const chips = [{ key: 'all', label: 'All' }, ...ASSET_GROUPS.filter((g) => present.has(g.key)).map((g) => ({ key: g.key, label: g.label })), { key: 'stocks', label: 'Stocks' }];
   return `<div class="focus-scroll"><div class="focus-row">${chips.map((c) => `<button class="focus-chip${state.focusClass === c.key ? ' on' : ''}" data-focus="${c.key}">${c.label}</button>`).join('')}</div></div>`;
 }
 import { isRealMarket } from './markets.js';
@@ -147,11 +165,59 @@ function portfolioCard(perf) {
   </div>`;
 }
 
+// The two SELECTABLE styles (mirrors settings.js). Swing = the proven board; Day = the
+// intraday both-ways EXPERIMENT on its own record. The chip is a live switcher so the
+// user can change style from Home, not only from Settings — and picking one actually
+// rescopes Home (Swing → the board, Day → the day-trading record) via the focus mode.
+// All four industry-standard styles (mirrors settings.js). Trading style is a SEPARATE
+// axis from asset class. `order` is the chip-row order (fastest → slowest hold).
+const STYLE_META = {
+  scalping: { label: 'Scalping', icon: 'ph-lightning', sub: 'seconds–minutes' },
+  day: { label: 'Day', icon: 'ph-sun-horizon', sub: 'intraday · flat by close' },
+  swing: { label: 'Swing', icon: 'ph-calendar-check', sub: 'dips + trends · holds days' },
+  position: { label: 'Position', icon: 'ph-mountains', sub: 'weeks–months' },
+};
+const STYLE_ORDER = ['scalping', 'day', 'swing', 'position'];
+// Which styles an asset class actually SUPPORTS (has a live engine + data for). Swing
+// runs on the whole board + stocks. Day exists only for Index Futures (ES/NQ/YM/RTY —
+// the day experiment's universe). Scalping needs a paid sub-minute feed the free data
+// can't provide; Position isn't validated yet — so neither is live for any class.
+export function stylesForClass(cls) {
+  return (cls === 'all' || cls === 'index') ? ['swing', 'day'] : ['swing'];
+}
+// Honest reason a style is unavailable for the current class (for the disabled tooltip).
+function styleDisabledReason(k, cls) {
+  if (k === 'scalping') return 'Needs a paid sub-minute data feed — not available on the free data';
+  if (k === 'position') return 'In development — not yet separately validated';
+  if (k === 'day') return 'Day-trading is only available for Index Futures right now';
+  return '';
+}
+export function activeStyleKey() {
+  const s = state.settings.tradingStyle || 'swing';
+  // Never report a style the current class doesn't support.
+  if (STYLE_META[s] && stylesForClass(state.focusClass).includes(s)) return s;
+  return 'swing';
+}
+// The trading-style chip row — a separate axis, gated by the selected asset class.
+// Unsupported styles render disabled with an honest reason (per the honest-numbers rule
+// we never present Scalping/Position as working when they aren't).
+function styleSelectorHtml() {
+  const active = activeStyleKey();
+  const supported = stylesForClass(state.focusClass);
+  const chips = STYLE_ORDER.map((k) => {
+    const on = k === active, ok = supported.includes(k);
+    const title = ok ? STYLE_META[k].label : styleDisabledReason(k, state.focusClass);
+    return `<button class="focus-chip style-chip${on ? ' on' : ''}${ok ? '' : ' off'}" data-set-style="${k}"${ok ? '' : ' disabled aria-disabled="true"'} aria-pressed="${on}" title="${title}"><i class="ph-fill ${STYLE_META[k].icon}"></i> ${STYLE_META[k].label}</button>`;
+  }).join('');
+  return `<div class="focus-scroll"><div class="focus-row">${chips}</div></div>`;
+}
+// Read-only active-style readout in the stat grid (the control is the chip row above).
 function strategyChip() {
-  return `<div class="stat-card strat-card" data-nav="#/methodology" title="How the strategy works">
+  const active = activeStyleKey();
+  return `<div class="stat-card strat-card">
     <div class="stat-label">Trading style</div>
-    <div class="stat-value" style="font-size:14px;display:flex;align-items:center;gap:5px"><i class="ph-fill ph-calendar-check" style="color:var(--accent-300);font-size:14px"></i>Swing</div>
-    <div class="stat-sub">dips + trends · holds days</div>
+    <div class="stat-value" style="font-size:14px;display:flex;align-items:center;gap:5px"><i class="ph-fill ${STYLE_META[active].icon}" style="color:var(--accent-300);font-size:14px"></i>${STYLE_META[active].label}</div>
+    <div class="stat-sub">${STYLE_META[active].sub}${active === 'day' ? ' · <span style="color:var(--flat)">experiment</span>' : ''}</div>
   </div>`;
 }
 
@@ -456,9 +522,12 @@ export function render(container) {
 
     ${regionBarHtml(engine)}
 
-    <div class="home-greeting">${greeting()}${state.focusClass !== 'all' ? ` · <span style="color:var(--accent-200);font-size:13px;font-weight:600">${labelForKey(state.focusClass) || (state.focusClass === 'stocks' ? 'Stocks' : state.focusClass === 'day' ? 'Day-trading' : state.focusClass)}</span>` : ''}</div>
+    <div class="home-greeting">${greeting()}${state.focusClass !== 'all' ? ` · <span style="color:var(--accent-200);font-size:13px;font-weight:600">${focusClassLabel(state.focusClass)}</span>` : ''}</div>
 
+    <div class="axis-label">Asset class</div>
     <div id="focus-wrap">${focusSelectorHtml()}</div>
+    <div class="axis-label">Trading style</div>
+    <div id="style-wrap">${styleSelectorHtml()}</div>
 
     <div id="portfolio-wrap">${portfolioCard(perf)}</div>
 
@@ -534,7 +603,23 @@ export function render(container) {
     const c = e.target.closest('.focus-chip');
     if (!c || c.dataset.focus === state.focusClass) return;
     setFocusClass(c.dataset.focus);
+    // Trading style is a SEPARATE axis, but keep it valid: if the newly-selected class
+    // doesn't support the stored style, fall back to that class's default (Swing).
+    if (!stylesForClass(c.dataset.focus).includes(state.settings.tradingStyle || 'swing')) {
+      state.settings.tradingStyle = 'swing'; saveSettings();
+    }
     ensureFocusRecord(() => render(container)); // fetch stocks/day record if needed, then re-render
+    render(container);
+  });
+  // Trading-style chip row — a SEPARATE axis from asset class. Picking a style only
+  // persists the style; it does NOT change the asset class. Disabled styles no-op.
+  const styleWrap = container.querySelector('#style-wrap');
+  if (styleWrap) styleWrap.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-set-style]');
+    if (!b || b.disabled || b.dataset.setStyle === activeStyleKey()) return;
+    state.settings.tradingStyle = b.dataset.setStyle;
+    saveSettings();
+    ensureFocusRecord(() => render(container)); // day style may need the /day record
     render(container);
   });
   // On load, if focused on an own-record cell, make sure its record is fetched.
@@ -543,10 +628,9 @@ export function render(container) {
 
 // Fetch the /stocks or /day record for the current focus (once), then run `after`.
 function ensureFocusRecord(after) {
-  const f = state.focusClass;
-  if (f === 'stocks' && !focusRecords.stocks) {
+  if (state.focusClass === 'stocks' && !focusRecords.stocks) {
     fetchStocks().then((d) => { if (d) { focusRecords.stocks = d; after && after(); } }).catch(() => {});
-  } else if (f === 'day' && !focusRecords.day) {
+  } else if (dayActive() && !focusRecords.day) {
     fetchDayExperiment().then((d) => { if (d) { focusRecords.day = d; after && after(); } }).catch(() => {});
   }
 }

@@ -128,6 +128,12 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .cell-badge.exp { background: var(--neutral-800); color: var(--text-muted); }
 .cell-meta { font: 500 11.5px var(--font-mono); color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .cell-await { color: var(--flat); opacity: 0.85; font-style: italic; }
+
+/* Home axis controls — asset class + trading style as two labelled chip rows. */
+.axis-label { font: 700 9.5px var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); margin: 10px 2px 5px; }
+.style-chip i { font-size: 12px; margin-right: 1px; }
+.focus-chip.off { opacity: 0.36; cursor: not-allowed; }
+.focus-chip.off:hover { color: var(--text-muted); }
 .stk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 @media (max-width: 420px) { .stk-grid { grid-template-columns: 1fr; } }
 .stk-card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 13px; padding: 12px 13px; }
