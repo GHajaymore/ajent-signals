@@ -105,6 +105,8 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .risk-chip:hover { color: var(--text); }
 .risk-chip.on { background: var(--accent-800); color: var(--accent-100); border-color: transparent; }
 .risk-blurb { font: 500 12px var(--font-body); color: var(--text-muted); margin: 0 2px 10px; line-height: 1.5; }
+.risk-basket { display: flex; flex-wrap: wrap; gap: 8px 16px; font: 500 11.5px var(--font-mono); color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 10px; padding: 9px 12px; margin: 0 0 12px; }
+.risk-basket b { color: var(--text); font-weight: 700; }
 .risk-row { display: flex; align-items: center; gap: 10px; padding: 10px 2px; border-top: 1px solid var(--hairline); cursor: pointer; }
 .risk-row:first-child { border-top: none; }
 .risk-rank { font: 700 12px var(--font-mono); color: var(--text-muted); width: 20px; flex: none; text-align: center; }

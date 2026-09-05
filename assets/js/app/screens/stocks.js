@@ -53,6 +53,15 @@ function riskScreenerHtml(data) {
   const CAP = 4, secN = {}, ranked = [];
   for (const s of sorted) { const sec = s.sector || 'Other'; if ((secN[sec] || 0) >= CAP) continue; secN[sec] = (secN[sec] || 0) + 1; ranked.push(s); if (ranked.length >= 20) break; }
   const secCount = Object.keys(secN).length;
+  // Basket-level risk at a glance — what the whole set of picks looks like together.
+  const avg = (f) => ranked.length ? Math.round(ranked.reduce((s, x) => s + (x[f] || 0), 0) / ranked.length) : 0;
+  const fires = ranked.filter((x) => x.verdict === 'BUY').length;
+  const basket = `<div class="risk-basket">
+    <span>avg vol <b>${avg('vol')}%</b></span>
+    <span>avg drop <b>↓${avg('maxDD')}%</b></span>
+    <span>avg 3mo <b style="color:${avg('mom3') >= 0 ? 'var(--buy)' : 'var(--sell)'}">${avg('mom3') >= 0 ? '+' : ''}${avg('mom3')}%</b></span>
+    ${fires ? `<span style="color:var(--buy)"><b>${fires}</b> firing now</span>` : ''}
+  </div>`;
   const rows = ranked.map((s, i) => {
     const [tier, tc] = volTier(s.vol);
     const buy = s.verdict === 'BUY';
@@ -67,6 +76,7 @@ function riskScreenerHtml(data) {
   return `<div class="section-label">Screen by risk profile</div>
     <div class="risk-chips">${chips}</div>
     <div class="risk-blurb">${prof.blurb}</div>
+    ${basket}
     <div class="panel" style="padding:2px 12px">${rows}</div>
     <div class="text-faint" style="font-size:11px;line-height:1.5;margin:6px 2px 16px"><b>${ranked.length}</b> names across <b>${secCount}</b> sectors — ranked for a <b>${prof.label.toLowerCase()}</b> profile (${key === 'conservative' ? 'lowest volatility' : key === 'aggressive' ? 'highest momentum' : 'best return per unit of risk'}) and capped per sector so it's a diversified basket, not one bet. A <span style="color:var(--buy);font-weight:700">BUY</span> tag means Ajent Pulse is also firing on it now. Metrics only, not advice.</div>`;
 }
