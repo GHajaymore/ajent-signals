@@ -32,11 +32,20 @@ const MAX_FETCHES = 34;
 // activity is the universal, user-independent signal. More open markets (a live session) →
 // scan sooner; a quiet board → wait longer. This keeps the effective refresh fast during
 // live sessions and slow overnight, so the free-tier KV write budget (~1,000/day) isn't
-// spent idling. Thresholds sit just under the wall-clock so a 2-min tick reliably passes.
+// spent idling. Thresholds sit just under the wall-clock so a tick reliably passes.
+//
+// BUDGET MATH (why these numbers): each scan writes ~2 blobs; the free KV cap is ~1,000
+// writes/day. The "always-on" globals (crypto + FX + index/commodity futures ≈ 18) keep
+// openCount high ~23h on weekdays, so a flat 2-min would be ~690 scans/day (~1,380 writes)
+// — over budget. Instead only the true PEAK (US session, usually overlapping Europe →
+// ~28+ open) gets ~3 min; a single regional session gets ~4 min; the globals-only
+// baseline/weekend gets ~5 min. That averages ~350 weekday scans (~700 writes) + the
+// deduped day tick — comfortably under 1,000. (To push the peak to ~2 min, writes/scan
+// must drop first; a flat 1 min needs the paid plan.)
 function scanIntervalMs(openCount) {
-  if (openCount >= 16) return 110_000;  // multiple regions/classes open (a busy session) → ~2 min
-  if (openCount >= 6) return 230_000;   // one session partly open → ~4 min
-  return 290_000;                       // only the always-on globals (crypto/FX) → ~5 min
+  if (openCount >= 28) return 170_000;  // peak: US session (often + Europe overlap) → ~3 min
+  if (openCount >= 20) return 240_000;  // one busy regional session open → ~4 min
+  return 290_000;                       // globals-only baseline / weekend → ~5 min
 }
 
 // Meaningful transitions for the per-market signal timeline (verdict flips,
