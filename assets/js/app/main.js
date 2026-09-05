@@ -42,11 +42,13 @@ const NO_TABBAR = new Set(['gate', 'paywall', 'methodology', 'welcome', 'pro-suc
 const contentEl = document.getElementById('app-content');
 const tabbarEl = document.getElementById('tabbar');
 
-// Global focus bar — the selected asset class scopes Home, Markets and Paper, but
-// the class chips only live on Home. On Markets and Paper this pinned pill shows
-// which class the screen is scoped to and lets the user clear it in one tap.
-const FOCUS_BAR_SCREENS = new Set(['markets', 'track']);
-const FOCUS_EXTRA_LABEL = { stocks: 'Stocks', day: 'Day trades' };
+// Global focus bar — the selected asset class scopes Home, Markets, Paper and
+// Alerts, but the class chips only live on Home. On the other screens this pinned
+// pill shows which class the screen is scoped to and lets the user clear it in one
+// tap. Only the board classes actually filter these screens (Stocks/Day have their
+// own screens), so the bar shows for those and stays quiet otherwise.
+const FOCUS_BAR_SCREENS = new Set(['markets', 'track', 'alerts']);
+const FOCUS_BAR_CLASSES = new Set(['index', 'etf', 'fx', 'futures', 'crypto']);
 const focusBarEl = document.createElement('div');
 focusBarEl.id = 'focus-bar';
 focusBarEl.style.display = 'none';
@@ -57,20 +59,16 @@ focusBarEl.addEventListener('click', (e) => {
   renderRoute();
 });
 
-function focusLabelFor(key) {
-  return FOCUS_EXTRA_LABEL[key] || labelForKey(key);
-}
-
 // Keep the bar in sync when a screen sets the focus from its own chips.
 window.addEventListener('ajent:focuschange', () => renderFocusBar(parseHash()));
 
 function renderFocusBar(route) {
-  const on = FOCUS_BAR_SCREENS.has(route[0]) && state.focusClass && state.focusClass !== 'all';
+  const on = FOCUS_BAR_SCREENS.has(route[0]) && FOCUS_BAR_CLASSES.has(state.focusClass);
   focusBarEl.style.display = on ? 'flex' : 'none';
   if (!on) { focusBarEl.innerHTML = ''; return; }
   focusBarEl.innerHTML = `
     <span class="focus-bar-eye"><i class="ph-fill ph-crosshair-simple"></i></span>
-    <span class="focus-bar-txt">Showing <b>${focusLabelFor(state.focusClass)}</b> only</span>
+    <span class="focus-bar-txt">Showing <b>${labelForKey(state.focusClass)}</b> only</span>
     <button class="focus-bar-clear" data-focus-clear aria-label="Clear focus">All markets <i class="ph ph-x"></i></button>`;
 }
 

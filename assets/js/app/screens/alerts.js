@@ -2,6 +2,16 @@ import { state } from '../state.js';
 import { fmtAgo } from '../format.js';
 import { backendConfigured } from '../backendApi.js';
 import { isRealMarket } from './markets.js';
+import { groupForSymbol, labelForKey } from '../assetClass.js';
+
+// The board classes that actually scope the alert feed (Stocks/Day have their own
+// screens). When one is focused, both the fired alerts and the "closest to firing"
+// list narrow to markets in that class.
+const BOARD_FOCUS = new Set(['index', 'etf', 'fx', 'futures', 'crypto']);
+function alertInFocus(a) {
+  if (!BOARD_FOCUS.has(state.focusClass)) return true;
+  return a.symbol ? groupForSymbol(a.symbol) === state.focusClass : false;
+}
 
 // The markets nearest a BUY setup right now (real proximity score), so the Alerts
 // tab is useful even before anything fires — it shows what may alert next. Honest:
@@ -9,8 +19,10 @@ import { isRealMarket } from './markets.js';
 function brewingMarkets() {
   const threshold = state.settings.threshold;
   const realOnly = backendConfigured();
+  const focused = BOARD_FOCUS.has(state.focusClass);
   return state.engine.markets
-    .filter((m) => (!realOnly || isRealMarket(m)) && m.signal && (m.signal.proximity || 0) > 0 && m.verdict(threshold) === 'NO_TRADE')
+    .filter((m) => (!realOnly || isRealMarket(m)) && m.signal && (m.signal.proximity || 0) > 0 && m.verdict(threshold) === 'NO_TRADE'
+      && (!focused || groupForSymbol(m.symbol) === state.focusClass))
     .sort((a, b) => (b.signal.proximity || 0) - (a.signal.proximity || 0))
     .slice(0, 6);
 }
@@ -37,20 +49,24 @@ const ALERT_META = {
 };
 
 export function render(container) {
-  const alerts = state.engine.alerts;
+  const focused = BOARD_FOCUS.has(state.focusClass);
+  const focusLabel = focused ? labelForKey(state.focusClass) : null;
+  const alerts = state.engine.alerts.filter(alertInFocus);
   const brewing = brewingMarkets();
 
   container.innerHTML = `
   <div class="fade-in glow-wrap">
     <div class="dash-glow"></div>
     <h1 class="h-title">Alerts</h1>
-    <p class="text-muted" style="font-size:13px;margin:4px 0 18px">Real-time signal &amp; market notifications.</p>
+    <p class="text-muted" style="font-size:13px;margin:4px 0 18px">Real-time signal &amp; market notifications${focusLabel ? ` · <span style="color:var(--accent-300)">${focusLabel} only</span>` : ''}.</p>
 
     ${alerts.length === 0 ? `
     <div class="panel" style="text-align:center;padding:40px 20px">
       <i class="ph ph-bell-simple" style="font-size:32px;color:var(--text-muted)"></i>
-      <div style="font:600 15px var(--font-heading);margin-top:14px">No alerts yet</div>
-      <p class="text-muted" style="font-size:13px;line-height:1.6;margin-top:8px;max-width:40ch;margin-left:auto;margin-right:auto">You'll be notified here the moment a market fires a signal — a long or a short — or when one of your paper trades closes on the bounce, its stop, or its time exit.</p>
+      <div style="font:600 15px var(--font-heading);margin-top:14px">${focusLabel ? `No ${focusLabel} alerts yet` : 'No alerts yet'}</div>
+      <p class="text-muted" style="font-size:13px;line-height:1.6;margin-top:8px;max-width:40ch;margin-left:auto;margin-right:auto">${focusLabel
+        ? `Nothing has fired in ${focusLabel} yet. Clear the focus to see alerts across every market, or watch the ${focusLabel} setups closest to firing below.`
+        : `You'll be notified here the moment a market fires a signal — a long or a short — or when one of your paper trades closes on the bounce, its stop, or its time exit.`}</p>
     </div>` : ''}
     ${alerts.map((a) => {
       const meta = ALERT_META[a.type] || ALERT_META.NEWS;
