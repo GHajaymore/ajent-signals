@@ -34,9 +34,11 @@ function focusOpen() {
 function focusMarketList() {
   if (dayActive()) return []; // day is an own-record cell — no board markets
   const f = state.focusClass;
-  if (f === 'all') return state.engine.markets;
+  // The region lens composes with the asset-class focus: show only markets in BOTH.
+  const inRegion = state.engine.markets.filter(inActiveRegion);
+  if (f === 'all') return inRegion;
   if (f === 'stocks') return []; // own-record cell
-  return state.engine.markets.filter((m) => groupForSymbol(m.symbol) === f);
+  return inRegion.filter((m) => groupForSymbol(m.symbol) === f);
 }
 // Honest label for a focus key. labelForKey only knows board classes and returns
 // 'Other' for anything else (a truthy value), so stocks/day must be checked FIRST or
@@ -46,16 +48,29 @@ function focusClassLabel(k) {
   if (k === 'day') return 'Day-trading';
   return labelForKey(k) || k;
 }
+// Is an asset class actually available in the active region? (Used to reset the focus
+// when the region changes and the focused class has no markets there.)
+function classAvailable(cls) {
+  if (cls === 'all') return true;
+  if (cls === 'stocks') { const r = activeRegion(); return r === 'all' || r === 'americas'; }
+  return state.engine.markets.some((m) => (m.hasServerSignal || m.signalIsReal) && inActiveRegion(m) && groupForSymbol(m.symbol) === cls);
+}
 // The focus-class chip row slices the SWING board: All + each board class present +
 // Stocks. 'Day' is NOT here — swing-vs-day is the Trading style switcher's job, so a
 // single control owns that axis (they'd otherwise be two switches for the same state).
 function focusSelectorHtml() {
-  const present = new Set(state.engine.markets.filter((m) => m.hasServerSignal || m.signalIsReal).map((m) => groupForSymbol(m.symbol)));
-  const chips = [{ key: 'all', label: 'All' }, ...ASSET_GROUPS.filter((g) => present.has(g.key)).map((g) => ({ key: g.key, label: g.label })), { key: 'stocks', label: 'Stocks' }];
+  // Only offer classes that actually have markets in the active region (global classes —
+  // FX/Futures/Crypto — always qualify). So AMER shows US indices/ETFs, EUR shows Euro
+  // indices, etc. — the asset classes each region can actually trade.
+  const present = new Set(state.engine.markets.filter((m) => (m.hasServerSignal || m.signalIsReal) && inActiveRegion(m)).map((m) => groupForSymbol(m.symbol)));
+  const chips = [{ key: 'all', label: 'All' }, ...ASSET_GROUPS.filter((g) => present.has(g.key)).map((g) => ({ key: g.key, label: g.label }))];
+  // Stocks is a US large-cap screener, so it belongs to the Americas view.
+  const r = activeRegion();
+  if (r === 'all' || r === 'americas') chips.push({ key: 'stocks', label: 'Stocks' });
   return `<div class="focus-scroll"><div class="focus-row">${chips.map((c) => `<button class="focus-chip${state.focusClass === c.key ? ' on' : ''}" data-focus="${c.key}">${c.label}</button>`).join('')}</div></div>`;
 }
 import { isRealMarket } from './markets.js';
-import { inActiveRegion, regionChipsHtml, regionBarHtml } from '../regions.js';
+import { inActiveRegion, regionChipsHtml, regionBarHtml, activeRegion } from '../regions.js';
 import { upcomingEvents, daysUntil } from '../econCalendar.js';
 import { fmtPrice } from '../format.js';
 import { positionCallPill, updateCallPill } from '../tradeGuidance.js';
@@ -594,6 +609,8 @@ export function render(container) {
     if (!c) return;
     state.settings.region = c.dataset.region;
     saveSettings();
+    // If the focused class has no markets in the new region, fall back to All.
+    if (!classAvailable(state.focusClass)) setFocusClass('all');
     render(container);
   });
 
@@ -646,7 +663,7 @@ export function refresh(container) {
   // signals sync, so the board classes appear only after). Delegated click survives.
   const focusWrap = container.querySelector('#focus-wrap');
   if (focusWrap) {
-    const present = [...new Set(state.engine.markets.filter((m) => m.hasServerSignal || m.signalIsReal).map((m) => groupForSymbol(m.symbol)))].sort().join(',');
+    const present = activeRegion() + '|' + [...new Set(state.engine.markets.filter((m) => (m.hasServerSignal || m.signalIsReal) && inActiveRegion(m)).map((m) => groupForSymbol(m.symbol)))].sort().join(',');
     if (focusWrap.dataset.present !== present) { focusWrap.innerHTML = focusSelectorHtml(); focusWrap.dataset.present = present; }
   }
 
