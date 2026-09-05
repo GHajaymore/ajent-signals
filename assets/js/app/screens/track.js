@@ -825,25 +825,37 @@ function youVsAjentCard(perf, ajTradeCount) {
   </div>`;
 }
 
-export function render(container) {
-  const perf = getPerformanceSummary();
-  if (!perf) { container.innerHTML = emptyState(); wireSelector(container); return; }
+const BOARD_FOCUS = new Set(['index', 'etf', 'fx', 'futures', 'crypto']);
+function focusClosedTrades() {
+  const f = state.focusClass;
+  if (!BOARD_FOCUS.has(f)) return getClosedTrades(); // all (stocks/day have own panels)
+  return getClosedTrades().filter((c) => groupForSymbol(c.symbol) === f);
+}
 
-  const closed = getClosedTrades();
+export function render(container) {
+  const allPerf = getPerformanceSummary();
+  if (!allPerf) { container.innerHTML = emptyState(); wireSelector(container); return; }
+
+  const closed = getClosedTrades();            // all — the per-class breakdown uses this
+  const focused = focusClosedTrades();         // scoped to the focus class — the hero uses this
+  const scopedPerf = getPerformanceSummary(focused); // null if the class has no trades yet
+  const perf = scopedPerf || allPerf;          // secondary stats/charts fall back to the full record
+  const focusLabel = BOARD_FOCUS.has(state.focusClass) ? (labelForKey(state.focusClass) || null) : null;
   renderedClosedCount = closed.length;
-  const pnlColor = perf.totalPnl >= 0 ? 'var(--buy)' : 'var(--sell)';
-  const up = perf.totalPnl >= 0;
-  const pfStr = perf.profitFactor === Infinity ? '∞' : perf.profitFactor.toFixed(2);
+  const heroPnl = scopedPerf ? scopedPerf.totalPnl : 0;
+  const pnlColor = heroPnl >= 0 ? 'var(--buy)' : 'var(--sell)';
+  const up = heroPnl >= 0;
+  const pfStr = scopedPerf ? (scopedPerf.profitFactor === Infinity ? '∞' : scopedPerf.profitFactor.toFixed(2)) : '—';
 
   container.innerHTML = `
   <div class="fade-in glow-wrap">
     ${intro()}
 
     <div class="pf-hero ${up ? 'up' : 'down'}">
-      <div class="pf-hero-label">Net virtual P&amp;L · ${closed.length} trade${closed.length === 1 ? '' : 's'}</div>
-      <div class="pf-hero-value" style="color:${pnlColor}">${money(perf.totalPnl)}</div>
-      <div class="pf-hero-meta"><span style="color:var(--buy)">${perf.winRate}% win</span> · PF ${pfStr} · ${perf.wins}W / ${perf.losses}L</div>
-      ${closed.length >= 2 ? `<div class="pf-hero-chart">${equityChart(perf.equity)}</div>` : ''}
+      <div class="pf-hero-label">Net virtual P&amp;L${focusLabel ? ` · <span style="color:var(--accent-200)">${focusLabel}</span>` : ''} · ${focused.length} trade${focused.length === 1 ? '' : 's'}</div>
+      <div class="pf-hero-value" style="color:${pnlColor}">${scopedPerf ? money(scopedPerf.totalPnl) : '$0'}</div>
+      <div class="pf-hero-meta">${scopedPerf ? `<span style="color:var(--buy)">${scopedPerf.winRate}% win</span> · PF ${pfStr} · ${scopedPerf.wins}W / ${scopedPerf.losses}L` : `No ${focusLabel || ''} trades on the record yet — the full breakdown is below.`}</div>
+      ${scopedPerf && focused.length >= 2 ? `<div class="pf-hero-chart">${equityChart(scopedPerf.equity)}</div>` : ''}
     </div>
 
     ${honestBanner()}
