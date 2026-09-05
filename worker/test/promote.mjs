@@ -25,11 +25,26 @@ const CANDIDATES = [
   { name: 'Commodities · RSI2+SMA50+ROC (both)', group: 'Commodities', direction: 'both',
     conds: [{ ind: 'rsi', period: 2, lower: 15 }, { ind: 'ma', period: 50 }, { ind: 'roc', period: 12 }],
     neighbours: [[{ ind: 'rsi', period: 2, lower: 10 }, { ind: 'ma', period: 50 }, { ind: 'roc', period: 12 }], [{ ind: 'rsi', period: 2, lower: 20 }, { ind: 'ma', period: 50 }, { ind: 'roc', period: 12 }], [{ ind: 'rsi', period: 3, lower: 15 }, { ind: 'ma', period: 50 }, { ind: 'roc', period: 12 }], [{ ind: 'rsi', period: 2, lower: 15 }, { ind: 'ma', period: 40 }, { ind: 'roc', period: 12 }]] },
+  // Widening probes (2026-09-04): do rates / ags clear the gate? VERDICT — NEITHER ships.
+  // Ags = clear FAIL (pf 0.63, negative expectancy). Rates = promising (pf 2.01, shorts
+  // +0.135) but UNDER-SAMPLED (n=23 across only 3 Treasury instruments, fails n≥40/OOS).
+  // Rates stays a WATCH candidate — re-run as data accumulates or with more instruments.
+  { name: 'Rates · RSI2+SMA50+ROC (both)', group: 'Rates', direction: 'both',
+    conds: [{ ind: 'rsi', period: 2, lower: 15 }, { ind: 'ma', period: 50 }, { ind: 'roc', period: 12 }],
+    neighbours: [[{ ind: 'rsi', period: 2, lower: 10 }, { ind: 'ma', period: 50 }, { ind: 'roc', period: 12 }], [{ ind: 'rsi', period: 2, lower: 20 }, { ind: 'ma', period: 50 }, { ind: 'roc', period: 12 }], [{ ind: 'rsi', period: 3, lower: 15 }, { ind: 'ma', period: 50 }, { ind: 'roc', period: 12 }], [{ ind: 'rsi', period: 2, lower: 15 }, { ind: 'ma', period: 40 }, { ind: 'roc', period: 12 }]] },
+  { name: 'Rates · RSI14 symmetric MR (both)', group: 'Rates', direction: 'both',
+    conds: [{ ind: 'rsi', period: 14, lower: 30 }],
+    neighbours: [[{ ind: 'rsi', period: 10, lower: 30 }], [{ ind: 'rsi', period: 21, lower: 30 }], [{ ind: 'rsi', period: 14, lower: 25 }], [{ ind: 'rsi', period: 14, lower: 35 }]] },
+  { name: 'Ags · RSI2+SMA50+ROC (both)', group: 'Ags', direction: 'both',
+    conds: [{ ind: 'rsi', period: 2, lower: 15 }, { ind: 'ma', period: 50 }, { ind: 'roc', period: 12 }],
+    neighbours: [[{ ind: 'rsi', period: 2, lower: 10 }, { ind: 'ma', period: 50 }, { ind: 'roc', period: 12 }], [{ ind: 'rsi', period: 2, lower: 20 }, { ind: 'ma', period: 50 }, { ind: 'roc', period: 12 }], [{ ind: 'rsi', period: 3, lower: 15 }, { ind: 'ma', period: 50 }, { ind: 'roc', period: 12 }], [{ ind: 'rsi', period: 2, lower: 15 }, { ind: 'ma', period: 40 }, { ind: 'roc', period: 12 }]] },
 ];
 
 const UNIVERSE = {
   FX: { EURUSD: 'EURUSD=X', GBPUSD: 'GBPUSD=X', USDJPY: 'USDJPY=X', AUDUSD: 'AUDUSD=X', USDCAD: 'USDCAD=X', USDCHF: 'USDCHF=X', NZDUSD: 'NZDUSD=X' },
   Commodities: { GC: 'GC=F', SI: 'SI=F', HG: 'HG=F', CL: 'CL=F', NG: 'NG=F' },
+  Rates: { ZN: 'ZN=F', ZB: 'ZB=F', ZF: 'ZF=F' },
+  Ags: { ZC: 'ZC=F', ZS: 'ZS=F', ZW: 'ZW=F', KC: 'KC=F', SB: 'SB=F', CT: 'CT=F' },
 };
 
 // ---- condition evaluation (precompute arrays per symbol × param set) -----------
