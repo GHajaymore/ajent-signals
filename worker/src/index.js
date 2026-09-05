@@ -49,8 +49,12 @@ export default {
       if (event && event.cron === '10 22 * * *') {
         try {
           const today = new Date().toISOString().slice(0, 10);
-          const stocks = await scanStocks(env, store); // also paper-trades into RECORD_STOCKS
-          if (stocks.length) await store.put({ pk: 'SIGNALS_STOCKS', sk: 'ALL', day: today, at: Date.now(), stocks });
+          const sBlob = await store.get('SIGNALS_STOCKS', 'ALL');
+          // Skip if an on-demand /stocks visit already ran today's scan (no double-run).
+          if (!sBlob || sBlob.day !== today) {
+            const stocks = await scanStocks(env, store); // also paper-trades into RECORD_STOCKS
+            if (stocks.length) await store.put({ pk: 'SIGNALS_STOCKS', sk: 'ALL', day: today, at: Date.now(), stocks });
+          }
         } catch (e) { console.error('stock scan failed:', e && e.stack || e); }
         return;
       }
@@ -73,7 +77,7 @@ export default {
     })());
   },
 
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
     const url = new URL(request.url);
     if (url.pathname === '/health') return json({ ok: true });
@@ -133,6 +137,22 @@ export default {
     if (url.pathname === '/stocks') {
       const store = db(env);
       const blob = await store.get('SIGNALS_STOCKS', 'ALL');
+      // Self-heal: if the cached scan is missing (or from a prior day, or predates the
+      // risk metrics), run a fresh scan in the BACKGROUND so the next visit is complete —
+      // rather than waiting for the 22:10 daily cron. A short lock avoids duplicate scans;
+      // the scan is ~45 fetches, safely under the fetch handler's 50-subrequest budget.
+      const today = new Date().toISOString().slice(0, 10);
+      const stale = !blob || blob.day !== today || !(blob.stocks && blob.stocks[0] && typeof blob.stocks[0].vol === 'number');
+      if (stale && ctx) {
+        const lock = await store.get('SCAN_LOCK', 'STOCKS');
+        if (!lock || (Date.now() - (lock.at || 0)) > 120000) {
+          await store.put({ pk: 'SCAN_LOCK', sk: 'STOCKS', at: Date.now() });
+          ctx.waitUntil((async () => {
+            try { const stocks = await scanStocks(env, store); if (stocks.length) await store.put({ pk: 'SIGNALS_STOCKS', sk: 'ALL', day: today, at: Date.now(), stocks }); }
+            catch (e) { console.error('on-demand stock scan failed:', e && e.stack || e); }
+          })());
+        }
+      }
       // Strip the recipe reading (rsi2) here too — defence in depth, so even a blob
       // scanned by an older build is served clean (guarded by test/no-recipe-leak).
       const stocks = ((blob && blob.stocks) || []).map(({ rsi2, ...row }) => row);
