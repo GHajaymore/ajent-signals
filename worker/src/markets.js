@@ -18,6 +18,12 @@ export const MARKETS = {
   SX5E: { yahoo: '^STOXX50E', country: 'EU', assetClass: 'index', name: 'Euro Stoxx 50' },
   N225: { yahoo: '^N225', country: 'JP', assetClass: 'index', name: 'Nikkei 225' },
   TSX: { yahoo: '^GSPTSE', country: 'CA', assetClass: 'index', name: 'S&P/TSX Composite' },
+  // Most-traded EUROPE + ASIA cash indices — same validated equity mean-reversion recipe
+  // as the other indices; they classify to their region by country (GB/DE→Europe, HK/IN→Asia).
+  FTSE: { yahoo: '^FTSE', country: 'GB', assetClass: 'index', name: 'FTSE 100' },
+  DAX: { yahoo: '^GDAXI', country: 'DE', assetClass: 'index', name: 'DAX 40' },
+  HSI: { yahoo: '^HSI', country: 'HK', assetClass: 'index', name: 'Hang Seng' },
+  NIFTY: { yahoo: '^NSEI', country: 'IN', assetClass: 'index', name: 'Nifty 50' },
   // Crypto trades 24/7 — a natural fit for the always-on server loop. Same
   // RSI-2 mean-reversion strategy applied to real BTC-USD / ETH-USD daily candles.
   BTC: { yahoo: 'BTC-USD', country: 'US', crypto: true, assetClass: 'crypto', name: 'Bitcoin' },
@@ -31,6 +37,10 @@ export const MARKETS = {
   XLE: { yahoo: 'XLE', country: 'US', assetClass: 'etf', name: 'Energy' },
   XLV: { yahoo: 'XLV', country: 'US', assetClass: 'etf', name: 'Health Care' },
   XLY: { yahoo: 'XLY', country: 'US', assetClass: 'etf', name: 'Consumer Disc.' },
+  // The three most-traded broad-market ETFs — what most retail traders actually hold.
+  SPY: { yahoo: 'SPY', country: 'US', assetClass: 'etf', name: 'S&P 500' },
+  QQQ: { yahoo: 'QQQ', country: 'US', assetClass: 'etf', name: 'Nasdaq 100' },
+  IWM: { yahoo: 'IWM', country: 'US', assetClass: 'etf', name: 'Russell 2000' },
   // FX majors — BOTH-WAYS symmetric mean-reversion (engine 'mrBoth', src/bothways.js).
   // EXPERIMENT cell: validated through the promotion gate (test/promote.mjs, 5/5) but
   // modest backtest n, so tracked + clearly unproven, not 'live'. FX has no up-drift,
@@ -51,8 +61,8 @@ export const MARKETS = {
   NG: { yahoo: 'NG=F', country: 'US', futures: true, assetClass: 'commodity', engine: 'mrBoth', cell: 'commodity', name: 'Natural Gas' },
 };
 
-const TZ = { US: 'America/New_York', CA: 'America/Toronto', AU: 'Australia/Sydney', EU: 'Europe/Berlin', JP: 'Asia/Tokyo' };
-const SESSION = { US: [570, 960], CA: [570, 960], AU: [600, 960], EU: [540, 1050], JP: [540, 900] };
+const TZ = { US: 'America/New_York', CA: 'America/Toronto', AU: 'Australia/Sydney', EU: 'Europe/Berlin', JP: 'Asia/Tokyo', GB: 'Europe/London', DE: 'Europe/Berlin', HK: 'Asia/Hong_Kong', IN: 'Asia/Kolkata' };
+const SESSION = { US: [570, 960], CA: [570, 960], AU: [600, 960], EU: [540, 1050], JP: [540, 900], GB: [480, 990], DE: [540, 1050], HK: [570, 960], IN: [555, 930] };
 const WD = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
 
 function localNow(tz) {
