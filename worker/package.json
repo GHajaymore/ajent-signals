@@ -9,6 +9,7 @@
     "tail": "wrangler tail",
     "sim": "node test/sim.mjs",
     "test:recipe": "node test/no-recipe-leak.mjs",
+    "graduate": "node test/graduate.mjs",
     "test:webhooks": "node test/webhooks.mjs",
     "test:billing": "node test/billing.mjs"
   },
