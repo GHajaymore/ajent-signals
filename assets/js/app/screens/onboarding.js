@@ -4,12 +4,12 @@ const SLIDES = [
   {
     icon: 'ph-chart-bar', color: 'var(--buy)',
     title: 'Welcome to Ajent Signals',
-    body: 'Educational trading signals across global markets — stock-index futures, sector ETFs, crypto, and a large-cap stock screener. Virtual money only, no broker, no real funds ever.',
+    body: 'Educational trading signals across global markets — stock-index futures, sector ETFs, FX, commodities, crypto, and a large-cap stock screener. Virtual money only, no broker, no real funds ever.',
   },
   {
     icon: 'ph-trend-up', color: 'var(--accent-300)',
     title: 'Meet Ajent Pulse',
-    body: 'A proven ensemble of edges — it buys deeply oversold dips in uptrends <b>and</b> rides established uptrends — with the discipline seasoned traders live by, and it keeps learning from its own real record.',
+    body: 'A proven ensemble of edges — it fades oversold dips and rides established trends, <b>long-only where markets drift up, both ways where they don’t</b> (FX, commodities, intraday) — with the discipline seasoned traders live by, and it keeps learning from its own real record.',
   },
   {
     icon: 'ph-shield-check', color: 'var(--buy)',
