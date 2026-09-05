@@ -13,9 +13,9 @@ let cache = null;
 // the names differently and surfaces the top ~20.
 const RISK_PROFILES = {
   conservative: { label: 'Conservative', icon: 'ph-shield-check',
-    blurb: 'Lowest-volatility names in an uptrend — steady compounders over fireworks.',
-    rank: (s) => s.filter((x) => x.trendUp).sort((a, b) => a.vol - b.vol),
-    metric: (x) => `${x.vol}% vol` },
+    blurb: 'Shallowest drawdowns and low volatility in an uptrend — capital protection first.',
+    rank: (s) => s.filter((x) => x.trendUp).sort((a, b) => ((a.maxDD || 0) + a.vol) - ((b.maxDD || 0) + b.vol)),
+    metric: (x) => `↓${x.maxDD == null ? '—' : x.maxDD}% max` },
   balanced: { label: 'Balanced', icon: 'ph-scales',
     blurb: 'Best risk-adjusted momentum — the most return per unit of volatility.',
     rank: (s) => s.filter((x) => x.mom3 > 0 && x.trendUp).sort((a, b) => (b.mom3 / (b.vol || 1)) - (a.mom3 / (a.vol || 1))),

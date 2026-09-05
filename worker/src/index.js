@@ -142,7 +142,7 @@ export default {
       // rather than waiting for the 22:10 daily cron. A short lock avoids duplicate scans;
       // the scan is ~45 fetches, safely under the fetch handler's 50-subrequest budget.
       const today = new Date().toISOString().slice(0, 10);
-      const stale = !blob || blob.day !== today || !(blob.stocks && blob.stocks[0] && typeof blob.stocks[0].vol === 'number' && blob.stocks[0].sector);
+      const stale = !blob || blob.day !== today || !(blob.stocks && blob.stocks[0] && typeof blob.stocks[0].vol === 'number' && blob.stocks[0].sector && typeof blob.stocks[0].maxDD === 'number');
       if (stale && ctx) {
         const lock = await store.get('SCAN_LOCK', 'STOCKS');
         if (!lock || (Date.now() - (lock.at || 0)) > 120000) {

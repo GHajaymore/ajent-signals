@@ -32,7 +32,10 @@ function riskMetrics(candles) {
   // Long-term trend: price vs the 200-day average.
   let s = 0; const p = Math.min(200, n); for (let i = n - p; i < n; i++) s += cl[i];
   const trendUp = price > s / p;
-  return { vol: Math.round(vol * 10) / 10, mom3: Math.round(mom3 * 10) / 10, mom6: Math.round(mom6 * 10) / 10, trendUp };
+  // Max drawdown over ~1 year — the worst peak-to-trough drop, the pain a holder felt.
+  let peak = -Infinity, maxDD = 0; const Wd = Math.min(252, n);
+  for (let i = n - Wd; i < n; i++) { if (cl[i] > peak) peak = cl[i]; const dd = peak > 0 ? (peak - cl[i]) / peak : 0; if (dd > maxDD) maxDD = dd; }
+  return { vol: Math.round(vol * 10) / 10, mom3: Math.round(mom3 * 10) / 10, mom6: Math.round(mom6 * 10) / 10, trendUp, maxDD: Math.round(maxDD * 100) };
 }
 
 // Manage ONE stock's paper position on the daily scan (open a fresh BUY, or exit an
@@ -123,7 +126,7 @@ export async function scanStocks(env, store) {
           proximity: sig.proximity, htfTrend: sig.htfTrend, price,
           conviction: sig.plan && sig.plan.conviction === 'high' ? 'high' : 'normal',
           // Generic risk metrics (volatility / momentum / trend) + sector — NOT the recipe.
-          vol: rm.vol, mom3: rm.mom3, mom6: rm.mom6, trendUp: rm.trendUp, sector: SECTOR[sym] || 'Other',
+          vol: rm.vol, mom3: rm.mom3, mom6: rm.mom6, trendUp: rm.trendUp, maxDD: rm.maxDD, sector: SECTOR[sym] || 'Other',
           // Levels only — exitAbove/stopMult are the proprietary recipe, never sent.
           plan: sig.plan ? { entry: sig.plan.entry, stop: sig.plan.stop, target1: sig.plan.target1, riskReward: sig.plan.riskReward } : null,
         };
