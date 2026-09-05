@@ -99,6 +99,22 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .stk-breadth span { display: block; height: 100%; background: var(--buy); border-radius: 2px; }
 .stk-badge { font: 700 8px var(--font-mono); letter-spacing: 0.05em; background: color-mix(in srgb, var(--buy) 20%, transparent); color: var(--buy); padding: 1px 5px; border-radius: 4px; vertical-align: middle; margin-left: 4px; }
 
+/* Risk-profile screener (Stocks) */
+.risk-chips { display: flex; gap: 7px; flex-wrap: wrap; margin: 2px 0 8px; }
+.risk-chip { display: inline-flex; align-items: center; gap: 5px; font: 600 12.5px var(--font-heading); color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 20px; padding: 7px 13px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+.risk-chip:hover { color: var(--text); }
+.risk-chip.on { background: var(--accent-800); color: var(--accent-100); border-color: transparent; }
+.risk-blurb { font: 500 12px var(--font-body); color: var(--text-muted); margin: 0 2px 10px; line-height: 1.5; }
+.risk-row { display: flex; align-items: center; gap: 10px; padding: 10px 2px; border-top: 1px solid var(--hairline); cursor: pointer; }
+.risk-row:first-child { border-top: none; }
+.risk-rank { font: 700 12px var(--font-mono); color: var(--text-muted); width: 20px; flex: none; text-align: center; }
+.risk-body { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; }
+.risk-sym { font: 700 13.5px var(--font-mono); }
+.risk-px { font: 500 12px var(--font-mono); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.risk-metric { font: 700 12px var(--font-mono); color: var(--text); font-variant-numeric: tabular-nums; flex: none; }
+.risk-vol { font: 700 9px var(--font-mono); letter-spacing: 0.05em; width: 34px; flex: none; text-align: center; }
+.risk-buy { font: 700 8.5px var(--font-mono); background: var(--buy); color: #04120d; padding: 2px 5px; border-radius: 4px; flex: none; }
+
 /* Strategy-status cells (Paper) — the proven/experiment lifecycle at a glance */
 .cell-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 2px; border-top: 1px solid var(--hairline); }
 .cell-row:first-child { border-top: none; }

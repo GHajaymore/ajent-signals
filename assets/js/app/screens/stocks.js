@@ -7,6 +7,65 @@ import { fmtPrice, fmtMoney } from '../format.js';
 // only and single names gap on earnings, so it's diversified and clearly unproven.
 let cache = null;
 
+// --- Risk-profile screener -------------------------------------------------
+// Screen the universe by the user's risk appetite (my own recipe — generic vol /
+// momentum / trend metrics, NOT the Ajent Pulse signal recipe). Each profile ranks
+// the names differently and surfaces the top ~20.
+const RISK_PROFILES = {
+  conservative: { label: 'Conservative', icon: 'ph-shield-check',
+    blurb: 'Lowest-volatility names in an uptrend — steady compounders over fireworks.',
+    rank: (s) => s.filter((x) => x.trendUp).sort((a, b) => a.vol - b.vol),
+    metric: (x) => `${x.vol}% vol` },
+  balanced: { label: 'Balanced', icon: 'ph-scales',
+    blurb: 'Best risk-adjusted momentum — the most return per unit of volatility.',
+    rank: (s) => s.filter((x) => x.mom3 > 0 && x.trendUp).sort((a, b) => (b.mom3 / (b.vol || 1)) - (a.mom3 / (a.vol || 1))),
+    metric: (x) => `${(x.mom3 / (x.vol || 1)).toFixed(2)} ret/risk` },
+  aggressive: { label: 'Aggressive', icon: 'ph-rocket-launch',
+    blurb: 'Highest 3-month momentum — the biggest movers, higher volatility and all.',
+    rank: (s) => s.filter((x) => x.mom3 > 0).sort((a, b) => b.mom3 - a.mom3),
+    metric: (x) => `${x.mom3 >= 0 ? '+' : ''}${x.mom3}% 3mo` },
+};
+const RISK_LS = 'ajent_stock_risk_v1';
+function getRiskProfile() { try { const p = localStorage.getItem(RISK_LS); if (RISK_PROFILES[p]) return p; } catch (e) { /* ignore */ } return 'balanced'; }
+function setRiskProfile(p) { try { localStorage.setItem(RISK_LS, p); } catch (e) { /* ignore */ } }
+
+function volTier(v) {
+  if (v == null) return ['—', 'var(--text-muted)'];
+  if (v < 20) return ['LOW', 'var(--buy)'];
+  if (v < 35) return ['MED', 'var(--flat)'];
+  return ['HIGH', 'var(--sell)'];
+}
+
+function riskScreenerHtml(data) {
+  const stocks = ((data && data.stocks) || []).filter((s) => typeof s.vol === 'number');
+  const key = getRiskProfile();
+  const chips = Object.entries(RISK_PROFILES).map(([k, p]) =>
+    `<button class="risk-chip${k === key ? ' on' : ''}" data-risk="${k}"><i class="ph-bold ${p.icon}"></i>${p.label}</button>`).join('');
+  if (!stocks.length) {
+    return `<div class="section-label">Screen by risk profile</div>
+      <div class="risk-chips">${chips}</div>
+      <div class="panel"><div class="text-muted" style="font-size:12.5px;padding:6px 2px;line-height:1.55">Risk metrics (volatility &amp; momentum) fill in on the next daily scan — the picks will appear here right after.</div></div>`;
+  }
+  const prof = RISK_PROFILES[key];
+  const ranked = prof.rank(stocks.slice()).slice(0, 20);
+  const rows = ranked.map((s, i) => {
+    const [tier, tc] = volTier(s.vol);
+    const buy = s.verdict === 'BUY';
+    return `<div class="risk-row" data-nav="#/signal/${s.symbol}">
+      <span class="risk-rank">${i + 1}</span>
+      <div class="risk-body"><span class="risk-sym">${s.symbol}</span><span class="risk-px">${fmtPrice(s.price, 2)}</span></div>
+      <span class="risk-metric">${prof.metric(s)}</span>
+      <span class="risk-vol" style="color:${tc}" title="volatility">${tier}</span>
+      ${buy ? '<span class="risk-buy">BUY</span>' : ''}
+    </div>`;
+  }).join('');
+  return `<div class="section-label">Screen by risk profile</div>
+    <div class="risk-chips">${chips}</div>
+    <div class="risk-blurb">${prof.blurb}</div>
+    <div class="panel" style="padding:2px 12px">${rows}</div>
+    <div class="text-faint" style="font-size:11px;line-height:1.5;margin:6px 2px 16px">${ranked.length} names matched — ranked for a <b>${prof.label.toLowerCase()}</b> profile (${key === 'conservative' ? 'lowest volatility' : key === 'aggressive' ? 'highest momentum' : 'best return per unit of risk'}). A <span style="color:var(--buy);font-weight:700">BUY</span> tag means Ajent Pulse is also firing on it now. Metrics only, not advice.</div>`;
+}
+
 // The stocks paper record — its own isolated account, framed as an experiment.
 function stocksRecordHtml(data) {
   const s = data.summary || { trades: 0, winRate: 0, totalPnl: 0, profitFactor: null };
@@ -61,6 +120,8 @@ function content(data) {
   const total = stocks.length || 1;
   return `
     ${stocksRecordHtml(data)}
+    ${riskScreenerHtml(data)}
+    <div class="section-label">Live signals</div>
     <div class="stk-summary"><span><b class="mono" style="color:var(--buy)">${buys.length}</b> firing</span><span><b class="mono" style="color:var(--buy)">${upN}</b>/${stocks.length} in an uptrend</span><span class="text-faint">${when}</span></div>
     <div class="stk-breadth"><span style="width:${Math.round((upN / total) * 100)}%"></span></div>
     ${buys.length ? `<div class="section-label">Firing now</div><div class="stk-grid">${buys.map(buyCard).join('')}</div>` : '<div class="panel"><div class="text-muted" style="font-size:13px;padding:6px 2px">No stock is firing a BUY right now — most of the time the honest answer is "no trade". The uptrend names closest to a setup are below.</div></div>'}
@@ -78,12 +139,20 @@ export function render(container) {
     <div id="stk-wrap">${cache ? content(cache) : '<div class="panel"><div class="text-muted" style="text-align:center;padding:24px 0;font-size:13px">Loading the screener…</div></div>'}</div>
   </div>`;
 
+  const wrap = container.querySelector('#stk-wrap');
+  // Risk-profile chips: switch the ranking without a re-fetch (delegated so it survives
+  // the async content swap).
+  if (wrap) wrap.addEventListener('click', (e) => {
+    const c = e.target.closest('.risk-chip');
+    if (!c || !cache) return;
+    setRiskProfile(c.dataset.risk);
+    wrap.innerHTML = content(cache);
+  });
+
   fetchStocks().then((d) => {
     cache = d;
-    const w = container.querySelector('#stk-wrap');
-    if (w) w.innerHTML = content(d);
+    if (wrap) wrap.innerHTML = content(d);
   }).catch(() => {
-    const w = container.querySelector('#stk-wrap');
-    if (w && !cache) w.innerHTML = `<div class="panel"><div class="text-muted" style="font-size:13px;padding:6px 2px">Couldn't load the screener right now. Try again shortly.</div></div>`;
+    if (wrap && !cache) wrap.innerHTML = `<div class="panel"><div class="text-muted" style="font-size:13px;padding:6px 2px">Couldn't load the screener right now. Try again shortly.</div></div>`;
   });
 }

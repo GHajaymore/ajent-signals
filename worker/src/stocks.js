@@ -11,6 +11,30 @@ import { STRATEGY } from './meta.js';
 const dayKey = (ms) => new Date(ms).toISOString().slice(0, 10);
 const HOLD_DAYS = 5; // swing time cap — the same as the validated backtest
 
+// Risk-profile metrics for the user-facing risk screener (NOT the Ajent Pulse signal
+// recipe — these are generic public measures anyone computes). Per stock: annualized
+// volatility %, 3-month momentum %, 6-month momentum %, and whether it's in a long-
+// term uptrend. The client ranks by these per the user's chosen profile.
+function riskMetrics(candles) {
+  const cl = candles.map((c) => c.c);
+  const n = cl.length, price = cl[n - 1];
+  // Annualized volatility from ~126 daily returns.
+  const W = Math.min(126, n - 1);
+  let mean = 0; const rets = [];
+  for (let i = n - W; i < n; i++) { const r = cl[i] / cl[i - 1] - 1; rets.push(r); mean += r; }
+  mean /= rets.length || 1;
+  let v = 0; for (const r of rets) v += (r - mean) ** 2;
+  const vol = Math.sqrt(v / (rets.length || 1)) * Math.sqrt(252) * 100;
+  // Momentum over ~3 and ~6 months.
+  const b3 = Math.min(63, n - 1), b6 = Math.min(126, n - 1);
+  const mom3 = (price / cl[n - 1 - b3] - 1) * 100;
+  const mom6 = (price / cl[n - 1 - b6] - 1) * 100;
+  // Long-term trend: price vs the 200-day average.
+  let s = 0; const p = Math.min(200, n); for (let i = n - p; i < n; i++) s += cl[i];
+  const trendUp = price > s / p;
+  return { vol: Math.round(vol * 10) / 10, mom3: Math.round(mom3 * 10) / 10, mom6: Math.round(mom6 * 10) / 10, trendUp };
+}
+
 // Manage ONE stock's paper position on the daily scan (open a fresh BUY, or exit an
 // open one on the recovery / stop / time cap). Mutates the shared record. Signals are
 // computed once/day, so this evaluates on daily closes — exactly like the backtest.
@@ -80,12 +104,15 @@ export async function scanStocks(env, store) {
         const price = candles[candles.length - 1].c;
         const sig = computeSignal(candles, price);
         if (record) manageStock(record, sym, sig, price, now, risk, cost); // paper-trade it
+        const rm = riskMetrics(candles); // generic risk metrics for the risk screener
         return {
           symbol: sym, name: sym, verdict: sig.verdict, confidence: sig.confidence,
           // proximity + a coarse conviction flag are display-safe; the raw RSI reading
           // (rsi2) is the recipe and is NEVER sent (guarded by test/no-recipe-leak).
           proximity: sig.proximity, htfTrend: sig.htfTrend, price,
           conviction: sig.plan && sig.plan.conviction === 'high' ? 'high' : 'normal',
+          // Generic risk metrics (volatility / momentum / trend) — NOT the recipe.
+          vol: rm.vol, mom3: rm.mom3, mom6: rm.mom6, trendUp: rm.trendUp,
           // Levels only — exitAbove/stopMult are the proprietary recipe, never sent.
           plan: sig.plan ? { entry: sig.plan.entry, stop: sig.plan.stop, target1: sig.plan.target1, riskReward: sig.plan.riskReward } : null,
         };
