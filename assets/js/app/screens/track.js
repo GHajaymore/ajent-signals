@@ -349,9 +349,15 @@ function strategyStatusHtml(closed) {
     const proven = !EXPERIMENT_CLASSES.has(g.key);
     const n = count[g.key] || 0;
     const badge = proven ? '<span class="cell-badge live">PROVEN</span>' : '<span class="cell-badge exp">EXPERIMENT</span>';
+    // A cell with no trades yet isn't broken — its setup just hasn't fired on the live
+    // record (FX/commodity extremes are rare; ETFs trade only in US hours). Say so,
+    // rather than showing a bare "0" that reads as failure.
+    const activity = n > 0
+      ? `<b>${n}</b> live trade${n === 1 ? '' : 's'}`
+      : '<span class="cell-await">awaiting first setup</span>';
     return `<div class="cell-row">
       <div class="cell-main"><span class="cell-name">${g.label}</span>${badge}</div>
-      <div class="cell-meta">${CELL_DIR[g.key]} · <b>${n}</b> live trade${n === 1 ? '' : 's'}</div>
+      <div class="cell-meta">${CELL_DIR[g.key]} · ${activity}</div>
     </div>`;
   }).join('');
   // Cells that run on their OWN isolated record (not the board's shared account), so

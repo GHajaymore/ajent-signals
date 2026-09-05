@@ -127,6 +127,7 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .cell-badge.live { background: color-mix(in srgb, var(--buy) 20%, transparent); color: var(--buy); }
 .cell-badge.exp { background: var(--neutral-800); color: var(--text-muted); }
 .cell-meta { font: 500 11.5px var(--font-mono); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.cell-await { color: var(--flat); opacity: 0.85; font-style: italic; }
 .stk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 @media (max-width: 420px) { .stk-grid { grid-template-columns: 1fr; } }
 .stk-card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 13px; padding: 12px 13px; }
