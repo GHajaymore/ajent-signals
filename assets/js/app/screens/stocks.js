@@ -1,11 +1,33 @@
 import { fetchStocks } from '../backendApi.js';
-import { fmtPrice } from '../format.js';
+import { fmtPrice, fmtMoney } from '../format.js';
 
-// Stock screener — the proven swing strategy scanned daily across a diversified
-// large-cap universe. Signals ONLY (not auto-traded; single-name risk). Validated in
-// AGGREGATE (test/phase2.mjs), so the honest read is "consider the ones firing across
-// many names", never "this one stock will win".
+// Stock screener + tracked EXPERIMENT — the proven swing strategy scanned daily across
+// a diversified large-cap universe, and auto-paper-traded on its OWN isolated record.
+// Validated through the gate (test/promote-stocks.mjs: pf 1.47, OOS +0.11) but long-
+// only and single names gap on earnings, so it's diversified and clearly unproven.
 let cache = null;
+
+// The stocks paper record — its own isolated account, framed as an experiment.
+function stocksRecordHtml(data) {
+  const s = data.summary || { trades: 0, winRate: 0, totalPnl: 0, profitFactor: null };
+  const open = Array.isArray(data.open) ? data.open : [];
+  const closed = Array.isArray(data.closed) ? data.closed : [];
+  const pnlColor = s.totalPnl > 0 ? 'var(--buy)' : s.totalPnl < 0 ? 'var(--sell)' : 'var(--text)';
+  const recentHtml = closed.length
+    ? `<div class="eyebrow" style="margin:14px 0 4px">Recent closes</div>` + closed.slice(0, 5).map((t) => {
+        const c = (t.pnl || 0) > 0 ? 'var(--buy)' : (t.pnl || 0) < 0 ? 'var(--sell)' : 'var(--text)';
+        return `<div class="notif-row" style="padding:7px 0"><div class="notif-label" style="flex:1">${t.symbol} <span class="text-muted" style="font-size:11px">· ${t.exitReason || 'closed'}</span></div><div style="color:${c};font-weight:600">${fmtMoney(t.pnl || 0)}</div></div>`;
+      }).join('')
+    : '';
+  const body = s.trades > 0
+    ? `<div class="stk-summary" style="margin:2px 0 4px"><span><b class="mono">${s.trades}</b> trades</span><span><b class="mono">${s.winRate}%</b> win</span><span style="color:${pnlColor}"><b class="mono">${fmtMoney(s.totalPnl)}</b> net</span>${s.profitFactor != null ? `<span class="text-faint">PF ${s.profitFactor}</span>` : ''}</div>${recentHtml}`
+    : `<div class="text-muted" style="font-size:12.5px;line-height:1.55;padding:2px 0">No closed trades yet — it opens paper positions on the daily scan as names fire, across the whole universe (never one name), and books them on this record. Check back as it runs.</div>`;
+  return `<div class="panel" id="stk-record" style="border:1px solid var(--accent-900);margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><i class="ph-fill ph-flask" style="font-size:19px;color:var(--accent-300)"></i><span class="panel-title" style="margin:0">Tracked paper record</span><span class="style-badge experiment">Experiment</span></div>
+    <div class="setting-help" style="margin:0 0 8px;font-size:11.5px">Auto-paper-traded on its own account (${open.length} open), separate from the Swing record. Diversified &amp; long-only; single names can gap on earnings. Live figures, not a backtest, not a promise.</div>
+    ${body}
+  </div>`;
+}
 
 function buyCard(s) {
   const conv = s.conviction === 'high';
@@ -38,6 +60,7 @@ function content(data) {
   const when = data.day ? `Scanned ${data.day}` : '';
   const total = stocks.length || 1;
   return `
+    ${stocksRecordHtml(data)}
     <div class="stk-summary"><span><b class="mono" style="color:var(--buy)">${buys.length}</b> firing</span><span><b class="mono" style="color:var(--buy)">${upN}</b>/${stocks.length} in an uptrend</span><span class="text-faint">${when}</span></div>
     <div class="stk-breadth"><span style="width:${Math.round((upN / total) * 100)}%"></span></div>
     ${buys.length ? `<div class="section-label">Firing now</div><div class="stk-grid">${buys.map(buyCard).join('')}</div>` : '<div class="panel"><div class="text-muted" style="font-size:13px;padding:6px 2px">No stock is firing a BUY right now — most of the time the honest answer is "no trade". The uptrend names closest to a setup are below.</div></div>'}
@@ -50,7 +73,7 @@ export function render(container) {
   <div class="fade-in glow-wrap">
     <div class="dash-glow"></div>
     <h1 class="h-title">Stocks</h1>
-    <p class="text-muted" style="font-size:13px;margin:4px 0 6px;line-height:1.55">The proven <b style="color:var(--text)">Ajent Pulse</b> swing strategy, scanned daily across a diversified large-cap universe. <b style="color:var(--text)">Signals to consider</b> — not auto-traded into the tracked record.</p>
+    <p class="text-muted" style="font-size:13px;margin:4px 0 6px;line-height:1.55">The proven <b style="color:var(--text)">Ajent Pulse</b> swing strategy, scanned daily across a diversified large-cap universe — and <b style="color:var(--text)">auto-paper-traded on its own experiment record</b>, separate from the Swing account.</p>
     <div class="stk-note"><b>Why a screener?</b> The edge is validated across stocks <b>in aggregate</b>, but any single name can gap on earnings — so trade a diversified handful of what's firing, never one name on conviction. Educational, not advice.</div>
     <div id="stk-wrap">${cache ? content(cache) : '<div class="panel"><div class="text-muted" style="text-align:center;padding:24px 0;font-size:13px">Loading the screener…</div></div>'}</div>
   </div>`;

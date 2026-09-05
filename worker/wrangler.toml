@@ -10,8 +10,11 @@ compatibility_date = "2024-09-23"
 # below actually resolves and the client has been switched to it.
 workers_dev = true
 
+# Two crons: the 24/7 5-minute loop (signals + records), and a dedicated DAILY tick
+# for the stock scan — it fetches ~40 names and would blow the 5-min loop's 50-
+# subrequest free-tier budget if it shared a tick. 22:10 UTC = after the US close.
 [triggers]
-crons = ["*/5 * * * *"]
+crons = ["*/5 * * * *", "10 22 * * *"]
 
 # Branded API endpoint — READY BUT NOT YET LIVE. ajailabs.app DNS is still
 # authoritative on GoDaddy (ns*.domaincontrol.com), so this Worker custom domain
