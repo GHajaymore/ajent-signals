@@ -2,6 +2,7 @@ import { state, toggleWatchlist, saveSettings } from '../state.js';
 import { backendConfigured } from '../backendApi.js';
 import { inActiveRegion, regionBarHtml, regionChipsHtml } from '../regions.js';
 import { CATEGORY_ORDER } from '../mockEngine.js';
+import { ASSET_GROUPS, ASSET_BY_KEY } from '../assetClass.js';
 
 // A market shows only when we have REAL data for it (server signal or a real
 // client fetch). When the backend is connected we never display SIM markets —
@@ -65,19 +66,11 @@ const CAT_COLOR = {
   Ags: 'var(--accent-400)',
 };
 
-// Asset-class lens — groups the fine-grained categories into the broad classes a
-// trader thinks in. Chips are built DYNAMICALLY from the classes that actually have
+// Asset-class lens — chips are built DYNAMICALLY from the classes that actually have
 // live markets right now (see availableAssetGroups), so a class the app doesn't
 // cover — e.g. FX or commodity futures today — never shows an empty board. If that
-// coverage is added later, its chip appears on its own. Order = display order.
-const ASSET_GROUPS = [
-  { key: 'index', label: 'Indices', cats: ['Index', 'Global Index'] },
-  { key: 'etf', label: 'ETFs', cats: ['Sector ETFs'] },
-  { key: 'fx', label: 'FX', cats: ['Currencies'] },
-  { key: 'futures', label: 'Futures', cats: ['Energy', 'Metals', 'Rates', 'Ags', 'Volatility'] },
-  { key: 'crypto', label: 'Crypto', cats: ['Crypto'] },
-];
-const ASSET_BY_KEY = Object.fromEntries(ASSET_GROUPS.map((g) => [g.key, g]));
+// coverage is added later, its chip appears on its own. The taxonomy is shared with
+// the Track per-class breakdown via assetClass.js.
 
 let query = '';
 let filter = 'all'; // all | buy | watch | conv | fav

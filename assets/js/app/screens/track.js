@@ -7,6 +7,7 @@ import { fmtPrice } from '../format.js';
 import { state, getEnabledPaperMarkets, setPaperMarketEnabled, setAllPaperMarkets, setPaperMarkets, FREE_MARKET_LIMIT } from '../state.js';
 import { isEntitled } from '../backendApi.js';
 import { CATEGORY_ORDER } from '../mockEngine.js';
+import { groupForSymbol, labelForKey, EXPERIMENT_CLASSES } from '../assetClass.js';
 import { hoverAttrs, hoverLayerSvg, wireChartHover } from '../chartHover.js';
 import { shareOrCopy } from '../share.js';
 
@@ -309,6 +310,56 @@ function byMarketHtml(closed) {
             <div class="closed-sub">${m.trades} trade${m.trades === 1 ? '' : 's'} · ${wr}% win</div>
           </div>
           <div class="closed-result"><div class="r" style="color:${color}">${money(m.pnl)}</div></div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+// Group real closed trades by ASSET CLASS → net P&L, win rate, count. Flags which
+// class is POWERING the record (best, in profit) and which is LAGGING (worst, in the
+// red) — but only once the sample is big enough to be honest — and always marks an
+// unproven class (crypto) as EXPERIMENTAL. The overall record above is unchanged;
+// this just shows where the money is actually coming from.
+const ACLASS_MIN = 5; // don't call a class powering/lagging on a tiny sample
+const ACLASS_ICON = { index: 'ph-chart-line-up', etf: 'ph-squares-four', crypto: 'ph-currency-btc', fx: 'ph-currency-dollar', futures: 'ph-scales' };
+function byAssetClassStats(closed) {
+  const map = new Map();
+  for (const c of closed) {
+    const k = groupForSymbol(c.symbol) || 'other';
+    const p = tradePnl(c);
+    const e = map.get(k) || { key: k, trades: 0, wins: 0, losses: 0, pnl: 0 };
+    e.trades += 1; e.pnl += p;
+    if (p > 0) e.wins += 1; else if (p < 0) e.losses += 1;
+    map.set(k, e);
+  }
+  return [...map.values()].sort((a, b) => b.pnl - a.pnl);
+}
+function byAssetClassHtml(closed) {
+  const rows = byAssetClassStats(closed);
+  if (rows.length < 2) return ''; // need at least two classes to compare
+  // Callouts ignore 'other' (unknown symbol) and require a real sample.
+  const eligible = rows.filter((r) => r.key !== 'other' && r.trades >= ACLASS_MIN);
+  const powering = eligible.length && eligible[0].pnl > 0 ? eligible[0].key : null;
+  const laggard = eligible.length > 1 && eligible[eligible.length - 1].pnl < 0 ? eligible[eligible.length - 1].key : null;
+  const badge = (txt, bg, fg) => `<span style="font:700 9px var(--font-mono);letter-spacing:.05em;padding:2px 6px;border-radius:5px;background:${bg};color:${fg};margin-left:7px;vertical-align:middle;white-space:nowrap">${txt}</span>`;
+  return `
+    <div class="section-label">Performance by asset class</div>
+    <div class="card" style="padding:2px 12px">
+      ${rows.map((e) => {
+        const decisive = e.wins + e.losses;
+        const wr = decisive ? Math.round((e.wins / decisive) * 100) : 0;
+        const color = e.pnl >= 0 ? 'var(--buy)' : 'var(--sell)';
+        let tag = '';
+        if (e.key === powering) tag += badge('POWERING', 'color-mix(in srgb, var(--buy) 20%, transparent)', 'var(--buy)');
+        else if (e.key === laggard) tag += badge('LAGGING', 'color-mix(in srgb, var(--sell) 22%, transparent)', 'var(--sell)');
+        if (EXPERIMENT_CLASSES.has(e.key)) tag += badge('EXPERIMENTAL', 'var(--neutral-800)', 'var(--text-muted)');
+        return `<div class="closed-row">
+          <div class="closed-sym"><i class="ph-fill ${ACLASS_ICON[e.key] || 'ph-stack'}" style="font-size:15px;color:var(--accent-300)"></i></div>
+          <div class="closed-body">
+            <div class="closed-title">${labelForKey(e.key)}${tag}</div>
+            <div class="closed-sub">${e.trades} trade${e.trades === 1 ? '' : 's'} · ${wr}% win</div>
+          </div>
+          <div class="closed-result"><div class="r" style="color:${color}">${money(e.pnl)}</div></div>
         </div>`;
       }).join('')}
     </div>`;
@@ -785,6 +836,8 @@ export function render(container) {
     ${pnlPanel(closed)}
 
     <div id="open-wrap" data-sig="${openSig()}">${openList()}</div>
+
+    ${byAssetClassHtml(closed)}
 
     ${byEngineHtml(closed)}
 
