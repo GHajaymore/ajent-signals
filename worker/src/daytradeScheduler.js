@@ -95,11 +95,12 @@ export async function runDayTick(env, store) {
   }
 
   const summary = summarize(record.closed);
-  const traded = events.length > 0;                 // a position opened or closed
-  const holding = Object.keys(record.open).length > 0; // keep the live price fresh while in a trade
-  // RECORD_DAY only changes on a trade (or a recipe reset); SIGNALS_DAY on any of the above.
+  const traded = events.length > 0; // a position opened or closed
+  // Write only on a real change (verdict flip, trade, or recipe reset) — NOT every hold
+  // tick. Persisting the blob every 2 min just to refresh an open position's price would
+  // dominate the write budget; the app overlays the live price from /live instead.
   if (traded || recipeChanged) { try { await store.put({ pk: 'RECORD_DAY', sk: 'ALL', updatedAt: now, recipe: DAYTRADE.recipe, open: record.open, closed: record.closed, lastClose: record.lastClose }); } catch (e) { /* retried next tick */ } }
-  if (sigChanged || traded || holding || recipeChanged) { try { await store.put({ pk: 'SIGNALS_DAY', sk: 'ALL', updatedAt: now, signals: Object.values(bySym), summary }); } catch (e) { /* retried next tick */ } }
+  if (sigChanged || traded || recipeChanged) { try { await store.put({ pk: 'SIGNALS_DAY', sk: 'ALL', updatedAt: now, signals: Object.values(bySym), summary }); } catch (e) { /* retried next tick */ } }
   const openBuy = events.some((e) => e.type === 'position.open');
   return { events: events.length, openBuy, summary };
 }

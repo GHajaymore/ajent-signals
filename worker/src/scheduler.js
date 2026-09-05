@@ -34,18 +34,17 @@ const MAX_FETCHES = 34;
 // live sessions and slow overnight, so the free-tier KV write budget (~1,000/day) isn't
 // spent idling. Thresholds sit just under the wall-clock so a tick reliably passes.
 //
-// BUDGET MATH (why these numbers): a scan now writes ~1 blob most ticks — SIGNALS every
-// scan (it carries the cursor), and RECORD only when it actually changes (a trade / call
-// flip / retune), which is rare. The free KV cap is ~1,000 writes/day. So the peak (US
-// session, usually overlapping Europe → ~28+ open) gets ~2 min; a single busy regional
-// session ~3 min; the globals-only baseline/weekend ~4 min. Even assuming a pessimistic
-// ~1.5 writes/scan that averages under ~750 writes/day + the deduped day tick — safely
-// under 1,000. (A flat 1-min everywhere still needs the paid plan: SIGNALS alone would
-// be 1,440 writes/day.)
+// ~2 MIN whenever a real session is open (weekdays, ALL regions / ALL open markets), and
+// ~5 MIN when only the 24/7 crypto is open (weekends / gaps — nothing else is moving, so
+// this protects the free-tier write budget without any loss). openCount cleanly separates
+// the two: weekdays have FX + index/commodity futures open (~18), weekends only crypto (2).
+// BUDGET MATH: a scan writes ~1 blob most ticks (SIGNALS carries the cursor; RECORD only
+// on a real change) + the change-only day tick. Weekday 2-min ≈ ~690 SIGNALS + rare RECORD
+// + day ≈ under ~880/day; weekends ≈ ~290/day. Both under the ~1,000/day free KV cap. A
+// flat 1 min needs the paid plan (SIGNALS alone would be ~1,440/day).
 function scanIntervalMs(openCount) {
-  if (openCount >= 28) return 110_000;  // peak: US session (often + Europe overlap) → ~2 min
-  if (openCount >= 20) return 170_000;  // one busy regional session open → ~3 min
-  return 230_000;                       // globals-only baseline / weekend → ~4 min
+  if (openCount >= 6) return 110_000;  // any real market session open → ~2 min (all regions)
+  return 290_000;                       // crypto-only (weekend / session gaps) → ~5 min
 }
 
 // Meaningful transitions for the per-market signal timeline (verdict flips,
