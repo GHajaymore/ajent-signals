@@ -354,9 +354,18 @@ function strategyStatusHtml(closed) {
       <div class="cell-meta">${CELL_DIR[g.key]} · <b>${n}</b> live trade${n === 1 ? '' : 's'}</div>
     </div>`;
   }).join('');
+  // Cells that run on their OWN isolated record (not the board's shared account), so
+  // they're listed here for completeness but their trade counts live on their panels.
+  const extraRows = [
+    { label: 'Day-trading (intraday)', dir: 'Both ways' },
+    { label: 'Stocks screener', dir: 'Long-only' },
+  ].map((e) => `<div class="cell-row">
+      <div class="cell-main"><span class="cell-name">${e.label}</span><span class="cell-badge exp">EXPERIMENT</span></div>
+      <div class="cell-meta">${e.dir} · own record</div>
+    </div>`).join('');
   return `
     <div class="section-label">Strategy status</div>
-    <div class="card" style="padding:2px 12px">${rows}</div>
+    <div class="card" style="padding:2px 12px">${rows}${extraRows}</div>
     <div class="text-faint" style="font-size:11px;line-height:1.5;margin:6px 2px 14px">Every market clears a validation gate to ship as an <b>experiment</b>, then earns <b>proven</b> only once its own live record confirms the edge. Nothing here is a promise.</div>`;
 }
 
