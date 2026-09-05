@@ -21,6 +21,7 @@ import { runCustomStrategy } from './customBook.js';
 import { applyGeoDefaults } from './geo.js';
 import { startUpdateWatcher } from './updateCheck.js';
 import { startSignalRefreshLoop } from './signalRefreshLoop.js';
+import { startCryptoStream } from './cryptoStream.js';
 import { maybeOpenPositions, checkOpenPositions, applyServerRecord, getClosedTrades } from './paperTrading.js';
 import { fmtPrice } from './format.js';
 import { backendConfigured, fetchServerTrades, fetchServerSignals, fetchLiveQuotes, redeemSession, refreshProToken, confirmEntitlement, initBilling, isEntitled } from './backendApi.js';
@@ -237,6 +238,9 @@ startFocusDataLoop(state.engine, () => {
   return [];
 });
 startSignalRefreshLoop(state.engine);
+// Real-time crypto prices via Binance's public WebSocket (browser-direct, no Worker /
+// Cloudflare cost). Streams BTC/ETH for every user; repaints the visible live screen.
+if (backendConfigured()) startCryptoStream(() => { if (LIVE_SCREENS.has(parseHash()[0])) refreshRoute(); });
 applyGeoDefaults(state);
 startUpdateWatcher();
 // Network-first service worker so the latest app code is always fetched when

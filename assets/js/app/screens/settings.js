@@ -21,7 +21,7 @@ export const DATA_REFRESH_NOTE = 'The strategy re-scans the markets about every 
 // `status`: 'live' (selectable/active/proven) | 'experiment' (selectable, unproven) | 'soon' | 'na'.
 const TRADING_STYLES = [
   { key: 'scalping', name: 'Scalping', icon: 'ph-lightning', hold: 'Seconds–minutes', freq: 'dozens+/day', status: 'na',
-    note: 'Needs tick / sub-minute data — the free feed only serves 15-minute bars. Possible only with a paid market-data feed.' },
+    note: 'Needs tick / sub-minute price bars — and faster scanning alone does not help, because the free feed only serves delayed 15-minute bars (re-scanning the same bar gives the same answer). Possible only with a paid real-time market-data feed.' },
   { key: 'day', name: 'Day trading', icon: 'ph-sun-horizon', hold: 'Intraday · flat by close', freq: '~2–8/day', status: 'experiment',
     note: 'Both-directional intraday mean-reversion on 15-minute bars — buys oversold flushes and shorts overbought pops (intraday has no up-drift), always flat by the close, so there is no overnight risk. NOT proven: this cleared the validation gate but on a short backtest window, so it runs as an experiment tracked on its OWN real paper record, kept separate from Swing, with no advertised returns. Select it to watch the live record — it only graduates if that record holds up.' },
   { key: 'swing', name: 'Swing', icon: 'ph-calendar-check', hold: '~1–5 days', freq: '~1–5/week', status: 'live',

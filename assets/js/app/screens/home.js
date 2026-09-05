@@ -201,7 +201,7 @@ export function stylesForClass(cls) {
 }
 // Honest reason a style is unavailable for the current class (for the disabled tooltip).
 function styleDisabledReason(k, cls) {
-  if (k === 'scalping') return 'Needs a paid sub-minute data feed — not available on the free data';
+  if (k === 'scalping') return 'Scalping needs tick / sub-minute price bars — faster scanning alone is not enough; the free feed only serves delayed 15-minute bars';
   if (k === 'position') return 'In development — not yet separately validated';
   if (k === 'day') return 'Day-trading is only available for Index Futures right now';
   return '';
