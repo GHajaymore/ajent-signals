@@ -62,6 +62,25 @@ for (const c of (trades.closed || [])) {
 console.log(`\nGRADUATION MONITOR — live forward records @ ${API}`);
 console.log(`Bar to graduate: n≥${READY_N} · avgR>${READY_AVGR} · pf≥${READY_PF}\n`);
 
+// FORWARD ACTIVATION — the both-ways/FX capability was built but is low-frequency, so
+// the live record may show zero of it for weeks (see test/fx-rsi-compare.mjs: FX fires
+// ~5x/pair/yr, and that rarity is the robust edge, not a bug). This block makes the
+// first real short and the first real FX trade impossible to miss — the moment either
+// starts closing trades, it prints here instead of hiding as a 0 in a per-cell row.
+const allClosed = [...(trades.closed || []), ...((day && day.closed) || [])];
+const shortsAll = allClosed.filter((c) => c.side === 'SHORT');
+const fxAll = (trades.closed || []).filter((c) => (MARKETS[c.symbol] && MARKETS[c.symbol].assetClass) === 'fx');
+const activation = (label, arr, expl) => {
+  if (!arr.length) { console.log(`  ○ ${label.padEnd(22)} not yet — ${expl}`); return; }
+  const s = stats(arr);
+  const flag = s.avgR > 0 ? '●' : '◍';
+  console.log(`  ${flag} ${label.padEnd(22)} LIVE: n=${s.n} · win ${s.win}% · pf ${s.pf} · avgR ${s.avgR} · net ${s.net}`);
+};
+console.log('FORWARD ACTIVATION (capabilities built but not yet seen live):');
+activation('Short side (any cell)', shortsAll, 'no short has closed — both-ways is low-frequency, expected');
+activation('FX (both-ways cell)', fxAll, 'no FX trade has closed — RSI14 extremes are rare, ~5x/pair/yr');
+console.log('');
+
 console.log('EXPERIMENT cells (candidates to graduate):');
 for (const [key, name] of Object.entries(EXPERIMENT)) {
   const s = stats(byClass[key] || []);
