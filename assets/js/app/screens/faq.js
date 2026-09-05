@@ -28,7 +28,7 @@ const FAQ = [
   },
   {
     q: 'Does it trade long only, or short too?',
-    a: 'It is <b>long-only</b>. We backtested the mirror short side (short overbought pops in downtrends) and it <b>lost money</b> — indices structurally drift up, so shorting mean-reversion fights that drift, the setup rarely fires, and bear-market rallies stop it out. Rather than ship something the record says loses, we dropped it. The validated edge is buying deeply oversold dips in uptrends.',
+    a: 'It depends on the market. On <b>stock indices &amp; ETFs it is long-only</b> — those structurally drift up, so we backtested the mirror short side and it <b>lost money</b> (shorting fights the drift, rarely fires, and bear-market rallies stop it out), so we dropped it there. But markets that <b>don’t</b> drift up — <b>FX, commodities, and intraday</b> — are symmetric, so a down move is a real opportunity the other way. On those the same mean-reversion edge trades <b>both directions</b>, and only after clearing the same validation gate (walk-forward, out-of-sample, a genuinely profitable short side). Those newer both-way markets ship clearly labelled <b>experimental</b> until their live record proves out.',
   },
   {
     q: 'Is this investment advice?',
