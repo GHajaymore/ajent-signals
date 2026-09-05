@@ -10,6 +10,7 @@
 // global, and streams BTC-USD / ETH-USD directly (real USD — a better match than Binance's
 // USDT pairs). Reconnects with backoff; silently no-ops if WebSockets are unavailable.
 import { state } from './state.js';
+import { fmtPrice } from './format.js';
 
 // App symbol → Coinbase product id (real USD spot pairs, matching the app's markets).
 const MAP = { BTC: 'BTC-USD', ETH: 'ETH-USD' };
@@ -27,7 +28,31 @@ function applyPrice(productId, price) {
   // Keep the server's daily prevClose so the % change stays on the same basis as the
   // signal; pass no proxy (this IS the direct spot price).
   m.applyServerPriceOverlay(price, m.prevClose ?? null, Math.floor(Date.now() / 1000), null);
+  patchPriceCells(appSym, price, m.decimals);
   return true;
+}
+
+// Tick the visible price cells for this symbol between the ~2s full repaints, with a brief
+// green/red flash — so the streaming crypto price feels live. Throttled to ~1.4/s per
+// symbol so it's smooth, not frantic. Price cells carry data-sym on their row + data-f=price.
+const lastPatchAt = {};
+function patchPriceCells(appSym, price, decimals) {
+  if (typeof document === 'undefined') return;
+  const now = Date.now();
+  if (lastPatchAt[appSym] && now - lastPatchAt[appSym] < 700) return;
+  lastPatchAt[appSym] = now;
+  const cells = document.querySelectorAll(`[data-sym="${appSym}"] [data-f="price"]`);
+  cells.forEach((el) => {
+    const prev = el.dataset.tickpx ? parseFloat(el.dataset.tickpx) : null;
+    el.dataset.tickpx = String(price);
+    el.textContent = fmtPrice(price, decimals != null ? decimals : 2);
+    if (prev != null && prev !== price) {
+      const cls = price > prev ? 'tick-up' : 'tick-down';
+      el.classList.remove('tick-up', 'tick-down');
+      void el.offsetWidth; // restart the CSS animation
+      el.classList.add(cls);
+    }
+  });
 }
 
 function connect(onTick) {
