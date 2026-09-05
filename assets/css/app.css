@@ -649,6 +649,14 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .sess-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--neutral-600, var(--text-muted)); flex: none; }
 .sess-chip.on .sess-dot { background: var(--buy); box-shadow: 0 0 0 3px color-mix(in srgb, var(--buy) 22%, transparent); }
 
+/* Home focus-class selector — scope the dashboard to one asset class */
+.focus-scroll { overflow-x: auto; margin: 8px 0 4px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.focus-scroll::-webkit-scrollbar { display: none; }
+.focus-row { display: inline-flex; gap: 6px; }
+.focus-chip { flex: none; white-space: nowrap; font: 600 12px var(--font-heading); color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 18px; padding: 6px 13px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+.focus-chip:hover { color: var(--text); }
+.focus-chip.on { background: var(--accent-800); color: var(--accent-100); border-color: transparent; }
+
 /* Asset-class lens — horizontally scrollable so it stays one line on mobile */
 .aclass-scroll { overflow-x: auto; margin: 0 0 14px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
 .aclass-scroll::-webkit-scrollbar { display: none; }

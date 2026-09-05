@@ -292,8 +292,10 @@ function tradePnl(c) {
   return Math.round((c.resultR || 0) * (c.riskDollars || 250));
 }
 
-export function getPerformanceSummary() {
-  const closed = store.closed;
+// Optional `closedInput` scopes the summary to a subset (e.g. one asset class); with
+// no argument it uses the whole record (unchanged for existing callers).
+export function getPerformanceSummary(closedInput) {
+  const closed = closedInput || store.closed;
   if (closed.length === 0) return null;
 
   const winTrades = closed.filter((c) => tradePnl(c) > 0);

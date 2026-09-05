@@ -1,8 +1,41 @@
-import { state, saveSettings } from '../state.js';
+import { state, saveSettings, setFocusClass } from '../state.js';
 import { heroCard, watchlistRow, patchRow, patchHero, symTile, dataTag, sparklineSvg } from '../components.js';
 import { getPerformanceSummary, getOpenCount, getOpenPositions, getClosedTrades } from '../paperTrading.js';
 import { marketSession } from '../marketHours.js';
-import { backendConfigured, isEntitled, fetchNews } from '../backendApi.js';
+import { backendConfigured, isEntitled, fetchNews, fetchStocks, fetchDayExperiment } from '../backendApi.js';
+import { groupForSymbol, ASSET_GROUPS, labelForKey } from '../assetClass.js';
+
+// --- Home focus mode --------------------------------------------------------
+// Scope the whole Home dashboard (P&L, signals, positions) to ONE asset class, so a
+// user can watch just Stocks, or just FX, etc. Board classes slice the shared record;
+// Stocks + Day have their own records, fetched and cached here.
+const focusRecords = { stocks: null, day: null };
+function focusClosed() {
+  const f = state.focusClass;
+  if (f === 'all') return getClosedTrades();
+  if (f === 'stocks') return (focusRecords.stocks && focusRecords.stocks.closed) || [];
+  if (f === 'day') return (focusRecords.day && focusRecords.day.closed) || [];
+  return getClosedTrades().filter((c) => groupForSymbol(c.symbol) === f);
+}
+function focusOpen() {
+  const f = state.focusClass;
+  if (f === 'all') return getOpenPositions();
+  if (f === 'stocks') return (focusRecords.stocks && focusRecords.stocks.open) || [];
+  if (f === 'day') return (focusRecords.day && focusRecords.day.open) || [];
+  return getOpenPositions().filter((p) => groupForSymbol(p.symbol) === f);
+}
+function focusMarketList() {
+  const f = state.focusClass;
+  if (f === 'all') return state.engine.markets;
+  if (f === 'stocks' || f === 'day') return []; // own-record cells — no board markets
+  return state.engine.markets.filter((m) => groupForSymbol(m.symbol) === f);
+}
+// The focus-class chip row: All + each board class that has live data + Stocks + Day.
+function focusSelectorHtml() {
+  const present = new Set(state.engine.markets.filter((m) => m.hasServerSignal || m.signalIsReal).map((m) => groupForSymbol(m.symbol)));
+  const chips = [{ key: 'all', label: 'All' }, ...ASSET_GROUPS.filter((g) => present.has(g.key)).map((g) => ({ key: g.key, label: g.label })), { key: 'stocks', label: 'Stocks' }, { key: 'day', label: 'Day' }];
+  return `<div class="focus-scroll"><div class="focus-row">${chips.map((c) => `<button class="focus-chip${state.focusClass === c.key ? ' on' : ''}" data-focus="${c.key}">${c.label}</button>`).join('')}</div></div>`;
+}
 import { isRealMarket } from './markets.js';
 import { inActiveRegion, regionChipsHtml, regionBarHtml } from '../regions.js';
 import { upcomingEvents, daysUntil } from '../econCalendar.js';
@@ -86,7 +119,7 @@ function portfolioCard(perf) {
   if (!perf) {
     // No closed trades yet. If a position is already open, say so honestly
     // rather than "no trades yet" — realized P&L only starts once it closes.
-    const openN = getOpenCount();
+    const openN = focusOpen().length;
     const meta = openN
       ? `${openN} open position${openN > 1 ? 's' : ''} · realized P&L appears when ${openN > 1 ? 'they close' : 'it closes'}`
       : 'No trades yet — signals paper-trade automatically';
@@ -177,15 +210,16 @@ function watchingRow(m) {
 function topSetupsHtml(engine, threshold) {
   // Only REAL signals qualify — simulated placeholders never surface as setups.
   // High-conviction setups (the deepest, strongest tier) sort to the top, so
-  // the strongest opportunities stand out from the wider stream.
-  const setups = engine.markets
+  // the strongest opportunities stand out from the wider stream. Scoped to the focus class.
+  const scope = focusMarketList();
+  const setups = scope
     .map((m) => ({ m, v: m.verdict(threshold) }))
     .filter((x) => x.v !== 'NO_TRADE' && x.m.signalIsReal)
     .sort((a, b) => (isHiConv(b.m) - isHiConv(a.m)) || (b.m.signal.confidence - a.m.signal.confidence))
     .slice(0, 4);
   if (!setups.length) {
-    const held = new Set(getOpenPositions().map((p) => p.symbol));
-    const watching = engine.markets
+    const held = new Set(focusOpen().map((p) => p.symbol));
+    const watching = scope
       .filter((m) => m.signalIsReal && m.signal && (m.signal.proximity || 0) > 0 && m.verdict(threshold) === 'NO_TRADE' && !held.has(m.symbol))
       .sort((a, b) => (b.signal.proximity || 0) - (a.signal.proximity || 0))
       .slice(0, 4);
@@ -228,9 +262,9 @@ function livePnl(p) {
 // live unrealized on everything still open. Honest — separates the two.
 function todayPnl() {
   const t0 = new Date(); t0.setHours(0, 0, 0, 0);
-  const closedToday = getClosedTrades().filter((c) => (c.closedAt || 0) >= t0.getTime());
+  const closedToday = focusClosed().filter((c) => (c.closedAt || 0) >= t0.getTime());
   const realized = closedToday.reduce((s, c) => s + (c.pnl || 0), 0);
-  const open = getOpenPositions();
+  const open = focusOpen();
   let unreal = 0, marked = 0;
   for (const p of open) { const q = livePnl(p); if (q) { unreal += q.dollars; marked++; } }
   return { realized, closedCount: closedToday.length, unreal, openCount: open.length, marked };
@@ -279,7 +313,7 @@ function positionRow(p) {
 }
 
 function openPositionsHtml() {
-  const open = getOpenPositions();
+  const open = focusOpen();
   if (!open.length) return '';
   return `<div class="section-label">Live paper positions</div>
     <div class="card" style="padding:2px 12px">${open.map(positionRow).join('')}</div>`;
@@ -342,7 +376,7 @@ function statusPillInner(st) {
 function computeDerived() {
   const engine = state.engine;
   const threshold = state.settings.threshold;
-  const markets = engine.markets;
+  const markets = focusMarketList(); // scoped to the Home focus class
 
   const openSignals = markets.map((m) => ({ m, v: m.verdict(threshold) })).filter((x) => x.v !== 'NO_TRADE');
   const avgConf = openSignals.length
@@ -398,7 +432,8 @@ function homeTickerHtml(engine, threshold) {
 
 export function render(container) {
   const { engine, threshold, openSignals, avgConf, riskOn, upToday, trendCount, featured, featuredVerdict, nextEvent } = computeDerived();
-  const perf = getPerformanceSummary();
+  const perf = getPerformanceSummary(focusClosed());
+  const focusOpenN = focusOpen().length;
 
   container.innerHTML = `
   <div class="fade-in home-wrap">
@@ -421,7 +456,9 @@ export function render(container) {
 
     ${regionBarHtml(engine)}
 
-    <div class="home-greeting">${greeting()}</div>
+    <div class="home-greeting">${greeting()}${state.focusClass !== 'all' ? ` · <span style="color:var(--accent-200);font-size:13px;font-weight:600">${labelForKey(state.focusClass) || (state.focusClass === 'stocks' ? 'Stocks' : state.focusClass === 'day' ? 'Day-trading' : state.focusClass)}</span>` : ''}</div>
+
+    <div id="focus-wrap">${focusSelectorHtml()}</div>
 
     <div id="portfolio-wrap">${portfolioCard(perf)}</div>
 
@@ -435,7 +472,7 @@ export function render(container) {
       </div>
       <div class="stat-card" data-nav="#/track">
         <div class="stat-label">Open trades</div>
-        <div class="stat-value" id="stat-open-trades" style="color:${getOpenCount() ? 'var(--buy)' : 'var(--text)'}">${getOpenCount()}</div>
+        <div class="stat-value" id="stat-open-trades" style="color:${focusOpenN ? 'var(--buy)' : 'var(--text)'}">${focusOpenN}</div>
         <div class="stat-sub">live paper positions</div>
       </div>
       <div class="stat-card">
@@ -490,6 +527,28 @@ export function render(container) {
     saveSettings();
     render(container);
   });
+
+  // Focus-class chips: scope the whole dashboard to one asset class.
+  const focusWrap = container.querySelector('#focus-wrap');
+  if (focusWrap) focusWrap.addEventListener('click', (e) => {
+    const c = e.target.closest('.focus-chip');
+    if (!c || c.dataset.focus === state.focusClass) return;
+    setFocusClass(c.dataset.focus);
+    ensureFocusRecord(() => render(container)); // fetch stocks/day record if needed, then re-render
+    render(container);
+  });
+  // On load, if focused on an own-record cell, make sure its record is fetched.
+  ensureFocusRecord(() => render(container));
+}
+
+// Fetch the /stocks or /day record for the current focus (once), then run `after`.
+function ensureFocusRecord(after) {
+  const f = state.focusClass;
+  if (f === 'stocks' && !focusRecords.stocks) {
+    fetchStocks().then((d) => { if (d) { focusRecords.stocks = d; after && after(); } }).catch(() => {});
+  } else if (f === 'day' && !focusRecords.day) {
+    fetchDayExperiment().then((d) => { if (d) { focusRecords.day = d; after && after(); } }).catch(() => {});
+  }
 }
 
 export function refresh(container) {
@@ -498,6 +557,14 @@ export function refresh(container) {
   if (!heroWrap || !watchlistWrap) return;
 
   const { engine, threshold, openSignals, avgConf, riskOn, upToday, trendCount, featured, featuredVerdict } = computeDerived();
+
+  // Focus-class chips: rebuild once markets turn real (the initial paint runs before
+  // signals sync, so the board classes appear only after). Delegated click survives.
+  const focusWrap = container.querySelector('#focus-wrap');
+  if (focusWrap) {
+    const present = [...new Set(state.engine.markets.filter((m) => m.hasServerSignal || m.signalIsReal).map((m) => groupForSymbol(m.symbol)))].sort().join(',');
+    if (focusWrap.dataset.present !== present) { focusWrap.innerHTML = focusSelectorHtml(); focusWrap.dataset.present = present; }
+  }
 
   const statusEl = container.querySelector('#market-status');
   if (statusEl) statusEl.innerHTML = statusPillInner(marketStatus(statusMarket(engine)));
@@ -531,7 +598,7 @@ export function refresh(container) {
   // so the equity sparkline stays current without per-tick flicker.
   const pfWrap = container.querySelector('#portfolio-wrap');
   if (pfWrap) {
-    const perf = getPerformanceSummary();
+    const perf = getPerformanceSummary(focusClosed());
     const shown = container.querySelector('#hp-pnl')?.textContent ?? null;
     const bal = Number(state.settings.accountBalance) || 25000;
     const rp = perf ? (perf.totalPnl / bal * 100) : 0;
@@ -546,7 +613,7 @@ export function refresh(container) {
   if (openSignalsEl) openSignalsEl.textContent = String(openSignals.length);
   if (avgConfEl) avgConfEl.textContent = `avg ${avgConf}%`;
   if (openTradesEl) {
-    const oc = getOpenCount();
+    const oc = focusOpen().length;
     openTradesEl.textContent = String(oc);
     openTradesEl.style.color = oc ? 'var(--buy)' : 'var(--text)';
   }
@@ -567,7 +634,7 @@ export function refresh(container) {
   // changes; otherwise just patch each position's running P&L so it ticks live.
   const posWrap = container.querySelector('#positions-wrap');
   if (posWrap) {
-    const open = getOpenPositions();
+    const open = focusOpen();
     const cur = [...posWrap.querySelectorAll('[data-pos]')].map((el) => el.dataset.pos).join(',');
     const next = open.map((p) => p.symbol).join(',');
     if (cur !== next) {

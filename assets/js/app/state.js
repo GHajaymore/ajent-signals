@@ -153,6 +153,9 @@ export const state = {
   acks: { read: false, risk: false, terms: false, age: false },
   selectedSymbol: 'ES',
   homeSymbol: 'ES',
+  // Home dashboard focus: 'all' or one asset-class key (index/etf/fx/futures/crypto/
+  // stocks/day) — scopes the Home P&L + signals to just that class.
+  focusClass: (() => { try { return localStorage.getItem('ajent_focus_class') || 'all'; } catch (e) { return 'all'; } })(),
   homeWatchlist: ['ES', 'NQ', 'CL', 'GC', 'BTC', 'RTY'],
   watchlistCustomized: false,
   geoCountry: null,
@@ -203,6 +206,11 @@ export function completeOnboarding() {
 
 export function saveSettings() {
   localStorage.setItem(LS_SETTINGS, JSON.stringify(state.settings));
+}
+
+export function setFocusClass(key) {
+  state.focusClass = key || 'all';
+  try { localStorage.setItem('ajent_focus_class', state.focusClass); } catch (e) { /* ignore */ }
 }
 
 // --- Per-strategy trade-plan config (stop + reward:risk) --------------------
