@@ -1,7 +1,7 @@
 // Auto-paper-trades the user's OWN configured strategy over time, so "Your strategy"
 // builds a real record (equity curve) to compare against Ajent — not just a live
-// snapshot of which markets fire now. Long-only, RSI entry/exit per the user's
-// config, with a simple protective stop. Virtual money, on this device; clearly the
+// snapshot of which markets fire now. Long or short per the user's configured
+// direction, with a simple protective stop. Virtual money, on this device; clearly the
 // user's experiment, never presented as validated.
 import { evalCustom, getCustomConfig } from './customStrategy.js';
 import { perTradeRisk } from './state.js';

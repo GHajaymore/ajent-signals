@@ -140,15 +140,16 @@ function subtitleText() {
   return n ? `${n} markets with live data — real signals only` : 'Loading live market data…';
 }
 
-// Long-only board, so there is no "Sell". Breadth = Buy (firing) / Watching
-// (no trade yet but a setup is brewing — proximity > 0) / No-trade (nothing near).
+// Board-lean breadth: Firing (a live BUY or SELL) / Watching (no trade yet but a
+// setup is brewing — proximity > 0) / No-trade (nothing near). Both-ways markets can
+// fire a SELL, so a short counts as "firing" too, not as no-trade.
 export function breadthCounts(filter) {
   const threshold = state.settings.threshold;
   let buy = 0, watching = 0, flat = 0;
   for (const m of state.engine.markets) {
     if (filter && !filter(m)) continue;
     const v = m.verdict(threshold);
-    if (v === 'BUY') buy++;
+    if (v === 'BUY' || v === 'SELL') buy++;
     else if ((m.signal && m.signal.proximity) > 0) watching++;
     else flat++;
   }
@@ -162,7 +163,7 @@ function breadthHtml() {
   const total = buy + watching + flat || 1;
   return `<div class="breadth" data-counts="${buy},${watching}">
     <div class="breadth-row">
-      <span class="breadth-stat"><b style="color:var(--buy)">${buy}</b> Buy</span>
+      <span class="breadth-stat"><b style="color:var(--buy)">${buy}</b> Firing</span>
       <span class="breadth-stat"><b style="color:var(--flat)">${watching}</b> Watching</span>
       <span class="breadth-stat"><b>${flat}</b> No-trade</span>
     </div>

@@ -927,7 +927,7 @@ function renderChartTab(market, color, verdict) {
   </div>` : `
   <div class="panel">
     <div class="panel-title">Key levels</div>
-    <div class="text-muted" style="font-size:12.5px;line-height:1.6;padding:6px 2px">No active setup — entry, stop and target levels appear once a BUY signal fires. The strategy is long-only: it buys deeply oversold dips and rides established uptrends, and stands aside otherwise.</div>
+    <div class="text-muted" style="font-size:12.5px;line-height:1.6;padding:6px 2px">No active setup — entry, stop and target levels appear once a signal fires. It fades stretched moves and rides established trends (long on stock indices; long or short on symmetric markets like FX), and stands aside otherwise.</div>
   </div>`}`;
 }
 
