@@ -26,16 +26,17 @@ const SCAN_BATCH_SIZE = 30;
 const MAX_FETCHES = 34;
 
 // DYNAMIC CADENCE. The cron fires often (every 2 min), but a tick only actually SCANS —
-// fetching + writing — when enough time has passed FOR THE CURRENT ACTIVITY LEVEL. More
-// open markets (a live session) or an open position → scan sooner; a quiet board → wait
-// longer. This makes the effective refresh fast when markets are active and slow when
-// little is trading, so the free-tier KV write budget (~1,000/day) isn't spent idling
-// overnight. Thresholds sit just under the wall-clock so a 2-min tick reliably passes.
-function scanIntervalMs(openCount, hasOpenPos) {
-  if (hasOpenPos || openCount >= 16) return 110_000;  // holding, or a busy session → ~2 min
-  if (openCount >= 6) return 230_000;                 // one session partly open → ~4 min
-  if (openCount >= 1) return 290_000;                 // only globals (crypto/FX) → ~5 min
-  return 890_000;                                     // nothing open at all → ~15 min
+// fetching + writing — when enough time has passed FOR THE CURRENT ACTIVITY LEVEL, judged
+// purely by how many MARKETS are open. Cadence is deliberately NOT tied to open positions:
+// the paper record is shared server-side (there is no per-user position count), and market
+// activity is the universal, user-independent signal. More open markets (a live session) →
+// scan sooner; a quiet board → wait longer. This keeps the effective refresh fast during
+// live sessions and slow overnight, so the free-tier KV write budget (~1,000/day) isn't
+// spent idling. Thresholds sit just under the wall-clock so a 2-min tick reliably passes.
+function scanIntervalMs(openCount) {
+  if (openCount >= 16) return 110_000;  // multiple regions/classes open (a busy session) → ~2 min
+  if (openCount >= 6) return 230_000;   // one session partly open → ~4 min
+  return 290_000;                       // only the always-on globals (crypto/FX) → ~5 min
 }
 
 // Meaningful transitions for the per-market signal timeline (verdict flips,
@@ -185,7 +186,7 @@ export async function runTick(env, store) {
   // time has passed for the current activity level. The last real scan is stamped on the
   // SIGNALS blob's updatedAt. Skipped ticks cost only the KV reads already done above.
   const lastScan = (prevBlob && prevBlob.updatedAt) || 0;
-  if (nowMs - lastScan < scanIntervalMs(openPool.length, openSyms.length > 0)) {
+  if (nowMs - lastScan < scanIntervalMs(openPool.length)) {
     return { skipped: true, openCount: openPool.length, sinceLastScanMs: nowMs - lastScan };
   }
   // Per-market signal timeline (bounded rolling log). Read once, written once only
