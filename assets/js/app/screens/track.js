@@ -10,6 +10,7 @@ import { CATEGORY_ORDER } from '../mockEngine.js';
 import { groupForSymbol, labelForKey, EXPERIMENT_CLASSES } from '../assetClass.js';
 import { hoverAttrs, hoverLayerSvg, wireChartHover } from '../chartHover.js';
 import { shareOrCopy } from '../share.js';
+import { dayExperimentPanelHtml, wireDayExperiment } from '../dayExperiment.js';
 
 // Share the honest You-vs-Ajent result — avg R per trade (performance, never the recipe).
 // The link points at the app's start so a recipient can run their own trial, not at the
@@ -843,6 +844,9 @@ export function render(container) {
 
     ${byMarketHtml(closed)}
 
+    <div class="section-label" style="margin-top:20px">Intraday experiment · separate account</div>
+    ${dayExperimentPanelHtml()}
+
     <div class="section-label">Recent trades${closed.length ? `<a id="export-csv" style="cursor:pointer"><i class="ph-bold ph-download-simple" style="font-size:12px;vertical-align:-1px"></i> Export CSV</a>` : ''}</div>
     <div class="card" style="padding:2px 12px">
       ${closed.slice(0, 30).map((c) => {
@@ -872,6 +876,7 @@ export function render(container) {
 
   wireSelector(container);
   wirePnl(container);
+  wireDayExperiment(container); // async — fills the intraday experiment's live record
 
   const exportBtn = container.querySelector('#export-csv');
   if (exportBtn) exportBtn.addEventListener('click', () => {
