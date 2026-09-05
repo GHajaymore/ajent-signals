@@ -34,18 +34,18 @@ const MAX_FETCHES = 34;
 // live sessions and slow overnight, so the free-tier KV write budget (~1,000/day) isn't
 // spent idling. Thresholds sit just under the wall-clock so a tick reliably passes.
 //
-// BUDGET MATH (why these numbers): each scan writes ~2 blobs; the free KV cap is ~1,000
-// writes/day. The "always-on" globals (crypto + FX + index/commodity futures ≈ 18) keep
-// openCount high ~23h on weekdays, so a flat 2-min would be ~690 scans/day (~1,380 writes)
-// — over budget. Instead only the true PEAK (US session, usually overlapping Europe →
-// ~28+ open) gets ~3 min; a single regional session gets ~4 min; the globals-only
-// baseline/weekend gets ~5 min. That averages ~350 weekday scans (~700 writes) + the
-// deduped day tick — comfortably under 1,000. (To push the peak to ~2 min, writes/scan
-// must drop first; a flat 1 min needs the paid plan.)
+// BUDGET MATH (why these numbers): a scan now writes ~1 blob most ticks — SIGNALS every
+// scan (it carries the cursor), and RECORD only when it actually changes (a trade / call
+// flip / retune), which is rare. The free KV cap is ~1,000 writes/day. So the peak (US
+// session, usually overlapping Europe → ~28+ open) gets ~2 min; a single busy regional
+// session ~3 min; the globals-only baseline/weekend ~4 min. Even assuming a pessimistic
+// ~1.5 writes/scan that averages under ~750 writes/day + the deduped day tick — safely
+// under 1,000. (A flat 1-min everywhere still needs the paid plan: SIGNALS alone would
+// be 1,440 writes/day.)
 function scanIntervalMs(openCount) {
-  if (openCount >= 28) return 170_000;  // peak: US session (often + Europe overlap) → ~3 min
-  if (openCount >= 20) return 240_000;  // one busy regional session open → ~4 min
-  return 290_000;                       // globals-only baseline / weekend → ~5 min
+  if (openCount >= 28) return 110_000;  // peak: US session (often + Europe overlap) → ~2 min
+  if (openCount >= 20) return 170_000;  // one busy regional session open → ~3 min
+  return 230_000;                       // globals-only baseline / weekend → ~4 min
 }
 
 // Meaningful transitions for the per-market signal timeline (verdict flips,
@@ -145,8 +145,12 @@ export async function runTick(env, store) {
     lastClose: (stored && stored.lastClose) || {},
     migrated: !!(stored && stored.migrated),
     adopted: (stored && stored.adopted) || null, // last-adopted dials (weekly cadence)
-    scanCursor: (stored && Number.isInteger(stored.scanCursor)) ? stored.scanCursor : 0, // rotating scan batch
   };
+  // Signature of the persisted record, so we only WRITE it back when it actually changes
+  // (a trade, a book-profit call flip, a retune, or migration) — not every tick. Combined
+  // with moving the rotation cursor to the SIGNALS blob, this drops RECORD from a per-tick
+  // write to a rare one, roughly halving the tick's KV writes (the free-tier bottleneck).
+  const recordSigBefore = JSON.stringify({ o: (stored && stored.open) || {}, c: ((stored && stored.closed) || []).length, a: (stored && stored.adopted) || null, m: !!(stored && stored.migrated) });
   // One-time migration from the old per-key layout to this blob, attempted at most
   // once (the `migrated` flag is then persisted) so we never pin the KV list quota.
   if (!record.migrated) {
@@ -180,7 +184,8 @@ export async function runTick(env, store) {
   const allSymbols = Object.keys(MARKETS);
   const openPool = allSymbols.filter((s) => isOpen(MARKETS[s]));
   const pool = openPool.length ? openPool : allSymbols; // nothing open (rare) → rotate all
-  const cursor = Number.isInteger(record.scanCursor) ? ((record.scanCursor % pool.length) + pool.length) % pool.length : 0;
+  const storedCursor = (prevBlob && Number.isInteger(prevBlob.scanCursor)) ? prevBlob.scanCursor : 0;
+  const cursor = ((storedCursor % pool.length) + pool.length) % pool.length;
   const batch = [];
   for (let i = 0; i < Math.min(SCAN_BATCH_SIZE, pool.length); i++) batch.push(pool[(cursor + i) % pool.length]);
   const openSyms = Object.keys(record.open).filter((s) => MARKETS[s]); // always manage positions
@@ -190,7 +195,7 @@ export async function runTick(env, store) {
     const room = Math.max(0, MAX_FETCHES - openSyms.length);
     scanSet = [...new Set([...openSyms, ...batch.slice(0, room)])];
   }
-  record.scanCursor = (cursor + SCAN_BATCH_SIZE) % pool.length;
+  const nextCursor = (cursor + SCAN_BATCH_SIZE) % pool.length; // persisted on the SIGNALS blob
   // Dynamic-cadence gate: skip this tick entirely (no fetches, no writes) unless enough
   // time has passed for the current activity level. The last real scan is stamped on the
   // SIGNALS blob's updatedAt. Skipped ticks cost only the KV reads already done above.
@@ -311,8 +316,13 @@ export async function runTick(env, store) {
   // Persist each blob independently so one failure (e.g. a KV quota blip) can't
   // stop the others. RECORD first — the paper trades are the most important thing
   // to save; a batched blob each (no KV list, fits the free tier).
-  try { await store.put({ pk: 'RECORD', sk: 'ALL', updatedAt: Date.now(), open: record.open, closed: record.closed, lastClose: record.lastClose, migrated: record.migrated, adopted: record.adopted, scanCursor: record.scanCursor }); } catch (e) { /* retried next tick */ }
-  try { await store.put({ pk: 'SIGNALS', sk: 'ALL', updatedAt: Date.now(), signals: Object.values(bySym), adaptive: { ...learned, adopted: record.adopted, nextRetune: (record.adopted.at || nowMs) + RETUNE_MS } }); } catch (e) { /* retried next tick */ }
+  // RECORD only when it actually changed (trade / call flip / retune / migration).
+  const recordSigAfter = JSON.stringify({ o: record.open, c: record.closed.length, a: record.adopted, m: record.migrated });
+  if (recordSigAfter !== recordSigBefore) {
+    try { await store.put({ pk: 'RECORD', sk: 'ALL', updatedAt: Date.now(), open: record.open, closed: record.closed, lastClose: record.lastClose, migrated: record.migrated, adopted: record.adopted }); } catch (e) { /* retried next tick */ }
+  }
+  // SIGNALS every scan (prices/signals move); it also carries the rotating scan cursor.
+  try { await store.put({ pk: 'SIGNALS', sk: 'ALL', updatedAt: Date.now(), scanCursor: nextCursor, signals: Object.values(bySym), adaptive: { ...learned, adopted: record.adopted, nextRetune: (record.adopted.at || nowMs) + RETUNE_MS } }); } catch (e) { /* retried next tick */ }
   try { if (histChanged) await store.put({ pk: 'HISTORY', sk: 'ALL', updatedAt: Date.now(), hist }); } catch (e) { /* non-fatal */ }
   // Fan out the fresh events to registered Pro webhooks (best-effort).
   try { await deliverEvents(store, events); } catch (e) { /* delivery never blocks trading */ }

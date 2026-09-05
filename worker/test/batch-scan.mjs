@@ -47,9 +47,18 @@ check('Only open markets (+ open positions) are scanned', fresh1.every((s) => al
 check('The open-position market is scanned even when its exchange is closed', fresh1.includes(seedSym));
 check('Per-tick fetch count stays within budget', fresh1.length <= 34, `${fresh1.length} fetches`);
 
-// Cadence gate: a tick that fires immediately after should be SKIPPED (too soon).
+// The rotation cursor now lives on the SIGNALS blob, not RECORD.
+check('Scan cursor persists on the SIGNALS blob (not RECORD)', Number.isInteger(sig1.scanCursor) && (await store.get('RECORD', 'ALL')).scanCursor === undefined, `SIGNALS.scanCursor=${sig1.scanCursor}`);
+
+// Cadence gate: a tick that fires immediately after should be SKIPPED (too soon) and
+// write NOTHING — neither blob's updatedAt moves.
+const recBefore = (await store.get('RECORD', 'ALL') || {}).updatedAt;
+const sigBefore = (await store.get('SIGNALS', 'ALL') || {}).updatedAt;
 const r2 = await runTick(env, store);
+const recAfter = (await store.get('RECORD', 'ALL') || {}).updatedAt;
+const sigAfter = (await store.get('SIGNALS', 'ALL') || {}).updatedAt;
 check('Cadence gate skips a too-soon tick', r2 && r2.skipped === true, JSON.stringify(r2));
+check('A skipped tick writes nothing', recBefore === recAfter && sigBefore === sigAfter, 'no blob updatedAt advanced');
 
 // Coverage: with the gate satisfied each round, every OPEN market gets a fresh signal.
 for (let i = 0; i < 2; i++) { await allowNext(store); await runTick(env, store); }
