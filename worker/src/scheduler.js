@@ -11,6 +11,18 @@ import { computeBothMR, bothMRShouldExit } from './bothways.js';
 
 const dayKey = (ms) => new Date(ms).toISOString().slice(0, 10);
 
+// FREE-TIER SCAN BUDGET. Each market is one subrequest and Cloudflare's free tier caps
+// an invocation at 50 subrequests. Fetching every board market every tick capped the
+// universe at ~45; instead we scan a ROTATING BATCH each tick and carry every other
+// market's last-known signal forward from the stored SIGNALS blob. Daily-bar signals
+// change slowly, so a market refreshing every few ticks (minutes) instead of every tick
+// is indistinguishable in the signal — but the universe can now grow well past the
+// per-tick cap. Open-position markets are ALWAYS scanned so exits (stop / RSI / time)
+// are never delayed a full rotation. MAX_FETCHES hard-bounds board fetches per tick so
+// that board + the day tick (~4) + KV overhead stays comfortably under 50.
+const SCAN_BATCH_SIZE = 20;
+const MAX_FETCHES = 40;
+
 // Meaningful transitions for the per-market signal timeline (verdict flips,
 // proximity milestones, deep-oversold). Honest, real-state changes only — nothing
 // fabricated. Returns short human strings.
@@ -108,6 +120,7 @@ export async function runTick(env, store) {
     lastClose: (stored && stored.lastClose) || {},
     migrated: !!(stored && stored.migrated),
     adopted: (stored && stored.adopted) || null, // last-adopted dials (weekly cadence)
+    scanCursor: (stored && Number.isInteger(stored.scanCursor)) ? stored.scanCursor : 0, // rotating scan batch
   };
   // One-time migration from the old per-key layout to this blob, attempted at most
   // once (the `migrated` flag is then persisted) so we never pin the KV list quota.
@@ -135,6 +148,22 @@ export async function runTick(env, store) {
     record.adopted = { stopMult: learned.stopMult, sizeMult: learned.sizeMult, engines: learned.engines, at: nowMs, fromTrades: learned.trades };
   }
   const dials = { stopMult: record.adopted.stopMult, sizeMult: record.adopted.sizeMult, engines: record.adopted.engines || null };
+  // --- Rotating scan batch (see SCAN_BATCH_SIZE) --------------------------------------
+  // Scan a window of the market list this tick; carry the rest forward from bySym. The
+  // cursor persists in the record blob (no extra KV read). Open positions are always
+  // included so their exits are checked every tick; MAX_FETCHES caps the total.
+  const allSymbols = Object.keys(MARKETS);
+  const cursor = Number.isInteger(record.scanCursor) ? ((record.scanCursor % allSymbols.length) + allSymbols.length) % allSymbols.length : 0;
+  const batch = [];
+  for (let i = 0; i < Math.min(SCAN_BATCH_SIZE, allSymbols.length); i++) batch.push(allSymbols[(cursor + i) % allSymbols.length]);
+  const openSyms = Object.keys(record.open).filter((s) => MARKETS[s]);
+  let scanSet = [...new Set([...openSyms, ...batch])];
+  if (scanSet.length > MAX_FETCHES) {
+    // Managing open positions is the priority; fill remaining slots with batch symbols.
+    const room = Math.max(0, MAX_FETCHES - openSyms.length);
+    scanSet = [...new Set([...openSyms, ...batch.slice(0, room)])];
+  }
+  record.scanCursor = (cursor + SCAN_BATCH_SIZE) % allSymbols.length;
   // Per-market signal timeline (bounded rolling log). Read once, written once only
   // if something changed this tick.
   const histBlob = (await store.get('HISTORY', 'ALL')) || {};
@@ -156,7 +185,7 @@ export async function runTick(env, store) {
       if (t !== e.text) { e.text = t; histChanged = true; }
     }
   }
-  for (const symbol of Object.keys(MARKETS)) {
+  for (const symbol of scanSet) {
     try {
       const meta = MARKETS[symbol];
       const { candles, live, liveTime } = await fetchDailyCandles(meta, env);
@@ -248,7 +277,7 @@ export async function runTick(env, store) {
   // Persist each blob independently so one failure (e.g. a KV quota blip) can't
   // stop the others. RECORD first — the paper trades are the most important thing
   // to save; a batched blob each (no KV list, fits the free tier).
-  try { await store.put({ pk: 'RECORD', sk: 'ALL', updatedAt: Date.now(), open: record.open, closed: record.closed, lastClose: record.lastClose, migrated: record.migrated, adopted: record.adopted }); } catch (e) { /* retried next tick */ }
+  try { await store.put({ pk: 'RECORD', sk: 'ALL', updatedAt: Date.now(), open: record.open, closed: record.closed, lastClose: record.lastClose, migrated: record.migrated, adopted: record.adopted, scanCursor: record.scanCursor }); } catch (e) { /* retried next tick */ }
   try { await store.put({ pk: 'SIGNALS', sk: 'ALL', updatedAt: Date.now(), signals: Object.values(bySym), adaptive: { ...learned, adopted: record.adopted, nextRetune: (record.adopted.at || nowMs) + RETUNE_MS } }); } catch (e) { /* retried next tick */ }
   try { if (histChanged) await store.put({ pk: 'HISTORY', sk: 'ALL', updatedAt: Date.now(), hist }); } catch (e) { /* non-fatal */ }
   // Fan out the fresh events to registered Pro webhooks (best-effort).
