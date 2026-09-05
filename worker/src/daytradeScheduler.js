@@ -8,14 +8,16 @@ import { fetchIntradayCandles } from './data.js';
 import { computeDaySignal, dayShouldExit, DAYTRADE } from './daytrade.js';
 import { isOpen } from './markets.js';
 
-// Only the intraday-liquid US index futures that the lab found net-POSITIVE. RTY is
-// excluded — the 60-day lab showed it loses intraday (PF 0.69), same discipline that
-// dropped XJO from Swing. Crypto is intentionally absent: it never "closes", so the
+// Intraday-liquid US index futures. RTY was excluded under the OLD long-only recipe
+// (it lost intraday, PF 0.69), but the BOTH-WAYS no-gate recipe cleared the promotion
+// gate's out-of-sample test ON RTY specifically (+0.069, test/promote-day.mjs), so it
+// rejoins the traded set. Crypto is intentionally absent: it never "closes", so the
 // flat-by-close rule that removes overnight risk doesn't apply to it.
 export const DAY_MARKETS = {
   ES: { yahoo: 'ES=F', country: 'US', futures: true, name: 'E-mini S&P 500' },
   NQ: { yahoo: 'NQ=F', country: 'US', futures: true, name: 'E-mini Nasdaq-100' },
   YM: { yahoo: 'YM=F', country: 'US', futures: true, name: 'E-mini Dow' },
+  RTY: { yahoo: 'RTY=F', country: 'US', futures: true, name: 'E-mini Russell 2000' },
 };
 
 const BAR_MS = 15 * 60 * 1000;
@@ -33,10 +35,13 @@ export async function runDayTick(env, store) {
   if (prevBlob && Array.isArray(prevBlob.signals)) for (const s of prevBlob.signals) bySym[s.symbol] = s;
 
   const stored = await store.get('RECORD_DAY', 'ALL');
+  // Recipe reset: when the intraday rule changes (recipe bump), start the experiment's
+  // record clean rather than mixing results from two different strategies.
+  const recipeChanged = stored && stored.recipe != null && stored.recipe !== DAYTRADE.recipe;
   const record = {
-    open: (stored && stored.open) || {},
-    closed: (stored && stored.closed) || [],
-    lastClose: (stored && stored.lastClose) || {},
+    open: recipeChanged ? {} : ((stored && stored.open) || {}),
+    closed: recipeChanged ? [] : ((stored && stored.closed) || []),
+    lastClose: recipeChanged ? {} : ((stored && stored.lastClose) || {}),
   };
 
   const events = [];
@@ -44,7 +49,7 @@ export async function runDayTick(env, store) {
     try {
       const meta = DAY_MARKETS[symbol];
       const { candles, live, liveTime } = await fetchIntradayCandles(meta, env, { interval: '15m', range: '1mo' });
-      if (!candles || candles.length < DAYTRADE.trendSma + 20) { bySym[symbol] = bySym[symbol] || { symbol, name: meta.name, verdict: 'NO_TRADE', experiment: true }; continue; }
+      if (!candles || candles.length < 40) { bySym[symbol] = bySym[symbol] || { symbol, name: meta.name, verdict: 'NO_TRADE', experiment: true }; continue; }
       const sig = computeDaySignal(candles, live);
       const open = isOpen(meta);
       const pos = record.open[symbol];
@@ -58,22 +63,24 @@ export async function runDayTick(env, store) {
         const endOfSession = !open || nyDay(now) !== nyDay(pos.openedAt);
         const exit = dayShouldExit(sig, pos, price, now, { endOfSession, barsHeld });
         if (exit) {
+          const short = pos.side === 'SHORT';
           const r = pos.risk || Math.abs(pos.entry - pos.stop) || 1e-9;
-          const resultR = (price - pos.entry) / r;
+          const resultR = (short ? (pos.entry - price) : (price - pos.entry)) / r;
           const pnl = Math.round(resultR * (pos.riskDollars || risk) - cost);
           const outcome = pnl > 0 ? 'Win' : pnl < 0 ? 'Loss' : 'Break-even';
-          record.closed.unshift({ symbol, name: meta.name, side: 'LONG', strat: 'day', entry: pos.entry, exit: price, resultR: +resultR.toFixed(3), pnl, cost, riskDollars: pos.riskDollars || risk, outcome, exitReason: exit, openedAt: pos.openedAt, closedAt: now, experiment: true });
+          record.closed.unshift({ symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', strat: 'day', entry: pos.entry, exit: price, resultR: +resultR.toFixed(3), pnl, cost, riskDollars: pos.riskDollars || risk, outcome, exitReason: exit, openedAt: pos.openedAt, closedAt: now, experiment: true });
           if (record.closed.length > 300) record.closed.length = 300;
           delete record.open[symbol];
           record.lastClose[symbol] = { at: now };
           events.push({ type: 'position.close', event: exit, symbol, name: meta.name, price, at: now, experiment: true });
         }
-      } else if (sig.verdict === 'BUY' && sig.plan && open) {
+      } else if ((sig.verdict === 'BUY' || sig.verdict === 'SELL') && sig.plan && open) {
         // Fixed risk — the experiment is NEVER auto-sized up (that's reserved for
-        // proven engines). One position per market at a time.
+        // proven engines). One position per market at a time. Long OR short.
+        const short = sig.verdict === 'SELL';
         const entry = live ?? sig.plan.entry;
         const r = sig.plan.risk || Math.abs(sig.plan.entry - sig.plan.stop);
-        record.open[symbol] = { symbol, name: meta.name, side: 'LONG', strat: 'day', entry, stop: entry - r, target1: entry + r, risk: r, riskDollars: risk, conviction: sig.conviction, maxHoldBars: sig.plan.maxHoldBars, exitAbove: sig.plan.exitAbove, openedAt: now, experiment: true };
+        record.open[symbol] = { symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', strat: 'day', entry, stop: short ? entry + r : entry - r, target1: short ? entry - r : entry + r, risk: r, riskDollars: risk, conviction: sig.conviction, maxHoldBars: sig.plan.maxHoldBars, openedAt: now, experiment: true };
         events.push({ type: 'position.open', event: 'open', symbol, name: meta.name, price: entry, at: now, experiment: true });
       }
 
@@ -82,7 +89,7 @@ export async function runDayTick(env, store) {
   }
 
   const summary = summarize(record.closed);
-  try { await store.put({ pk: 'RECORD_DAY', sk: 'ALL', updatedAt: now, open: record.open, closed: record.closed, lastClose: record.lastClose }); } catch (e) { /* retried next tick */ }
+  try { await store.put({ pk: 'RECORD_DAY', sk: 'ALL', updatedAt: now, recipe: DAYTRADE.recipe, open: record.open, closed: record.closed, lastClose: record.lastClose }); } catch (e) { /* retried next tick */ }
   try { await store.put({ pk: 'SIGNALS_DAY', sk: 'ALL', updatedAt: now, signals: Object.values(bySym), summary }); } catch (e) { /* retried next tick */ }
   const openBuy = events.some((e) => e.type === 'position.open');
   return { events: events.length, openBuy, summary };

@@ -1,41 +1,34 @@
-// EXPERIMENTAL third engine: INTRADAY day-trading (15-minute bars, long-only, flat
-// by the close — no overnight risk). This is NOT a proven edge. An earlier intraday
-// version LOST money live (see the app's own history), so this ships as a clearly-
-// labelled EXPERIMENT tracked on its OWN separate paper record — never merged into
-// the proven Swing record, never with advertised returns. It stays experimental
-// until the lab (test/daytrade.mjs) proves a robust, positive out-of-sample edge.
-//
-// Shape: the same mean-reversion idea as the proven daily engine, but on 15-min
-// bars — buy a deep RSI-2 oversold flush while the intraday trend is still up, exit
-// when momentum recovers or the volatility stop is hit, and ALWAYS close before the
-// session ends. The flat-by-close rule is what removes overnight gap risk; the
-// scheduler enforces it live, the backtester enforces it on the last bar of each day.
-import { sma, rsi, atr, stdev } from './indicators.js';
+// EXPERIMENTAL intraday day-trading engine (15-minute bars, flat by the close — no
+// overnight risk). BOTH-WAYS as of 2026-09-04: intraday there is no structural
+// up-drift, so a down day is a genuine SHORT setup (unlike the long-only daily equity
+// engine). Validated through the promotion gate (test/promote-day.mjs): the no-trend-
+// gate symmetric mean-reversion variant cleared all 5 gates — pooled pf 1.39, walk-
+// forward 3/3, out-of-sample on RTY (+0.069, the long-only loser), robust plateau,
+// and a positive short side (+0.06). Still an EXPERIMENT: only ~60 days of 15m history
+// exist, so it ships on its OWN separate record (RECORD_DAY), clearly unproven — the
+// live forward result is the judge, never this short backtest.
+import { sma, rsi, atr } from './indicators.js';
 
-// Intraday dials. Kept separate from the daily STRATEGY so tuning one never touches
-// the other. The lab sweeps these; production reads whatever is validated here.
-//
-// LAB (test/daytrade.mjs, 60-day 15m sample, 2026-09-03): this recipe is MARGINAL,
-// NOT proven — pooled PF ~1.4 / 64% win / MAR ~8 on ES+NQ+YM, but only 13/81 sweep
-// settings clear PF>=1.3 (no wide plateau), and RTY is a net LOSER intraday (PF 0.69)
-// so it is excluded from the traded set (see DAY_MARKETS in the scheduler). The whole
-// top-performing cluster sits on trendSma 30, so that is the trend filter here — not
-// a single lucky cell. It ships as a labelled EXPERIMENT on its own live record; the
-// live paper result, not this short backtest, is the judge before any "proven" claim.
+// Intraday dials. `recipe` is bumped when the rule changes so the experiment's record
+// is reset rather than mixing results from two different strategies (see the day
+// scheduler). Symmetric MR: buy a deep RSI-2 oversold, short a deep overbought, exit
+// when RSI reverts through the mid, capped by a vol stop / time / flat-by-close.
 export const DAYTRADE = {
   key: 'day',
-  indicatorPeriod: 2,   // RSI-2, same oscillator as the daily engine
-  entryBelow: 10,       // deeper oversold than daily (intraday noise is higher)
-  exitAbove: 60,        // book profit when momentum recovers
-  deepBelow: 3,         // deepest / high-conviction tier
-  trendSma: 30,         // intraday trend filter (bars): only buy dips while above it
-  stopAtrMult: 1.5,     // tighter stop — intraday moves are smaller, and we exit by close
-  maxHoldBars: 26,      // hard time cap in bars (~one cash session) even before flat-by-close
-  proven: false,        // NEVER true until the live record proves it out-of-sample
+  recipe: 2,             // bump on any rule change → the day record resets
+  bothWays: true,        // long AND short (validated intraday, no drift)
+  indicatorPeriod: 2,    // RSI-2, same oscillator as the daily engine
+  entryBelow: 10,        // long when RSI2 < 10; short when RSI2 > 90 (100 - 10)
+  exitMid: 50,           // book profit when RSI2 reverts through the mid
+  stopAtrMult: 1.5,      // tighter stop — intraday moves are smaller, exit by close
+  maxHoldBars: 26,       // hard time cap (~one cash session) before flat-by-close
+  proven: false,         // NEVER true until the live record proves it out-of-sample
   experiment: true,
 };
 
-// Compute the intraday signal from 15-min candles (oldest -> newest). `params`
+const clamp01 = (x) => Math.max(0, Math.min(1, x));
+
+// Compute the intraday BOTH-WAYS signal from 15-min candles (oldest → newest). `params`
 // overrides the dials for the lab sweep, so the robustness test runs the EXACT
 // production logic at different settings rather than a re-implementation.
 export function computeDaySignal(candles, live, params) {
@@ -44,56 +37,47 @@ export function computeDaySignal(candles, live, params) {
   if (live != null && c.length) c[c.length - 1] = { ...c[c.length - 1], c: live };
   const closes = c.map((x) => x.c);
   const n = closes.length;
-  if (n < P.trendSma + 20) return { verdict: 'NO_TRADE', confidence: 0, reason: 'insufficient history' };
+  if (n < 40) return { verdict: 'NO_TRADE', confidence: 0, reason: 'insufficient history' };
 
   const price = closes[n - 1];
-  const sTrend = sma(closes, P.trendSma)[n - 1];
   const rsi2 = rsi(closes, P.indicatorPeriod)[n - 1];
   const atrN = atr(c, 14)[n - 1];
-  const s20 = sma(closes, 20)[n - 1];
-  const sd = stdev(closes, 20)[n - 1];
-  if (sTrend == null || rsi2 == null || atrN == null || !(atrN > 0) || s20 == null || sd == null) {
-    return { verdict: 'NO_TRADE', confidence: 0, reason: 'indicators not ready' };
-  }
-  const lowerBB = s20 - 2 * sd, upperBB = s20 + 2 * sd;
-  const pctB = (price - lowerBB) / ((upperBB - lowerBB) || 1);
-  const up = price > sTrend;
+  const s30 = sma(closes, 30)[n - 1]; // context for the "trend" label only — NOT a gate
+  if (rsi2 == null || atrN == null || !(atrN > 0)) return { verdict: 'NO_TRADE', confidence: 0, reason: 'indicators not ready' };
 
-  // LONG-ONLY. The short mirror is deliberately absent: shorting mean-reversion on
-  // equity indices lost money on the daily engine and there is no evidence it works
-  // intraday either — it will not be added without lab proof.
-  let setup = 0, conviction = 'normal';
-  if (up && rsi2 < P.entryBelow && price < c[n - 2].l) {
-    const deep = rsi2 < P.deepBelow, stretched = price < lowerBB;
-    setup = deep && stretched ? 1 : deep ? 0.9 : 0.8;
-    conviction = deep && stretched ? 'high' : 'normal';
+  const upper = 100 - P.entryBelow;
+  let dir = 0;
+  if (rsi2 < P.entryBelow) dir = 1;
+  else if (rsi2 > upper) dir = -1;
+  const trendUp = s30 != null && price > s30;
+
+  if (dir === 0) {
+    const prox = rsi2 <= 50 ? clamp01((50 - rsi2) / (50 - P.entryBelow)) : clamp01((rsi2 - 50) / (upper - 50));
+    return { verdict: 'NO_TRADE', direction: 0, confidence: 40, proximity: Math.round(prox * 100), rsiMR: Math.round(rsi2), htfTrend: trendUp ? 'up' : 'down', conviction: 'normal', timeframe: '15m', price, plan: null, experiment: true };
   }
-  const confidence = setup > 0 ? Math.round(52 + setup * 47) : 40;
-  const fires = setup > 0 && confidence >= 75;
-  const verdict = fires ? 'BUY' : 'NO_TRADE';
-  const clamp01 = (x) => Math.max(0, Math.min(1, x));
-  const proximity = fires ? 100 : up ? Math.round(clamp01((25 - rsi2) / 22) * 100) : 0;
+
+  const depth = dir > 0 ? (P.entryBelow - rsi2) / P.entryBelow : (rsi2 - upper) / P.entryBelow;
+  const confidence = Math.round(72 + 18 * clamp01(depth + 0.2));
   const risk = Math.max(atrN * P.stopAtrMult, price * 0.0025);
-  const plan = fires ? {
-    entry: price, stop: price - risk, target1: price + risk, risk, riskReward: 1,
-    exitRule: 'rsiRecover', exitAbove: P.exitAbove, maxHoldBars: P.maxHoldBars,
-    conviction, intraday: true,
-  } : null;
-
+  const plan = {
+    entry: price, stop: dir > 0 ? price - risk : price + risk, target1: dir > 0 ? price + risk : price - risk,
+    risk, riskReward: 1, exitRule: 'rsiMid', maxHoldBars: P.maxHoldBars, conviction: 'normal', intraday: true,
+  };
   return {
-    verdict, direction: fires ? 1 : 0, confidence, proximity,
-    rsi2: Math.round(rsi2), pctB: +pctB.toFixed(2), htfTrend: up ? 'up' : 'down',
-    conviction, timeframe: '15m', price, plan, experiment: true,
+    verdict: dir > 0 ? 'BUY' : 'SELL', direction: dir, confidence, conviction: 'normal',
+    // A short is a bearish setup, so the trend label follows the trade side.
+    htfTrend: dir > 0 ? 'up' : 'down', rsiMR: Math.round(rsi2), timeframe: '15m', price, plan, experiment: true,
   };
 }
 
-// Intraday exit: the volatility stop, the momentum-recovery exit, the bar time cap,
-// or — the defining rule — a forced flat before the session closes (`endOfSession`).
-// No position is ever carried overnight, so there is no gap risk to manage.
+// Intraday exit (both directions): the volatility stop, the RSI-reverts-through-mid
+// profit exit, the bar time cap, or — the defining rule — a forced flat before the
+// session closes (`endOfSession`). No position is ever carried overnight.
 export function dayShouldExit(sig, pos, price, now, { endOfSession = false, barsHeld = null } = {}) {
-  if (price <= pos.stop) return 'stop';
-  const exitRsi = pos.exitAbove ?? DAYTRADE.exitAbove;
-  if (sig && sig.rsi2 != null && sig.rsi2 > exitRsi) return 'rsiRecover';
+  const short = pos.side === 'SHORT';
+  if (short ? price >= pos.stop : price <= pos.stop) return 'stop';
+  const r = sig && sig.rsiMR != null ? sig.rsiMR : null;
+  if (r != null && (short ? r < 50 : r > 50)) return 'rsiRecover';
   if (barsHeld != null && pos.maxHoldBars && barsHeld >= pos.maxHoldBars) return 'timeStop';
   if (endOfSession) return 'flatByClose';
   return null;

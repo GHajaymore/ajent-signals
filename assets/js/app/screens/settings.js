@@ -93,20 +93,23 @@ async function wireDayExperiment(container) {
         ${dayStat('net P&L (paper)', fmtMoney(s.totalPnl), pnlColor)}
       </div>
       <div class="setting-help" style="margin-top:6px">Live paper result to date${s.profitFactor != null ? ` · profit factor ${s.profitFactor}` : ''}. Provisional — a short, real record, not a guarantee.</div>`
-    : `<div class="setting-help" style="margin:0"><b style="color:var(--text)">No closed trades yet.</b> The experiment only opens when a genuine intraday setup fires on ES, NQ or YM during the session — nothing is invented to fill the record.</div>`;
+    : `<div class="setting-help" style="margin:0"><b style="color:var(--text)">No closed trades yet.</b> The experiment only opens when a genuine intraday setup fires on ES, NQ, YM or RTY during the session — <b>long or short</b>, nothing invented to fill the record.</div>`;
 
   const watchHtml = signals.length
-    ? `<div class="eyebrow" style="margin:16px 0 6px">Intraday watch (15-min)</div>` + signals.map((m) => {
-        const v = m.verdict === 'BUY' ? '<span style="color:var(--buy);font-weight:600">BUY</span>' : `<span class="text-muted">watching${typeof m.proximity === 'number' ? ` · ${m.proximity}%` : ''}</span>`;
+    ? `<div class="eyebrow" style="margin:16px 0 6px">Intraday watch (15-min · both ways)</div>` + signals.map((m) => {
+        const v = m.verdict === 'BUY' ? '<span style="color:var(--buy);font-weight:600">BUY</span>'
+          : m.verdict === 'SELL' ? '<span style="color:var(--sell);font-weight:600">SELL</span>'
+          : `<span class="text-muted">watching${typeof m.proximity === 'number' ? ` · ${m.proximity}%` : ''}</span>`;
         const held = open.find((p) => p.symbol === m.symbol);
-        return `<div class="notif-row" style="padding:8px 0"><div class="notif-label" style="flex:1">${m.name}${held ? ' <span style="color:var(--accent-200);font-size:11px">· in a trade</span>' : ''}</div><div>${v}</div></div>`;
+        return `<div class="notif-row" style="padding:8px 0"><div class="notif-label" style="flex:1">${m.name}${held ? ` <span style="color:var(--accent-200);font-size:11px">· in a ${held.side === 'SHORT' ? 'short' : 'long'}</span>` : ''}</div><div>${v}</div></div>`;
       }).join('')
     : '';
 
   const closedHtml = closed.length
     ? `<div class="eyebrow" style="margin:16px 0 6px">Recent closes</div>` + closed.slice(0, 5).map((t) => {
         const c = (t.pnl || 0) > 0 ? 'var(--buy)' : (t.pnl || 0) < 0 ? 'var(--sell)' : 'var(--text)';
-        return `<div class="notif-row" style="padding:7px 0"><div class="notif-label" style="flex:1">${t.name} <span class="text-muted" style="font-size:11px">· ${t.exitReason || 'closed'}</span></div><div style="color:${c};font-weight:600">${fmtMoney(t.pnl || 0)}</div></div>`;
+        const side = t.side === 'SHORT' ? 'Short' : 'Long';
+        return `<div class="notif-row" style="padding:7px 0"><div class="notif-label" style="flex:1">${t.name} <span class="text-muted" style="font-size:11px">· ${side} · ${t.exitReason || 'closed'}</span></div><div style="color:${c};font-weight:600">${fmtMoney(t.pnl || 0)}</div></div>`;
       }).join('')
     : '';
 

@@ -106,7 +106,7 @@ export default {
       return json({
         updatedAt: (sigBlob && sigBlob.updatedAt) || Date.now(),
         experiment: true,
-        status: 'EXPERIMENTAL — not proven. Long-only intraday mean-reversion on 15-minute bars, flat by the close (no overnight risk). Tracked live on this record; results are provisional and are NOT a recommendation.',
+        status: 'EXPERIMENTAL — not proven. Both-directional intraday mean-reversion on 15-minute bars, flat by the close (no overnight risk). Tracked live on this record; results are provisional and are NOT a recommendation.',
         signals, open, closed,
         summary: (sigBlob && sigBlob.summary) || summarize(closed),
         notice: NOTICE,

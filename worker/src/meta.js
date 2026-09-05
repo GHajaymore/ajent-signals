@@ -53,7 +53,7 @@ const POSITION_SECRET = ['exitAbove', 'exitRule', 'maxHoldMin', 'maxHoldBars', '
 // recipe ('rsiRecover', 'firstUpClose', 'rsi2Exit'). Collapse everything to a small
 // PUBLIC vocabulary — anything that isn't a generic technique becomes 'exit' (booked
 // on the strategy's own exit signal). This is the only value the client ever sees.
-const EXIT_REASON_PUBLIC = { stop: 'stop', target: 'target', target1: 'target', timeStop: 'timeStop', time: 'timeStop', trailStop: 'trailStop', trail: 'trailStop' };
+const EXIT_REASON_PUBLIC = { stop: 'stop', target: 'target', target1: 'target', timeStop: 'timeStop', time: 'timeStop', trailStop: 'trailStop', trail: 'trailStop', flatByClose: 'flatByClose' };
 export function publicExitReason(code) { return EXIT_REASON_PUBLIC[code] || 'exit'; }
 export function publicPosition(p) {
   if (!p || typeof p !== 'object') return p;
