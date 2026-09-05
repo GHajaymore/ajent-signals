@@ -29,7 +29,7 @@ export function render(container) {
   const exitSection = `
     <div class="section-label">3 · The exit — ride the snap-back</div>
     <div class="panel">
-      <p class="text-muted" style="font-size:12.5px;line-height:1.65;margin-top:0"><b style="color:var(--text)">Long-only.</b> The entry waits for a market that has stretched <b style="color:var(--text)">deeply oversold</b> and flushed below its recent low inside a healthy uptrend. Once in, the trade holds until the move <b style="color:var(--text)">reverts to the mean</b> — letting the bounce run rather than bailing early — with a <b>volatility-based stop</b> underneath and a time stop as a backstop. The most stretched setups are graded as higher conviction. (The short side backtested as a drag on these markets, so it's dropped.)</p>
+      <p class="text-muted" style="font-size:12.5px;line-height:1.65;margin-top:0"><b style="color:var(--text)">On equity indices, long-only.</b> The entry waits for a market that has stretched <b style="color:var(--text)">deeply oversold</b> and flushed below its recent low inside a healthy uptrend. Once in, the trade holds until the move <b style="color:var(--text)">reverts to the mean</b> — letting the bounce run rather than bailing early — with a <b>volatility-based stop</b> underneath and a time stop as a backstop. The most stretched setups are graded as higher conviction. (On indices the short side backtested as a drag — stocks drift up — so it's dropped there.)</p>
       <div class="text-muted" style="font-size:12px;line-height:1.65;margin-top:10px">
         Validated over a <b>decade</b> on major global indices: it stayed <b style="color:var(--buy)">profitable across every one</b> of several sequential walk-forward windows — not one lucky stretch — and held up out-of-sample on most additional indices. The few markets where mean reversion doesn't fit are excluded. Holds run a few days. The exact recipe is proprietary; the edge is drawn from the past and is <b>never a promise</b> — judge it by the live record.
       </div>
@@ -50,8 +50,8 @@ export function render(container) {
 
     <div class="panel" style="text-align:center;padding:20px 16px">
       <i class="ph-fill ph-chart-bar" style="font-size:30px;color:var(--buy)"></i>
-      <div style="font:800 20px var(--font-heading);margin-top:8px">Two proven edges, one long-only ensemble</div>
-      <p class="text-muted" style="font-size:13px;line-height:1.65;margin-top:8px">Ajent Pulse's core edge is <b style="color:var(--text)">mean reversion</b> — it doesn't chase breakouts; it waits for price to stretch <b style="color:var(--text)">against</b> a healthy uptrend (a deep oversold dip) and bets it snaps back. Paired with it is a <b style="color:var(--text)">trend-following</b> engine that rides <b style="color:var(--text)">established uptrends</b>. Both are <b style="color:var(--text)">long-only</b> — when neither is set up, it stands aside.</p>
+      <div style="font:800 20px var(--font-heading);margin-top:8px">Proven edges — and the direction to match each market</div>
+      <p class="text-muted" style="font-size:13px;line-height:1.65;margin-top:8px">Ajent Pulse's core edge is <b style="color:var(--text)">mean reversion</b> — it doesn't chase breakouts; it waits for price to stretch <b style="color:var(--text)">against</b> a healthy uptrend (a deep oversold dip) and bets it snaps back. Paired with it is a <b style="color:var(--text)">trend-following</b> engine that rides <b style="color:var(--text)">established uptrends</b>. On <b style="color:var(--text)">equity indices &amp; ETFs</b> these run <b style="color:var(--text)">long-only</b> — stocks drift up over time, so shorting fights the tide. On <b style="color:var(--text)">symmetric markets</b> that have no such drift, the same idea works <b style="color:var(--text)">both ways</b> (more below).</p>
     </div>
 
     <div class="section-label">1 · The setup</div>
@@ -79,11 +79,18 @@ export function render(container) {
       <div class="text-muted" style="font-size:12px;line-height:1.65;margin-top:10px">Lab-validated as a robustly <b style="color:var(--buy)">positive, diversifying</b> edge before it was switched on — it need not beat mean reversion, only add to it on different days. As always, the exact rule is proprietary and the edge is <b>never a promise</b>; judge it by the live record.</div>
     </div>
 
+    <div class="section-label">5 · Long or short — matched to the asset</div>
+    <div class="panel">
+      <p class="text-muted" style="font-size:12.5px;line-height:1.65;margin-top:0">Long-only is right for stocks because they <b style="color:var(--text)">drift up</b> over the long run — shorting fights that tide. But that drift <b style="color:var(--text)">doesn't exist</b> on currencies, commodities, or intraday: a down day is a real opportunity in the other direction. So on those <b style="color:var(--text)">symmetric</b> markets the mean-reversion edge runs <b style="color:var(--text)">both ways</b> — fading overbought pops as well as oversold dips.</p>
+      <div class="reason-row" style="margin-top:6px"><i class="ph-bold ph-shield-check" style="color:var(--buy)"></i><span><b style="color:var(--text)">Nothing ships on a hunch.</b> Each new market + direction must clear the same gate before it goes live: a real edge in a pooled test, in <b>walk-forward</b> windows, <b>out-of-sample</b> on held-back symbols, across a <b>robust</b> range of settings, and — for a two-way market — a genuinely profitable short side.</span></div>
+      <div class="reason-row"><i class="ph-bold ph-flask" style="color:var(--accent-300)"></i><span><b style="color:var(--text)">Experiment, then proven.</b> A newer cell (FX, commodities, intraday) that passes the gate ships clearly labelled <b>experimental</b> and is tracked on the live record. It only earns the <b>proven</b> label once that <b>real forward record</b> confirms the edge — the backtest gets it onto the board, the live results graduate it.</span></div>
+    </div>
+
     <div class="panel" style="border:1px solid var(--hairline)">
       <div class="reason-row" style="align-items:flex-start"><i class="ph-fill ph-warning-circle" style="color:var(--accent-300)"></i><span><b style="color:var(--text)">The honest catch.</b> ${catchNote}</span></div>
     </div>
 
-    <div class="section-label">5 · Data &amp; limits</div>
+    <div class="section-label">6 · Data &amp; limits</div>
     <div class="panel">
       <div class="text-muted" style="font-size:12.5px;line-height:1.65">
         Signals compute from ${daily ? '<b style="color:var(--text)">real daily candles</b> over the last two years' : '<b style="color:var(--text)">real 15-minute candles</b> over the trailing month'} via a free, unofficial price feed (best-effort, not a licensed data source). Index signals use the real-time cash index; some futures are ~15–25 min delayed on the free tier and are labelled <b>Delayed</b>. When live data is unavailable a market falls back to a labelled <b>SIM</b> placeholder and is not paper-traded.
