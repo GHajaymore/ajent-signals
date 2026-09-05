@@ -1,4 +1,5 @@
-import { state, perTradeRisk, getEnabledPaperMarkets } from './state.js';
+import { state, perTradeRisk, getEnabledPaperMarkets, setFocusClass } from './state.js';
+import { labelForKey } from './assetClass.js';
 import { setStrategyMeta } from './strategyMeta.js';
 import * as gate from './screens/gate.js';
 import * as home from './screens/home.js';
@@ -40,6 +41,38 @@ const NO_TABBAR = new Set(['gate', 'paywall', 'methodology', 'welcome', 'pro-suc
 
 const contentEl = document.getElementById('app-content');
 const tabbarEl = document.getElementById('tabbar');
+
+// Global focus bar — the selected asset class scopes Home, Markets and Paper, but
+// the class chips only live on Home. On Markets and Paper this pinned pill shows
+// which class the screen is scoped to and lets the user clear it in one tap.
+const FOCUS_BAR_SCREENS = new Set(['markets', 'track']);
+const FOCUS_EXTRA_LABEL = { stocks: 'Stocks', day: 'Day trades' };
+const focusBarEl = document.createElement('div');
+focusBarEl.id = 'focus-bar';
+focusBarEl.style.display = 'none';
+contentEl.parentNode.insertBefore(focusBarEl, contentEl);
+focusBarEl.addEventListener('click', (e) => {
+  if (!e.target.closest('[data-focus-clear]')) return;
+  setFocusClass('all');
+  renderRoute();
+});
+
+function focusLabelFor(key) {
+  return FOCUS_EXTRA_LABEL[key] || labelForKey(key);
+}
+
+// Keep the bar in sync when a screen sets the focus from its own chips.
+window.addEventListener('ajent:focuschange', () => renderFocusBar(parseHash()));
+
+function renderFocusBar(route) {
+  const on = FOCUS_BAR_SCREENS.has(route[0]) && state.focusClass && state.focusClass !== 'all';
+  focusBarEl.style.display = on ? 'flex' : 'none';
+  if (!on) { focusBarEl.innerHTML = ''; return; }
+  focusBarEl.innerHTML = `
+    <span class="focus-bar-eye"><i class="ph-fill ph-crosshair-simple"></i></span>
+    <span class="focus-bar-txt">Showing <b>${focusLabelFor(state.focusClass)}</b> only</span>
+    <button class="focus-bar-clear" data-focus-clear aria-label="Clear focus">All markets <i class="ph ph-x"></i></button>`;
+}
 
 function parseHash() {
   const h = location.hash.replace(/^#\/?/, '') || 'home';
@@ -190,6 +223,7 @@ function refreshRoute() {
     case 'alerts': alertsScreen.render(contentEl); break;
     default: return;
   }
+  renderFocusBar(route);
   wireGlobalNav();
 }
 

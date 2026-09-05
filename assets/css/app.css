@@ -657,6 +657,40 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .focus-chip:hover { color: var(--text); }
 .focus-chip.on { background: var(--accent-800); color: var(--accent-100); border-color: transparent; }
 
+/* Global focus bar — pinned scope indicator on Markets & Paper (the screens that
+   have no chip row of their own). Sits between content and tabbar. */
+#focus-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 8px 16px;
+  font: 600 12.5px var(--font-heading);
+  color: var(--accent-100);
+  background: var(--accent-800);
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+}
+#focus-bar .focus-bar-eye { display: inline-flex; color: var(--accent-200); font-size: 14px; }
+#focus-bar .focus-bar-txt { color: var(--accent-100); opacity: 0.92; }
+#focus-bar .focus-bar-txt b { color: #fff; font-weight: 700; }
+#focus-bar .focus-bar-clear {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: 600 12px var(--font-heading);
+  color: var(--accent-100);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 16px;
+  padding: 4px 11px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+#focus-bar .focus-bar-clear:hover { background: rgba(255, 255, 255, 0.2); }
+#focus-bar .focus-bar-clear i { font-size: 13px; }
+
 /* Asset-class lens — horizontally scrollable so it stays one line on mobile */
 .aclass-scroll { overflow-x: auto; margin: 0 0 14px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
 .aclass-scroll::-webkit-scrollbar { display: none; }

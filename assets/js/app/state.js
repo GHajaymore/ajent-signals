@@ -211,6 +211,9 @@ export function saveSettings() {
 export function setFocusClass(key) {
   state.focusClass = key || 'all';
   try { localStorage.setItem('ajent_focus_class', state.focusClass); } catch (e) { /* ignore */ }
+  // Let the shell (global focus bar) reflect the change even when it was set from
+  // inside a screen's own chip row rather than via navigation.
+  try { window.dispatchEvent(new CustomEvent('ajent:focuschange', { detail: state.focusClass })); } catch (e) { /* ignore */ }
 }
 
 // --- Per-strategy trade-plan config (stop + reward:risk) --------------------
