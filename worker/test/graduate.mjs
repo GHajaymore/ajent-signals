@@ -68,8 +68,10 @@ console.log(`Bar to graduate: n≥${READY_N} · avgR>${READY_AVGR} · pf≥${REA
 // first real short and the first real FX trade impossible to miss — the moment either
 // starts closing trades, it prints here instead of hiding as a 0 in a per-cell row.
 const allClosed = [...(trades.closed || []), ...((day && day.closed) || [])];
+const clsOf = (c) => (MARKETS[c.symbol] && MARKETS[c.symbol].assetClass) || 'other';
 const shortsAll = allClosed.filter((c) => c.side === 'SHORT');
-const fxAll = (trades.closed || []).filter((c) => (MARKETS[c.symbol] && MARKETS[c.symbol].assetClass) === 'fx');
+const fxAll = (trades.closed || []).filter((c) => clsOf(c) === 'fx');
+const etfAll = (trades.closed || []).filter((c) => clsOf(c) === 'etf');
 const activation = (label, arr, expl) => {
   if (!arr.length) { console.log(`  ○ ${label.padEnd(22)} not yet — ${expl}`); return; }
   const s = stats(arr);
@@ -79,6 +81,7 @@ const activation = (label, arr, expl) => {
 console.log('FORWARD ACTIVATION (capabilities built but not yet seen live):');
 activation('Short side (any cell)', shortsAll, 'no short has closed — both-ways is low-frequency, expected');
 activation('FX (both-ways cell)', fxAll, 'no FX trade has closed — RSI14 extremes are rare, ~5x/pair/yr');
+activation('Sector ETFs', etfAll, 'lab-proven but 0 forward trades — US-RTH only, awaiting first oversold dip');
 console.log('');
 
 console.log('EXPERIMENT cells (candidates to graduate):');
