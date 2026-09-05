@@ -14,7 +14,12 @@ export const REGIONS = [
   { key: 'asia', short: 'APAC', name: 'Asia-Pacific' },
 ];
 
-export function regionOfMarket(m) { return (m && m.category === 'Crypto') ? 'crypto' : (REGION_OF_COUNTRY[m && m.country] || 'americas'); }
+// Global, non-regional markets — they trade 24h and aren't tied to one exchange's
+// region, so they show in every region view (like crypto). A EUR/USD pair isn't
+// "European" and Gold isn't American; only equity indices/ETFs are regional.
+const GLOBAL_CATS = new Set(['Crypto', 'Currencies', 'Energy', 'Metals', 'Rates', 'Ags', 'Volatility']);
+export function isGlobalMarket(m) { return !!(m && GLOBAL_CATS.has(m.category)); }
+export function regionOfMarket(m) { return isGlobalMarket(m) ? 'global' : (REGION_OF_COUNTRY[m && m.country] || 'americas'); }
 
 // The active region: the user's explicit pick, else their geo region, else 'all'.
 export function activeRegion() {
@@ -26,7 +31,7 @@ export function activeRegion() {
 export function inActiveRegion(m) {
   const r = activeRegion();
   if (r === 'all') return true;
-  return regionOfMarket(m) === r || (m && m.category === 'Crypto'); // crypto always shows
+  return regionOfMarket(m) === r || isGlobalMarket(m); // global markets always show
 }
 
 // The region-pulse chips: each region's live breadth + open/closed status; the

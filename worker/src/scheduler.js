@@ -7,6 +7,7 @@ import { STRATEGY } from './meta.js';
 import { computeAdaptive } from './adaptive.js';
 import { highImpactToday } from './calendar.js';
 import { computeTrend, trendShouldExit } from './trend.js';
+import { computeBothMR, bothMRShouldExit } from './bothways.js';
 
 const dayKey = (ms) => new Date(ms).toISOString().slice(0, 10);
 
@@ -19,9 +20,9 @@ function changeEvents(prev, sig) {
   if (pv && pv !== nv) {
     // Vague, recipe-free wording — no RSI2 readings or thresholds in the timeline. A
     // trend BUY is a continuation (no rsi2), not an oversold dip.
-    if (nv === 'BUY') ev.push(sig.rsi2 == null
+    if (nv === 'BUY') ev.push(sig.strat === 'trend'
       ? 'Fired a BUY — trend continuation in an established uptrend.'
-      : 'Fired a BUY — oversold dip in an uptrend.');
+      : 'Fired a BUY — oversold dip.');
     else if (nv === 'SELL') ev.push('Fired a SELL — overbought pop in a downtrend.');
     else if (pv === 'BUY' || pv === 'SELL') ev.push('Setup cleared — back to no-trade.');
   }
@@ -159,22 +160,29 @@ export async function runTick(env, store) {
     try {
       const meta = MARKETS[symbol];
       const { candles, live, liveTime } = await fetchDailyCandles(meta, env);
-      // ENSEMBLE: compute both engines. Mean-reversion (the dip-buyer) + trend-
-      // follow (continuation). They fire on different conditions, so at most one
-      // opens per market; each is managed by its own exit rule.
-      const mrSig = computeSignal(candles, live);
-      // Express the evolved dials in the MR plan (stop scaled by the global dial).
-      if (mrSig.plan && dials && dials.stopMult) {
-        const scale = dials.stopMult / STRATEGY.stopAtrMult;
-        const long = mrSig.direction > 0;
-        const r = mrSig.plan.risk * scale;
-        mrSig.plan = { ...mrSig.plan, risk: r, stop: long ? mrSig.plan.entry - r : mrSig.plan.entry + r, target1: long ? mrSig.plan.entry + r : mrSig.plan.entry - r, stopMult: dials.stopMult, sizeMult: dials.sizeMult };
+      const bothWays = meta.engine === 'mrBoth';
+      // BOTH-WAYS cells (FX, commodities — symmetric assets) use the long+short MR
+      // engine. Everything else uses the equity ENSEMBLE: mean-reversion dip-buyer +
+      // trend-follow continuation, long-only, at most one opens per market.
+      let mrSig, trendSig;
+      if (bothWays) {
+        mrSig = computeBothMR(candles, live, meta.cell);
+        trendSig = { verdict: 'NO_TRADE' };
+      } else {
+        mrSig = computeSignal(candles, live);
+        // Express the evolved dials in the MR plan (stop scaled by the global dial).
+        if (mrSig.plan && dials && dials.stopMult) {
+          const scale = dials.stopMult / STRATEGY.stopAtrMult;
+          const long = mrSig.direction > 0;
+          const r = mrSig.plan.risk * scale;
+          mrSig.plan = { ...mrSig.plan, risk: r, stop: long ? mrSig.plan.entry - r : mrSig.plan.entry + r, target1: long ? mrSig.plan.entry + r : mrSig.plan.entry - r, stopMult: dials.stopMult, sizeMult: dials.sizeMult };
+        }
+        trendSig = computeTrend(candles, live);
       }
-      const trendSig = computeTrend(candles, live);
       const now = Date.now();
-      // The signal shown for the market: whichever engine is actionable (dip first,
-      // else trend), else the mean-reversion no-trade state.
-      const displaySig = mrSig.verdict === 'BUY' ? mrSig : (trendSig.verdict === 'BUY' ? trendSig : mrSig);
+      // The signal shown: for both-ways, the MR signal (BUY/SELL/no-trade); for the
+      // ensemble, whichever engine is actionable (dip first, else trend).
+      const displaySig = bothWays ? mrSig : (mrSig.verdict === 'BUY' ? mrSig : (trendSig.verdict === 'BUY' ? trendSig : mrSig));
       const prev = bySym[symbol];
       const actionable = displaySig.verdict === 'BUY' || displaySig.verdict === 'SELL';
       if (actionable && (!prev || prev.verdict !== displaySig.verdict)) {
@@ -182,6 +190,10 @@ export async function runTick(env, store) {
       }
       const prevClose = candles.length >= 2 ? candles[candles.length - 2].c : (candles.length ? candles[candles.length - 1].c : null);
       const history = candles.slice(-64).map((c) => ({ t: c.t, c: Math.round(c.c * 100) / 100 }));
+      // Tag the engine that produced the shown signal (both-ways is mean-reversion),
+      // set before the timeline so its wording is correct (dip vs continuation).
+      const dispStrat = (!bothWays && displaySig === trendSig) ? 'trend' : 'mr';
+      displaySig.strat = dispStrat;
       const evs = changeEvents(prev, displaySig);
       if (evs.length) {
         hist[symbol] = hist[symbol] || [];
@@ -191,13 +203,16 @@ export async function runTick(env, store) {
       }
       // News/event regime filter: stand aside on a high-impact event day.
       const newsHold = highImpactToday(meta.country, new Date(now));
-      const dispStrat = displaySig === trendSig ? 'trend' : 'mr';
       bySym[symbol] = { symbol, name: meta.name, updatedAt: now, ...displaySig, live, liveTime, prevClose, history, newsHold: newsHold ? newsHold.name : null, strat: dispStrat };
       const canOpen = isOpen(meta) && !meta.noTrade && !newsHold;
-      // Manage the open position with ITS engine's exit; if flat, try MR then trend.
+      // Manage the open position with ITS engine's exit; if flat, open a new one.
       const pos = record.open[symbol];
       let res;
-      if (pos) {
+      if (bothWays) {
+        // One call: manages an open long/short with the both-ways MR exit, or opens
+        // from a fresh BUY/SELL when flat (processPosition already handles SHORT).
+        res = processPosition({ symbol, meta, sig: mrSig, live, open: canOpen, record, now, risk, cost, dials, strat: 'mr', shouldExit: bothMRShouldExit });
+      } else if (pos) {
         const isTrend = pos.strat === 'trend';
         res = processPosition({ symbol, meta, sig: isTrend ? trendSig : mrSig, live, open: canOpen, record, now, risk, cost, dials, strat: pos.strat, shouldExit: isTrend ? trendShouldExit : mrShouldExit });
       } else {
@@ -216,10 +231,14 @@ export async function runTick(env, store) {
       // strips. Only for a still-open position.
       const openPos = record.open[symbol];
       if (openPos) {
+        const long = (openPos.side || 'LONG') === 'LONG';
         if (openPos.strat === 'trend') openPos.call = 'trend';
-        else {
+        else if (bothWays) {
+          // Both-ways MR: book profit once the cell's RSI reverts through the mid.
+          const rNow = mrSig && typeof mrSig.rsiMR === 'number' ? mrSig.rsiMR : null;
+          openPos.call = (rNow != null && (long ? rNow >= 50 : rNow <= 50)) ? 'profit' : 'hold';
+        } else {
           const rsiNow = mrSig && typeof mrSig.rsi2 === 'number' ? mrSig.rsi2 : null;
-          const long = (openPos.side || 'LONG') === 'LONG';
           const exit = openPos.exitAbove;
           openPos.call = (rsiNow != null && exit != null && (long ? rsiNow >= exit : rsiNow <= (100 - exit))) ? 'profit' : 'hold';
         }

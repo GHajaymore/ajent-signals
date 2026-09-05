@@ -55,16 +55,33 @@ export const ASSET_CLASSES = {
     },
   },
 
-  // FOREX was DROPPED — the lab (test/phase1.mjs) found the recipe does NOT hold on
-  // forex majors (mixed/negative, thin sample, same verdict as crypto). Not added.
+  // FX — the LONG-ONLY swing recipe was dropped (phase1.mjs: doesn't hold on forex).
+  // But FX is symmetric (no up-drift), so the BOTH-WAYS mean-reversion engine
+  // (src/bothways.js, style 'mrBoth') works long AND short. Validated through the
+  // promotion gate (test/promote.mjs + bothways-engine.mjs, 5/5, shorts positive).
+  // EXPERIMENT: modest backtest n, so tracked + unproven, trades into the shared
+  // record like crypto — graduates to 'live' once the forward record confirms.
+  fx: {
+    key: 'fx', name: 'Forex', model: 'tracked',
+    universe: ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD'],
+    styles: { mrBoth: { status: 'experiment', markets: ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD'] } },
+  },
+  // Commodities — same both-ways MR engine (RSI2 dip/pop + SMA50 side + momentum),
+  // same EXPERIMENT status. Validated cell (promote.mjs: pf 3.06, shorts +0.144).
+  commodity: {
+    key: 'commodity', name: 'Commodities', model: 'tracked',
+    universe: ['GC', 'SI', 'HG', 'CL', 'NG'],
+    styles: { mrBoth: { status: 'experiment', markets: ['GC', 'SI', 'HG', 'CL', 'NG'] } },
+  },
 
   // ── Phase 2 stub — DECLARED, not wired (screener model, see docs/phase-0-multi-asset.md).
   // stocks: { key: 'stocks', name: 'Stocks', model: 'screener', scan: {}, styles: { swing: { status: 'planned' } } },
 };
 
 // The trading styles that can appear across classes (a style is a column; a class is
-// a row; a cell is their intersection). Order = display order.
-export const STYLES = ['swing', 'day'];
+// a row; a cell is their intersection). Order = display order. 'mrBoth' = the
+// long+short mean-reversion engine used by the symmetric FX/commodity cells.
+export const STYLES = ['swing', 'day', 'mrBoth'];
 
 export function classFor(classKey) { return ASSET_CLASSES[classKey] || null; }
 

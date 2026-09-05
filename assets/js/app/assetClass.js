@@ -16,9 +16,11 @@ export const ASSET_GROUPS = [
 export const ASSET_BY_KEY = Object.fromEntries(ASSET_GROUPS.map((g) => [g.key, g]));
 
 // Which classes are validated/live vs. still an unproven experiment — drives the
-// honest labelling on the per-class record (never present crypto as proven).
+// honest labelling on the per-class record. FX + the commodity 'futures' group are
+// new both-ways MR cells (2026-09-04): validated in backtest but modest n, so they
+// ship as EXPERIMENT until the forward record confirms. Never present them as proven.
 export const PROVEN_CLASSES = new Set(['index', 'etf']);
-export const EXPERIMENT_CLASSES = new Set(['crypto']);
+export const EXPERIMENT_CLASSES = new Set(['crypto', 'fx', 'futures']);
 
 const CAT_TO_GROUP = {};
 for (const g of ASSET_GROUPS) for (const c of g.cats) CAT_TO_GROUP[c] = g.key;
