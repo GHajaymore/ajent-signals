@@ -32,7 +32,12 @@ export async function runDayTick(env, store) {
 
   const prevBlob = await store.get('SIGNALS_DAY', 'ALL');
   const bySym = {};
-  if (prevBlob && Array.isArray(prevBlob.signals)) for (const s of prevBlob.signals) bySym[s.symbol] = s;
+  const prevVerdict = {};
+  if (prevBlob && Array.isArray(prevBlob.signals)) for (const s of prevBlob.signals) { bySym[s.symbol] = s; prevVerdict[s.symbol] = s.verdict; }
+  // Write-budget dedup: the day experiment is idle most of the time (no position, all
+  // NO_TRADE), and Cloudflare's free KV tier caps writes at ~1,000/day. So only persist
+  // the blobs when something actually changed — a verdict flip, a trade, or an open hold.
+  let sigChanged = !prevBlob;
 
   const stored = await store.get('RECORD_DAY', 'ALL');
   // Recipe reset: when the intraday rule changes (recipe bump), start the experiment's
@@ -84,13 +89,17 @@ export async function runDayTick(env, store) {
         events.push({ type: 'position.open', event: 'open', symbol, name: meta.name, price: entry, at: now, experiment: true });
       }
 
+      if (prevVerdict[symbol] !== sig.verdict) sigChanged = true;
       bySym[symbol] = { symbol, name: meta.name, updatedAt: now, ...sig, live, liveTime, open, strat: 'day', experiment: true };
     } catch (e) { /* skip this market this tick — last-known signal carries forward */ }
   }
 
   const summary = summarize(record.closed);
-  try { await store.put({ pk: 'RECORD_DAY', sk: 'ALL', updatedAt: now, recipe: DAYTRADE.recipe, open: record.open, closed: record.closed, lastClose: record.lastClose }); } catch (e) { /* retried next tick */ }
-  try { await store.put({ pk: 'SIGNALS_DAY', sk: 'ALL', updatedAt: now, signals: Object.values(bySym), summary }); } catch (e) { /* retried next tick */ }
+  const traded = events.length > 0;                 // a position opened or closed
+  const holding = Object.keys(record.open).length > 0; // keep the live price fresh while in a trade
+  // RECORD_DAY only changes on a trade (or a recipe reset); SIGNALS_DAY on any of the above.
+  if (traded || recipeChanged) { try { await store.put({ pk: 'RECORD_DAY', sk: 'ALL', updatedAt: now, recipe: DAYTRADE.recipe, open: record.open, closed: record.closed, lastClose: record.lastClose }); } catch (e) { /* retried next tick */ } }
+  if (sigChanged || traded || holding || recipeChanged) { try { await store.put({ pk: 'SIGNALS_DAY', sk: 'ALL', updatedAt: now, signals: Object.values(bySym), summary }); } catch (e) { /* retried next tick */ } }
   const openBuy = events.some((e) => e.type === 'position.open');
   return { events: events.length, openBuy, summary };
 }

@@ -14,7 +14,7 @@ workers_dev = true
 # for the stock scan — it fetches ~40 names and would blow the 5-min loop's 50-
 # subrequest free-tier budget if it shared a tick. 22:10 UTC = after the US close.
 [triggers]
-crons = ["*/5 * * * *", "10 22 * * *"]
+crons = ["*/2 * * * *", "10 22 * * *"]
 
 # Branded API endpoint — READY BUT NOT YET LIVE. ajailabs.app DNS is still
 # authoritative on GoDaddy (ns*.domaincontrol.com), so this Worker custom domain

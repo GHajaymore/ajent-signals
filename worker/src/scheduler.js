@@ -12,16 +12,31 @@ import { computeBothMR, bothMRShouldExit } from './bothways.js';
 const dayKey = (ms) => new Date(ms).toISOString().slice(0, 10);
 
 // FREE-TIER SCAN BUDGET. Each market is one subrequest and Cloudflare's free tier caps
-// an invocation at 50 subrequests. Fetching every board market every tick capped the
-// universe at ~45; instead we scan a ROTATING BATCH each tick and carry every other
-// market's last-known signal forward from the stored SIGNALS blob. Daily-bar signals
-// change slowly, so a market refreshing every few ticks (minutes) instead of every tick
-// is indistinguishable in the signal — but the universe can now grow well past the
-// per-tick cap. Open-position markets are ALWAYS scanned so exits (stop / RSI / time)
-// are never delayed a full rotation. MAX_FETCHES hard-bounds board fetches per tick so
-// that board + the day tick (~4) + KV overhead stays comfortably under 50.
-const SCAN_BATCH_SIZE = 20;
-const MAX_FETCHES = 40;
+// an invocation at 50 subrequests. Two things keep us safely under it while letting the
+// universe grow and the ACTIVE markets stay fresh:
+//   1. Scan only markets whose exchange is OPEN this tick. A closed market's price is
+//      static, so its last signal carries forward from the stored SIGNALS blob — no
+//      wasted fetch. Open markets therefore refresh EVERY tick, not once per rotation.
+//   2. If more markets are open at once than the budget allows, rotate a BATCH through
+//      the open pool (cursor persisted), so no single tick exceeds the cap.
+// Open-position markets are ALWAYS scanned (even if their exchange just closed) so exits
+// (stop / RSI / time) are never delayed. MAX_FETCHES hard-bounds board fetches per tick
+// so board + the day tick (~4) + KV overhead stays comfortably under 50.
+const SCAN_BATCH_SIZE = 30;
+const MAX_FETCHES = 34;
+
+// DYNAMIC CADENCE. The cron fires often (every 2 min), but a tick only actually SCANS —
+// fetching + writing — when enough time has passed FOR THE CURRENT ACTIVITY LEVEL. More
+// open markets (a live session) or an open position → scan sooner; a quiet board → wait
+// longer. This makes the effective refresh fast when markets are active and slow when
+// little is trading, so the free-tier KV write budget (~1,000/day) isn't spent idling
+// overnight. Thresholds sit just under the wall-clock so a 2-min tick reliably passes.
+function scanIntervalMs(openCount, hasOpenPos) {
+  if (hasOpenPos || openCount >= 16) return 110_000;  // holding, or a busy session → ~2 min
+  if (openCount >= 6) return 230_000;                 // one session partly open → ~4 min
+  if (openCount >= 1) return 290_000;                 // only globals (crypto/FX) → ~5 min
+  return 890_000;                                     // nothing open at all → ~15 min
+}
 
 // Meaningful transitions for the per-market signal timeline (verdict flips,
 // proximity milestones, deep-oversold). Honest, real-state changes only — nothing
@@ -153,17 +168,26 @@ export async function runTick(env, store) {
   // cursor persists in the record blob (no extra KV read). Open positions are always
   // included so their exits are checked every tick; MAX_FETCHES caps the total.
   const allSymbols = Object.keys(MARKETS);
-  const cursor = Number.isInteger(record.scanCursor) ? ((record.scanCursor % allSymbols.length) + allSymbols.length) % allSymbols.length : 0;
+  const openPool = allSymbols.filter((s) => isOpen(MARKETS[s]));
+  const pool = openPool.length ? openPool : allSymbols; // nothing open (rare) → rotate all
+  const cursor = Number.isInteger(record.scanCursor) ? ((record.scanCursor % pool.length) + pool.length) % pool.length : 0;
   const batch = [];
-  for (let i = 0; i < Math.min(SCAN_BATCH_SIZE, allSymbols.length); i++) batch.push(allSymbols[(cursor + i) % allSymbols.length]);
-  const openSyms = Object.keys(record.open).filter((s) => MARKETS[s]);
+  for (let i = 0; i < Math.min(SCAN_BATCH_SIZE, pool.length); i++) batch.push(pool[(cursor + i) % pool.length]);
+  const openSyms = Object.keys(record.open).filter((s) => MARKETS[s]); // always manage positions
   let scanSet = [...new Set([...openSyms, ...batch])];
   if (scanSet.length > MAX_FETCHES) {
     // Managing open positions is the priority; fill remaining slots with batch symbols.
     const room = Math.max(0, MAX_FETCHES - openSyms.length);
     scanSet = [...new Set([...openSyms, ...batch.slice(0, room)])];
   }
-  record.scanCursor = (cursor + SCAN_BATCH_SIZE) % allSymbols.length;
+  record.scanCursor = (cursor + SCAN_BATCH_SIZE) % pool.length;
+  // Dynamic-cadence gate: skip this tick entirely (no fetches, no writes) unless enough
+  // time has passed for the current activity level. The last real scan is stamped on the
+  // SIGNALS blob's updatedAt. Skipped ticks cost only the KV reads already done above.
+  const lastScan = (prevBlob && prevBlob.updatedAt) || 0;
+  if (nowMs - lastScan < scanIntervalMs(openPool.length, openSyms.length > 0)) {
+    return { skipped: true, openCount: openPool.length, sinceLastScanMs: nowMs - lastScan };
+  }
   // Per-market signal timeline (bounded rolling log). Read once, written once only
   // if something changed this tick.
   const histBlob = (await store.get('HISTORY', 'ALL')) || {};
