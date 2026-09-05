@@ -7,7 +7,7 @@ import { fmtPrice } from '../format.js';
 import { state, getEnabledPaperMarkets, setPaperMarketEnabled, setAllPaperMarkets, setPaperMarkets, FREE_MARKET_LIMIT } from '../state.js';
 import { isEntitled } from '../backendApi.js';
 import { CATEGORY_ORDER } from '../mockEngine.js';
-import { groupForSymbol, labelForKey, EXPERIMENT_CLASSES } from '../assetClass.js';
+import { groupForSymbol, labelForKey, EXPERIMENT_CLASSES, ASSET_GROUPS } from '../assetClass.js';
 import { hoverAttrs, hoverLayerSvg, wireChartHover } from '../chartHover.js';
 import { shareOrCopy } from '../share.js';
 import { dayExperimentPanelHtml, wireDayExperiment } from '../dayExperiment.js';
@@ -335,6 +335,31 @@ function byAssetClassStats(closed) {
   }
   return [...map.values()].sort((a, b) => b.pnl - a.pnl);
 }
+
+// Where each market stands — the honest lifecycle at a glance. Lists EVERY asset-class
+// cell (even ones with no trade yet), its proven/experiment status, its trade direction,
+// and how many live trades it has on the record. Makes the promote→experiment→graduate
+// path visible to users, not just something that happens in the lab.
+const CELL_DIR = { index: 'Long-only', etf: 'Long-only', crypto: 'Long-only', fx: 'Both ways', futures: 'Both ways' };
+function strategyStatusHtml(closed) {
+  const count = {};
+  for (const c of closed) { const k = groupForSymbol(c.symbol) || 'other'; count[k] = (count[k] || 0) + 1; }
+  const cells = ASSET_GROUPS.filter((g) => CELL_DIR[g.key]).sort((a, b) => (EXPERIMENT_CLASSES.has(a.key) - EXPERIMENT_CLASSES.has(b.key)));
+  const rows = cells.map((g) => {
+    const proven = !EXPERIMENT_CLASSES.has(g.key);
+    const n = count[g.key] || 0;
+    const badge = proven ? '<span class="cell-badge live">PROVEN</span>' : '<span class="cell-badge exp">EXPERIMENT</span>';
+    return `<div class="cell-row">
+      <div class="cell-main"><span class="cell-name">${g.label}</span>${badge}</div>
+      <div class="cell-meta">${CELL_DIR[g.key]} · <b>${n}</b> live trade${n === 1 ? '' : 's'}</div>
+    </div>`;
+  }).join('');
+  return `
+    <div class="section-label">Strategy status</div>
+    <div class="card" style="padding:2px 12px">${rows}</div>
+    <div class="text-faint" style="font-size:11px;line-height:1.5;margin:6px 2px 14px">Every market clears a validation gate to ship as an <b>experiment</b>, then earns <b>proven</b> only once its own live record confirms the edge. Nothing here is a promise.</div>`;
+}
+
 function byAssetClassHtml(closed) {
   const rows = byAssetClassStats(closed);
   if (rows.length < 2) return ''; // need at least two classes to compare
@@ -837,6 +862,8 @@ export function render(container) {
     ${pnlPanel(closed)}
 
     <div id="open-wrap" data-sig="${openSig()}">${openList()}</div>
+
+    ${strategyStatusHtml(closed)}
 
     ${byAssetClassHtml(closed)}
 

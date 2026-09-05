@@ -98,6 +98,16 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .stk-breadth { height: 4px; border-radius: 2px; background: var(--neutral-900); overflow: hidden; margin: 0 0 14px; }
 .stk-breadth span { display: block; height: 100%; background: var(--buy); border-radius: 2px; }
 .stk-badge { font: 700 8px var(--font-mono); letter-spacing: 0.05em; background: color-mix(in srgb, var(--buy) 20%, transparent); color: var(--buy); padding: 1px 5px; border-radius: 4px; vertical-align: middle; margin-left: 4px; }
+
+/* Strategy-status cells (Paper) — the proven/experiment lifecycle at a glance */
+.cell-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 2px; border-top: 1px solid var(--hairline); }
+.cell-row:first-child { border-top: none; }
+.cell-main { display: flex; align-items: center; gap: 8px; }
+.cell-name { font: 700 13.5px var(--font-heading); }
+.cell-badge { font: 700 8.5px var(--font-mono); letter-spacing: 0.05em; padding: 2px 6px; border-radius: 5px; }
+.cell-badge.live { background: color-mix(in srgb, var(--buy) 20%, transparent); color: var(--buy); }
+.cell-badge.exp { background: var(--neutral-800); color: var(--text-muted); }
+.cell-meta { font: 500 11.5px var(--font-mono); color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .stk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 @media (max-width: 420px) { .stk-grid { grid-template-columns: 1fr; } }
 .stk-card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 13px; padding: 12px 13px; }
