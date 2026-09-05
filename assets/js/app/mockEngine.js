@@ -63,8 +63,8 @@ const MARKET_DEFS = [
   { symbol: 'HG', name: 'Copper', category: 'Metals', exchange: 'COMEX', country: 'US', decimals: 4, pointValue: 25000, basePrice: 4.352, atrPct: 0.014 },
   { symbol: 'ZN', name: '10-Year T-Note', category: 'Rates', exchange: 'CBOT', country: 'US', decimals: 3, pointValue: 1000, basePrice: 109.516, atrPct: 0.003 },
   { symbol: 'ZB', name: '30-Year T-Bond', category: 'Rates', exchange: 'CBOT', country: 'US', decimals: 3, pointValue: 1000, basePrice: 118.25, atrPct: 0.005 },
-  { symbol: 'BTC', name: 'Bitcoin', category: 'Crypto', exchange: 'CME', country: 'US', decimals: 0, pointValue: 5, basePrice: 68210, atrPct: 0.022 },
-  { symbol: 'ETH', name: 'Ether', category: 'Crypto', exchange: 'CME', country: 'US', decimals: 1, pointValue: 50, basePrice: 3384.2, atrPct: 0.026 },
+  { symbol: 'BTC', name: 'Bitcoin', category: 'Crypto', exchange: 'Coinbase', country: 'US', decimals: 0, pointValue: 5, basePrice: 68210, atrPct: 0.022 },
+  { symbol: 'ETH', name: 'Ether', category: 'Crypto', exchange: 'Coinbase', country: 'US', decimals: 1, pointValue: 50, basePrice: 3384.2, atrPct: 0.026 },
   // Sector ETFs — Phase 1 (2026-09-04). Lab-validated (test/phase1.mjs): the swing
   // mean-reversion edge holds on these NEW underlyings (8/8 sectors positive), unlike
   // forex, which was dropped. Traded by the worker into the swing record.
