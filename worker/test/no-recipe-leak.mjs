@@ -71,7 +71,7 @@ const API = process.env.AJENT_API && process.env.AJENT_API.replace(/\/+$/, '');
 if (!API) {
   console.log('  · live-payload scan SKIPPED (set AJENT_API=https://… to enable)');
 } else {
-  const endpoints = ['/signals', '/trades', '/day', '/history?symbol=ES', '/history?symbol=BTC'];
+  const endpoints = ['/signals', '/trades', '/day', '/stocks', '/history?symbol=ES', '/history?symbol=BTC'];
   for (const ep of endpoints) {
     try {
       const r = await fetch(API + ep, { cache: 'no-store' });

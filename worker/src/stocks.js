@@ -7,14 +7,22 @@
 import { fetchDailyCandles } from './data.js';
 import { computeSignal } from './strategy.js';
 
-// Diverse, liquid large caps (one+ per sector). Yahoo tickers == symbols.
+// Diverse, liquid large caps across every sector (~60 names). A wider net = more
+// setups firing on any given day, so the screener is useful more often. Yahoo tickers
+// == symbols. The daily-only scan keeps the extra names cheap (one pass per calendar day).
 export const STOCK_UNIVERSE = [
-  'AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'AVGO', 'AMD', 'CSCO', 'ORCL', 'CRM', 'ADBE',
-  'JPM', 'BAC', 'V', 'MA', 'GS',
-  'UNH', 'LLY', 'JNJ', 'ABBV', 'MRK', 'TMO',
-  'XOM', 'CVX',
-  'WMT', 'COST', 'HD', 'PG', 'KO', 'PEP', 'MCD', 'NKE',
-  'CAT', 'GE', 'BA', 'DIS', 'NFLX',
+  // Tech & semis
+  'AAPL', 'MSFT', 'NVDA', 'AVGO', 'AMD', 'CSCO', 'ORCL', 'CRM', 'ADBE', 'INTU', 'QCOM', 'TXN', 'IBM', 'NOW', 'MU', 'LRCX', 'AMAT',
+  // Comms & internet
+  'GOOGL', 'META', 'NFLX', 'DIS', 'CMCSA', 'T', 'VZ',
+  // Consumer
+  'AMZN', 'TSLA', 'WMT', 'COST', 'HD', 'LOW', 'PG', 'KO', 'PEP', 'MCD', 'SBUX', 'NKE', 'TGT', 'TJX',
+  // Financials
+  'JPM', 'BAC', 'WFC', 'MS', 'GS', 'V', 'MA', 'AXP', 'BLK', 'SCHW',
+  // Health care
+  'UNH', 'LLY', 'JNJ', 'ABBV', 'MRK', 'PFE', 'TMO', 'ABT', 'DHR', 'BMY',
+  // Industrials & energy
+  'CAT', 'GE', 'BA', 'HON', 'UNP', 'DE', 'LMT', 'RTX', 'XOM', 'CVX', 'COP',
 ];
 
 // Scan the universe: compute the production swing signal for each name on its daily
@@ -32,7 +40,10 @@ export async function scanStocks(env) {
         const sig = computeSignal(candles, price);
         return {
           symbol: sym, name: sym, verdict: sig.verdict, confidence: sig.confidence,
-          proximity: sig.proximity, rsi2: sig.rsi2, htfTrend: sig.htfTrend, price,
+          // proximity + a coarse conviction flag are display-safe; the raw RSI reading
+          // (rsi2) is the recipe and is NEVER sent (guarded by test/no-recipe-leak).
+          proximity: sig.proximity, htfTrend: sig.htfTrend, price,
+          conviction: sig.plan && sig.plan.conviction === 'high' ? 'high' : 'normal',
           // Levels only — exitAbove/stopMult are the proprietary recipe, never sent.
           plan: sig.plan ? { entry: sig.plan.entry, stop: sig.plan.stop, target1: sig.plan.target1, riskReward: sig.plan.riskReward } : null,
         };

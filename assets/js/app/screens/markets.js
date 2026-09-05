@@ -117,7 +117,10 @@ function assetChipsHtml() {
   if (groups.length < 2) { assetClass = 'all'; return ''; }
   if (assetClass !== 'all' && !groups.some((g) => g.key === assetClass)) assetClass = 'all';
   const chip = (key, label) => `<button class="aclass-chip ${assetClass === key ? 'on' : ''}" data-aclass="${key}">${label}</button>`;
-  return `<div class="aclass-scroll"><div class="aclass">${chip('all', 'All')}${groups.map((g) => chip(g.key, g.label)).join('')}</div></div>`;
+  // "Stocks" is a nav chip (the screener is its own scan-and-rank screen), sitting in
+  // the same row users scan for an asset class, with an ↗ to signal it opens a screen.
+  const stocksChip = '<button class="aclass-chip nav" data-aclass="stocks">Stocks <i class="ph-bold ph-arrow-up-right" style="font-size:11px;vertical-align:-1px"></i></button>';
+  return `<div class="aclass-scroll"><div class="aclass">${chip('all', 'All')}${groups.map((g) => chip(g.key, g.label)).join('')}${stocksChip}</div></div>`;
 }
 
 // A fired, real signal the engine flags as its strongest tier (the deepest,
@@ -304,12 +307,6 @@ export function render(container) {
 
     <div id="aclass-wrap">${assetChipsHtml()}</div>
 
-    <a class="stk-link" data-nav="#/stocks">
-      <span class="stk-link-ic"><i class="ph-fill ph-magnifying-glass-plus"></i></span>
-      <span class="stk-link-body"><b>Stock screener</b><small>Swing signals across 38 large-caps · new</small></span>
-      <i class="ph-bold ph-caret-right"></i>
-    </a>
-
     <div id="mkt-view-wrap">${viewToggle()}</div>
 
     <div id="mkt-filters-wrap"${view === 'heat' ? ' hidden' : ''}>${filterChips()}</div>
@@ -330,7 +327,9 @@ export function render(container) {
   const aclassWrap = container.querySelector('#aclass-wrap');
   if (aclassWrap) aclassWrap.addEventListener('click', (e) => {
     const c = e.target.closest('.aclass-chip');
-    if (!c || c.dataset.aclass === assetClass) return;
+    if (!c) return;
+    if (c.dataset.aclass === 'stocks') { location.hash = '#/stocks'; return; } // nav, not a filter
+    if (c.dataset.aclass === assetClass) return;
     assetClass = c.dataset.aclass;
     aclassWrap.querySelectorAll('.aclass-chip').forEach((b) => b.classList.toggle('on', b.dataset.aclass === assetClass));
     const bw = container.querySelector('#breadth-wrap'); if (bw) bw.innerHTML = breadthHtml();

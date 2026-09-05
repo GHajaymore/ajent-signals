@@ -131,12 +131,15 @@ export default {
     // guardrails), recipe stripped like /signals. Ungated + transparent.
     if (url.pathname === '/stocks') {
       const blob = await db(env).get('SIGNALS_STOCKS', 'ALL');
+      // Strip the recipe reading (rsi2) here too — defence in depth, so even a blob
+      // scanned by an older build is served clean (guarded by test/no-recipe-leak).
+      const stocks = ((blob && blob.stocks) || []).map(({ rsi2, ...row }) => row);
       return json({
         updatedAt: (blob && blob.at) || 0,
         day: (blob && blob.day) || null,
         experiment: true,
         status: 'SCREENER — the proven swing strategy scanned across a diversified large-cap universe, refreshed daily. These are signals to consider, NOT auto-traded into the tracked record. Educational, not advice.',
-        stocks: (blob && blob.stocks) || [],
+        stocks,
         notice: NOTICE,
       });
     }

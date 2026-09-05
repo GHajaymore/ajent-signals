@@ -8,18 +8,20 @@ import { fmtPrice } from '../format.js';
 let cache = null;
 
 function buyCard(s) {
+  const conv = s.conviction === 'high';
   return `<div class="stk-card buy">
     <div class="stk-top"><span class="stk-sym">${s.symbol}</span><span class="stk-verdict">↗ BUY</span></div>
-    <div class="stk-row2"><span class="stk-px">${fmtPrice(s.price, 2)}</span><span class="stk-conf">${s.confidence}% conf</span></div>
+    <div class="stk-row2"><span class="stk-px">${fmtPrice(s.price, 2)}</span><span class="stk-conf">${s.confidence}% conf${conv ? ' <span class="stk-badge">DEEP</span>' : ''}</span></div>
     ${s.plan ? `<div class="stk-plan"><span>Entry <b>${fmtPrice(s.plan.entry, 2)}</b></span><span>Stop <b style="color:var(--sell)">${fmtPrice(s.plan.stop, 2)}</b></span><span>Target <b style="color:var(--buy)">${fmtPrice(s.plan.target1, 2)}</b></span></div>` : ''}
   </div>`;
 }
 
 function watchRow(s) {
-  return `<div class="stk-watch">
+  const prox = Math.max(0, Math.min(100, s.proximity || 0));
+  return `<div class="stk-watch" data-nav="#/signal/${s.symbol}" style="cursor:pointer">
     <span class="stk-sym">${s.symbol}</span>
-    <span class="stk-w-meta">${s.htfTrend === 'up' ? 'uptrend' : 'downtrend'}</span>
-    <div class="stk-prox"><div class="stk-prox-bar"><i style="width:${Math.max(2, s.proximity || 0)}%"></i></div><span>${s.proximity || 0}%</span></div>
+    <span class="stk-w-meta">${prox}% of the way to a setup</span>
+    <div class="stk-prox"><div class="stk-prox-bar"><i style="width:${Math.max(2, prox)}%"></i></div><span>${prox}%</span></div>
   </div>`;
 }
 
@@ -29,11 +31,16 @@ function content(data) {
     return `<div class="panel"><div class="text-muted" style="font-size:13px;line-height:1.6;padding:6px 2px">The screener runs once a day after the US close. Signals will appear here after the next scan.</div></div>`;
   }
   const buys = stocks.filter((s) => s.verdict === 'BUY');
-  const watch = stocks.filter((s) => s.verdict !== 'BUY' && (s.proximity || 0) > 0).sort((a, b) => (b.proximity || 0) - (a.proximity || 0)).slice(0, 10);
+  const upN = stocks.filter((s) => s.htfTrend === 'up').length;
+  // "Closest to firing" only lists names in an uptrend — a downtrend name can't fire a
+  // long, so it isn't honestly "close" to this long-only setup.
+  const watch = stocks.filter((s) => s.verdict !== 'BUY' && s.htfTrend === 'up' && (s.proximity || 0) > 0).sort((a, b) => (b.proximity || 0) - (a.proximity || 0)).slice(0, 12);
   const when = data.day ? `Scanned ${data.day}` : '';
+  const total = stocks.length || 1;
   return `
-    <div class="stk-summary"><span><b class="mono" style="color:var(--buy)">${buys.length}</b> firing</span><span><b class="mono">${stocks.length}</b> scanned</span><span class="text-faint">${when}</span></div>
-    ${buys.length ? `<div class="section-label">Firing now</div><div class="stk-grid">${buys.map(buyCard).join('')}</div>` : '<div class="panel"><div class="text-muted" style="font-size:13px;padding:6px 2px">No stock is firing a BUY right now — most of the time the honest answer is "no trade". The closest are below.</div></div>'}
+    <div class="stk-summary"><span><b class="mono" style="color:var(--buy)">${buys.length}</b> firing</span><span><b class="mono" style="color:var(--buy)">${upN}</b>/${stocks.length} in an uptrend</span><span class="text-faint">${when}</span></div>
+    <div class="stk-breadth"><span style="width:${Math.round((upN / total) * 100)}%"></span></div>
+    ${buys.length ? `<div class="section-label">Firing now</div><div class="stk-grid">${buys.map(buyCard).join('')}</div>` : '<div class="panel"><div class="text-muted" style="font-size:13px;padding:6px 2px">No stock is firing a BUY right now — most of the time the honest answer is "no trade". The uptrend names closest to a setup are below.</div></div>'}
     ${watch.length ? `<div class="section-label">Closest to firing</div><div class="panel" style="padding:2px 12px">${watch.map(watchRow).join('')}</div>` : ''}
   `;
 }
