@@ -72,7 +72,7 @@ import { isRealMarket } from './markets.js';
 import { inActiveRegion, regionChipsHtml, regionBarHtml, activeRegion } from '../regions.js';
 import { upcomingEvents, daysUntil } from '../econCalendar.js';
 import { fmtPrice } from '../format.js';
-import { positionCallPill, updateCallPill } from '../tradeGuidance.js';
+import { positionCallPill, updateCallPill, exitProgressText } from '../tradeGuidance.js';
 
 // --- Market news (Pro/trial) ------------------------------------------------
 let newsCache = null, newsCacheAt = 0;
@@ -377,7 +377,7 @@ function positionRow(p) {
   const long = (p.side || 'LONG') === 'LONG';
   const pnl = livePnl(p);
   const col = pnl ? (pnl.dollars >= 0 ? 'var(--buy)' : 'var(--sell)') : 'var(--text-muted)';
-  const pnlStr = pnl ? `${money(pnl.dollars)} · ${pnl.r >= 0 ? '+' : ''}${pnl.r.toFixed(2)}R` : '· · ·';
+  const pnlStr = pnl ? `${money(pnl.dollars)}${exitProgressText(p, pnl.px) ? ` · ${exitProgressText(p, pnl.px)}` : ''}` : '· · ·';
   const dec = market ? market.decimals : 2;
   return `<div class="setup-row" data-nav="#/chart/${p.symbol}" data-pos="${p.symbol}">
     ${symTile(p.symbol, 34)}
@@ -397,7 +397,7 @@ function openPositionsHtml() {
   if (!open.length) return '';
   return `<div class="section-label">Live paper positions</div>
     <div class="card" style="padding:2px 12px">${open.map(positionRow).join('')}</div>
-    <div class="text-faint" style="font-size:10.5px;line-height:1.5;margin:6px 2px 0">P&amp;L is measured against each trade's fixed risk (the <b>R</b> value) — so a big price move can still be a small&nbsp;$ when the stop is wide. A crypto stop is ~10% away, so a 0.1% move ≈ 0.01R.</div>`;
+    <div class="text-faint" style="font-size:10.5px;line-height:1.5;margin:6px 2px 0">Each trade stakes the same fixed amount, so the $ tracks how far the price has moved <b>toward the target</b> — not the raw price change. A crypto target is far away, so a small early move is only a few % of the way there.</div>`;
 }
 
 function greeting() {
@@ -746,7 +746,8 @@ export function refresh(container) {
         if (!el) return;
         const pnl = livePnl(p);
         if (!pnl) return;
-        el.textContent = `${money(pnl.dollars)} · ${pnl.r >= 0 ? '+' : ''}${pnl.r.toFixed(2)}R`;
+        const prog = exitProgressText(p, pnl.px);
+        el.textContent = `${money(pnl.dollars)}${prog ? ` · ${prog}` : ''}`;
         el.style.color = pnl.dollars >= 0 ? 'var(--buy)' : 'var(--sell)';
         updateCallPill(posWrap.querySelector(`[data-call="${p.symbol}"]`), state.engine.get(p.symbol), p);
       });

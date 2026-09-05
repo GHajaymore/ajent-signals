@@ -31,6 +31,24 @@ export function positionCall(market, pos) {
 
 function callInner(c) { return `<i class="ph-fill ${c.icon}"></i>${c.label}`; }
 // Compact pill markup for a position row (keyed by symbol so it can be live-patched).
+// Plain-language progress toward the target or stop for an open position — a jargon-free
+// stand-in for the "R multiple" (target = 100% to target, stop = 100% to stop). This is
+// what tells a user WHY a big price move can be a small $: a wide stop means the price is
+// only a few % of the way there.
+export function exitProgressText(p, price) {
+  if (!p || typeof price !== 'number' || p.entry == null) return '';
+  const long = (p.side || 'LONG') === 'LONG';
+  const diff = long ? (price - p.entry) : (p.entry - price); // > 0 = winning
+  if (Math.abs(diff) < Math.abs(p.entry) * 1e-6) return 'at entry';
+  const span = diff > 0
+    ? (p.target1 != null ? Math.abs(p.target1 - p.entry) : Math.abs(p.risk || 0))
+    : (p.stop != null ? Math.abs(p.stop - p.entry) : Math.abs(p.risk || 0));
+  if (!span) return '';
+  const pct = Math.min(100, (Math.abs(price - p.entry) / span) * 100);
+  const shown = pct < 1 ? '<1' : Math.round(pct);
+  return `${shown}% to ${diff > 0 ? 'target' : 'stop'}`;
+}
+
 export function positionCallPill(market, pos) {
   const c = positionCall(market, pos);
   return `<span class="call-pill ${c.status}" data-call="${pos.symbol}"${c.tip ? ` title="${c.tip.replace(/"/g, '&quot;')}"` : ''}>${callInner(c)}</span>`;

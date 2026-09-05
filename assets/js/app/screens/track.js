@@ -1,7 +1,7 @@
 import { getClosedTrades, getPerformanceSummary, getOpenPositions, tradePnl } from '../paperTrading.js';
 import { userStats, getUserBook, closeUserTrade } from '../userBook.js';
 import { customStats, ajentAvgR, getCustomBook } from '../customBook.js';
-import { positionCallPill, updateCallPill } from '../tradeGuidance.js';
+import { positionCallPill, updateCallPill, exitProgressText } from '../tradeGuidance.js';
 import { getStrategy, getAdaptive } from '../strategyMeta.js';
 import { fmtPrice } from '../format.js';
 import { state, getEnabledPaperMarkets, setPaperMarketEnabled, setAllPaperMarkets, setPaperMarkets, FREE_MARKET_LIMIT } from '../state.js';
@@ -572,7 +572,7 @@ function openRow(p) {
   const pnl = posLivePnl(p);
   const dec = market?.decimals ?? p.decimals ?? 2;
   const col = pnl ? (pnl.dollars >= 0 ? 'var(--buy)' : 'var(--sell)') : 'var(--text-muted)';
-  const pnlStr = pnl ? `${money(pnl.dollars)} · ${pnl.r >= 0 ? '+' : ''}${pnl.r.toFixed(2)}R` : 'live…';
+  const pnlStr = pnl ? `${money(pnl.dollars)}${exitProgressText(p, pnl.px) ? ` · ${exitProgressText(p, pnl.px)}` : ''}` : 'live…';
   return `<div class="closed-row" data-open-row="${p.symbol}" data-nav="#/chart/${p.symbol}" style="cursor:pointer;display:block;padding:11px 4px">
       <div style="display:flex;align-items:center;gap:12px">
         <div class="closed-sym">${p.symbol}</div>
@@ -1019,7 +1019,8 @@ export function refresh(container) {
         const pEl = openWrap.querySelector(`[data-open-pnl="${p.symbol}"]`);
         const bEl = openWrap.querySelector(`[data-open-bar="${p.symbol}"]`);
         if (pEl && pnl) {
-          pEl.textContent = `${money(pnl.dollars)} · ${pnl.r >= 0 ? '+' : ''}${pnl.r.toFixed(2)}R`;
+          const prog = exitProgressText(p, pnl.px);
+          pEl.textContent = `${money(pnl.dollars)}${prog ? ` · ${prog}` : ''}`;
           pEl.style.color = pnl.dollars >= 0 ? 'var(--buy)' : 'var(--sell)';
         }
         if (bEl && pnl) bEl.innerHTML = riskBar(pnl.r);
