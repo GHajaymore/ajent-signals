@@ -52,7 +52,7 @@ function focusClassLabel(k) {
 // when the region changes and the focused class has no markets there.)
 function classAvailable(cls) {
   if (cls === 'all') return true;
-  if (cls === 'stocks') { const r = activeRegion(); return r === 'all' || r === 'americas'; }
+  if (cls === 'stocks') return activeRegion() === 'americas'; // US large-cap screener
   return state.engine.markets.some((m) => (m.hasServerSignal || m.signalIsReal) && inActiveRegion(m) && groupForSymbol(m.symbol) === cls);
 }
 // The focus-class chip row slices the SWING board: All + each board class present +
@@ -65,8 +65,7 @@ function focusSelectorHtml() {
   const present = new Set(state.engine.markets.filter((m) => (m.hasServerSignal || m.signalIsReal) && inActiveRegion(m)).map((m) => groupForSymbol(m.symbol)));
   const chips = [{ key: 'all', label: 'All' }, ...ASSET_GROUPS.filter((g) => present.has(g.key)).map((g) => ({ key: g.key, label: g.label }))];
   // Stocks is a US large-cap screener, so it belongs to the Americas view.
-  const r = activeRegion();
-  if (r === 'all' || r === 'americas') chips.push({ key: 'stocks', label: 'Stocks' });
+  if (activeRegion() === 'americas') chips.push({ key: 'stocks', label: 'Stocks' }); // US screener
   return `<div class="focus-scroll"><div class="focus-row">${chips.map((c) => `<button class="focus-chip${state.focusClass === c.key ? ' on' : ''}" data-focus="${c.key}">${c.label}</button>`).join('')}</div></div>`;
 }
 import { isRealMarket } from './markets.js';

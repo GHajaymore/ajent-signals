@@ -21,16 +21,17 @@ const GLOBAL_CATS = new Set(['Crypto', 'Currencies', 'Energy', 'Metals', 'Rates'
 export function isGlobalMarket(m) { return !!(m && GLOBAL_CATS.has(m.category)); }
 export function regionOfMarket(m) { return isGlobalMarket(m) ? 'global' : (REGION_OF_COUNTRY[m && m.country] || 'americas'); }
 
-// The active region: the user's explicit pick, else their geo region, else 'all'.
+// The active region: the user views exactly ONE region at a time — their explicit pick,
+// else their geo region, else Americas. There is no 'all' view; global markets (crypto,
+// FX, commodities) show inside every region since they aren't tied to one exchange.
 export function activeRegion() {
   const set = state.settings.region;
-  if (set === 'all' || REGIONS.some((r) => r.key === set)) return set;
-  return REGION_OF_COUNTRY[state.geoCountry] || 'all';
+  if (REGIONS.some((r) => r.key === set)) return set;
+  return REGION_OF_COUNTRY[state.geoCountry] || 'americas';
 }
 
 export function inActiveRegion(m) {
   const r = activeRegion();
-  if (r === 'all') return true;
   return regionOfMarket(m) === r || isGlobalMarket(m); // global markets always show
 }
 
@@ -49,8 +50,9 @@ export function regionChipsHtml(engine) {
       <span class="rgn-brd" style="color:${lead ? 'var(--buy)' : 'var(--sell)'}">${lead ? '▲' : '▼'}${s.up}/${s.n}</span>
     </button>`;
   };
-  return REGIONS.map((r) => chip(r.key, r.short, stat((m) => regionOfMarket(m) === r.key), active === r.key)).join('')
-    + chip('all', 'ALL', stat(() => true), active === 'all');
+  // One region at a time — no 'All' view. Global markets (crypto/FX/commodities) appear
+  // inside whichever region is active, so nothing is hidden by dropping the overview.
+  return REGIONS.map((r) => chip(r.key, r.short, stat((m) => regionOfMarket(m) === r.key), active === r.key)).join('');
 }
 
 // Standard wrapper + delegated click wiring, reused by both screens. `onChange` is
