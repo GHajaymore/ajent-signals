@@ -396,7 +396,8 @@ function openPositionsHtml() {
   const open = focusOpen();
   if (!open.length) return '';
   return `<div class="section-label">Live paper positions</div>
-    <div class="card" style="padding:2px 12px">${open.map(positionRow).join('')}</div>`;
+    <div class="card" style="padding:2px 12px">${open.map(positionRow).join('')}</div>
+    <div class="text-faint" style="font-size:10.5px;line-height:1.5;margin:6px 2px 0">P&amp;L is measured against each trade's fixed risk (the <b>R</b> value) — so a big price move can still be a small&nbsp;$ when the stop is wide. A crypto stop is ~10% away, so a 0.1% move ≈ 0.01R.</div>`;
 }
 
 function greeting() {
