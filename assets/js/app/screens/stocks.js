@@ -47,13 +47,18 @@ function riskScreenerHtml(data) {
       <div class="panel"><div class="text-muted" style="font-size:12.5px;padding:6px 2px;line-height:1.55">Risk metrics (volatility &amp; momentum) fill in on the next daily scan — the picks will appear here right after.</div></div>`;
   }
   const prof = RISK_PROFILES[key];
-  const ranked = prof.rank(stocks.slice()).slice(0, 20);
+  // Rank, then DIVERSIFY: keep at most a few names per sector so the picks are a spread,
+  // not a one-sector cluster (the app's own "trade a diversified handful" ethos).
+  const sorted = prof.rank(stocks.slice());
+  const CAP = 4, secN = {}, ranked = [];
+  for (const s of sorted) { const sec = s.sector || 'Other'; if ((secN[sec] || 0) >= CAP) continue; secN[sec] = (secN[sec] || 0) + 1; ranked.push(s); if (ranked.length >= 20) break; }
+  const secCount = Object.keys(secN).length;
   const rows = ranked.map((s, i) => {
     const [tier, tc] = volTier(s.vol);
     const buy = s.verdict === 'BUY';
     return `<div class="risk-row" data-nav="#/signal/${s.symbol}">
       <span class="risk-rank">${i + 1}</span>
-      <div class="risk-body"><span class="risk-sym">${s.symbol}</span><span class="risk-px">${fmtPrice(s.price, 2)}</span></div>
+      <div class="risk-body"><span class="risk-sym">${s.symbol}</span><span class="risk-sec">${s.sector || ''}</span></div>
       <span class="risk-metric">${prof.metric(s)}</span>
       <span class="risk-vol" style="color:${tc}" title="volatility">${tier}</span>
       ${buy ? '<span class="risk-buy">BUY</span>' : ''}
@@ -63,7 +68,7 @@ function riskScreenerHtml(data) {
     <div class="risk-chips">${chips}</div>
     <div class="risk-blurb">${prof.blurb}</div>
     <div class="panel" style="padding:2px 12px">${rows}</div>
-    <div class="text-faint" style="font-size:11px;line-height:1.5;margin:6px 2px 16px">${ranked.length} names matched — ranked for a <b>${prof.label.toLowerCase()}</b> profile (${key === 'conservative' ? 'lowest volatility' : key === 'aggressive' ? 'highest momentum' : 'best return per unit of risk'}). A <span style="color:var(--buy);font-weight:700">BUY</span> tag means Ajent Pulse is also firing on it now. Metrics only, not advice.</div>`;
+    <div class="text-faint" style="font-size:11px;line-height:1.5;margin:6px 2px 16px"><b>${ranked.length}</b> names across <b>${secCount}</b> sectors — ranked for a <b>${prof.label.toLowerCase()}</b> profile (${key === 'conservative' ? 'lowest volatility' : key === 'aggressive' ? 'highest momentum' : 'best return per unit of risk'}) and capped per sector so it's a diversified basket, not one bet. A <span style="color:var(--buy);font-weight:700">BUY</span> tag means Ajent Pulse is also firing on it now. Metrics only, not advice.</div>`;
 }
 
 // The stocks paper record — its own isolated account, framed as an experiment.

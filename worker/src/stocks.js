@@ -81,6 +81,17 @@ export const STOCK_UNIVERSE = [
   'CAT', 'GE', 'BA', 'HON', 'XOM', 'CVX',
 ];
 
+// Sector per name — lets the risk screener diversify the picks (never a one-sector
+// basket) and show what a name is. Generic classification, not the recipe.
+export const SECTOR = {
+  AAPL: 'Tech', MSFT: 'Tech', NVDA: 'Tech', AVGO: 'Tech', AMD: 'Tech', ORCL: 'Tech', CRM: 'Tech', ADBE: 'Tech', QCOM: 'Tech', MU: 'Tech', AMAT: 'Tech',
+  GOOGL: 'Comms', META: 'Comms', NFLX: 'Comms', DIS: 'Comms', T: 'Comms',
+  AMZN: 'Consumer', TSLA: 'Consumer', WMT: 'Consumer', COST: 'Consumer', HD: 'Consumer', PG: 'Consumer', KO: 'Consumer', MCD: 'Consumer', NKE: 'Consumer',
+  JPM: 'Financials', BAC: 'Financials', WFC: 'Financials', GS: 'Financials', V: 'Financials', MA: 'Financials', AXP: 'Financials',
+  UNH: 'Health', LLY: 'Health', JNJ: 'Health', ABBV: 'Health', MRK: 'Health', PFE: 'Health', TMO: 'Health',
+  CAT: 'Industrials', GE: 'Industrials', BA: 'Industrials', HON: 'Industrials', XOM: 'Energy', CVX: 'Energy',
+};
+
 // Scan the universe: compute the production swing signal for each name on its daily
 // candles. Returns a compact row per name (recipe-free levels only). When `store` is
 // passed, it ALSO auto-paper-trades those signals into an isolated RECORD_STOCKS blob
@@ -111,8 +122,8 @@ export async function scanStocks(env, store) {
           // (rsi2) is the recipe and is NEVER sent (guarded by test/no-recipe-leak).
           proximity: sig.proximity, htfTrend: sig.htfTrend, price,
           conviction: sig.plan && sig.plan.conviction === 'high' ? 'high' : 'normal',
-          // Generic risk metrics (volatility / momentum / trend) — NOT the recipe.
-          vol: rm.vol, mom3: rm.mom3, mom6: rm.mom6, trendUp: rm.trendUp,
+          // Generic risk metrics (volatility / momentum / trend) + sector — NOT the recipe.
+          vol: rm.vol, mom3: rm.mom3, mom6: rm.mom6, trendUp: rm.trendUp, sector: SECTOR[sym] || 'Other',
           // Levels only — exitAbove/stopMult are the proprietary recipe, never sent.
           plan: sig.plan ? { entry: sig.plan.entry, stop: sig.plan.stop, target1: sig.plan.target1, riskReward: sig.plan.riskReward } : null,
         };
