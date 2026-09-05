@@ -4,7 +4,10 @@
 import { state } from './state.js';
 
 export const ASSET_GROUPS = [
-  { key: 'index', label: 'Indices', cats: ['Index', 'Global Index'] },
+  // 'index' covers the tradeable index contracts (US + global) — these are index
+  // FUTURES here, so the label says so, distinct from the commodity/rate 'futures'
+  // class and from cash ETFs. Only the label differs from a plain "Indices".
+  { key: 'index', label: 'Index Futures', cats: ['Index', 'Global Index'] },
   { key: 'etf', label: 'ETFs', cats: ['Sector ETFs'] },
   { key: 'fx', label: 'FX', cats: ['Currencies'] },
   { key: 'futures', label: 'Futures', cats: ['Energy', 'Metals', 'Rates', 'Ags', 'Volatility'] },
