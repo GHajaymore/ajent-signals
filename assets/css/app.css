@@ -129,6 +129,14 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .cell-meta { font: 500 11.5px var(--font-mono); color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .cell-await { color: var(--flat); opacity: 0.85; font-style: italic; }
 
+/* Per-style P&L split under each asset-class row on the Paper screen. */
+.style-split { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 4px; font: 500 11px var(--font-mono); color: var(--text-muted); }
+.style-split .ss-item b { color: var(--text); font-weight: 700; }
+.style-split .ss-n { color: var(--faint); }
+.style-split .ss-dot { color: var(--faint); }
+.style-split .ss-await { color: var(--flat); font-style: italic; }
+.style-split .ss-exp { font: 700 8px var(--font-mono); letter-spacing: .04em; color: var(--text-muted); background: var(--neutral-800); padding: 1px 4px; border-radius: 4px; vertical-align: middle; }
+
 /* Home axis controls — asset class + trading style as two labelled chip rows. */
 .axis-label { font: 700 9.5px var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); margin: 10px 2px 5px; }
 .style-chip i { font-size: 12px; margin-right: 1px; }
