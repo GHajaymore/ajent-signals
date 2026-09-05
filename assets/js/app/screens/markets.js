@@ -1,4 +1,4 @@
-import { state, toggleWatchlist, saveSettings } from '../state.js';
+import { state, toggleWatchlist, saveSettings, setFocusClass } from '../state.js';
 import { backendConfigured } from '../backendApi.js';
 import { inActiveRegion, regionBarHtml, regionChipsHtml } from '../regions.js';
 import { CATEGORY_ORDER } from '../mockEngine.js';
@@ -114,7 +114,9 @@ function availableAssetGroups() {
 // exists (nothing to switch between). Resets a now-unavailable selection to 'all'.
 function assetChipsHtml() {
   const groups = availableAssetGroups();
-  if (groups.length < 2) { assetClass = 'all'; return ''; }
+  // Don't reset the filter here (markets may just not be loaded yet — that would
+  // clobber a focus carried in from Home). Only render nothing until there's a choice.
+  if (groups.length < 2) return '';
   if (assetClass !== 'all' && !groups.some((g) => g.key === assetClass)) assetClass = 'all';
   const chip = (key, label) => `<button class="aclass-chip ${assetClass === key ? 'on' : ''}" data-aclass="${key}">${label}</button>`;
   // "Stocks" is a nav chip (the screener is its own scan-and-rank screen), sitting in
@@ -286,8 +288,15 @@ function listHtml() {
     : 'No contracts match your search.'}</p>`;
 }
 
+// Board asset classes the Markets filter understands (Stocks/Day live on their own
+// screens, so a global focus on those falls back to showing the whole board here).
+const BOARD_CLASSES = new Set(['index', 'etf', 'fx', 'futures', 'crypto']);
+
 export function render(container) {
   const engine = state.engine;
+  // Sync the board filter with the app-wide focus class (set on Home or here), so the
+  // whole app follows one asset class. Non-board focuses (stocks/day) show all here.
+  assetClass = BOARD_CLASSES.has(state.focusClass) ? state.focusClass : 'all';
 
   container.innerHTML = `
   <div class="fade-in glow-wrap">
@@ -332,6 +341,7 @@ export function render(container) {
     if (c.dataset.aclass === 'stocks') { location.hash = '#/stocks'; return; } // nav, not a filter
     if (c.dataset.aclass === assetClass) return;
     assetClass = c.dataset.aclass;
+    setFocusClass(assetClass); // sync the app-wide focus so Home follows too
     aclassWrap.querySelectorAll('.aclass-chip').forEach((b) => b.classList.toggle('on', b.dataset.aclass === assetClass));
     const bw = container.querySelector('#breadth-wrap'); if (bw) bw.innerHTML = breadthHtml();
     rebuild();
