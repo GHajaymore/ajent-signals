@@ -10,7 +10,21 @@ import { ASSET_GROUPS, ASSET_BY_KEY } from '../assetClass.js';
 export function isRealMarket(m) { return !!(m && (m.hasServerSignal || m.signalIsReal)); }
 import { marketRow, patchRow, symTile, sparklineSvg } from '../components.js';
 import { escapeHtml, fmtPct } from '../format.js';
-import { marketSession } from '../marketHours.js';
+import { marketSession, openSessions } from '../marketHours.js';
+
+// "Markets open now" strip — the major world exchanges with a live open/closed dot,
+// so you can see at a glance which sessions are trading. Global markets (crypto 24/7,
+// FX 24/5) are always live and aren't gated by these cash hours.
+function sessionStripHtml() {
+  const sess = openSessions();
+  const openCount = sess.filter((s) => s.open).length;
+  return `<div class="sess-strip">
+    <span class="sess-lead"><b class="mono">${openCount}</b> open</span>
+    <div class="sess-scroll"><div class="sess-row">
+      ${sess.map((s) => `<span class="sess-chip${s.open ? ' on' : ''}" title="${s.label} — ${s.open ? 'open' : 'closed'}"><i class="sess-dot"></i>${s.flag} ${s.c}</span>`).join('')}
+    </div></div>
+  </div>`;
+}
 
 // Markets nearest a setup (by the server proximity score), ranked — used by the
 // "Watching" filter so you can scan what's brewing across the whole board.
@@ -275,7 +289,9 @@ export function render(container) {
   <div class="fade-in glow-wrap">
     <div class="dash-glow"></div>
     <h1 class="h-title">Markets</h1>
-    <p class="text-muted" id="mkt-subtitle" style="font-size:13px;margin:4px 0 14px">${subtitleText()}</p>
+    <p class="text-muted" id="mkt-subtitle" style="font-size:13px;margin:4px 0 10px">${subtitleText()}</p>
+
+    <div id="sess-wrap">${sessionStripHtml()}</div>
 
     <div id="breadth-wrap">${breadthHtml()}</div>
 
@@ -363,6 +379,10 @@ export function refresh(container) {
   // Subtitle: patch the live-data count once signals have synced.
   const sub = container.querySelector('#mkt-subtitle');
   if (sub) { const t = subtitleText(); if (sub.innerHTML !== t) sub.innerHTML = t; }
+
+  // Sessions strip: repaint only when an exchange actually flips open/closed.
+  const sessWrap = container.querySelector('#sess-wrap');
+  if (sessWrap) { const sig = openSessions().map((s) => (s.open ? 1 : 0)).join(''); if (sessWrap.dataset.sig !== sig) { sessWrap.innerHTML = sessionStripHtml(); sessWrap.dataset.sig = sig; } }
 
   // Asset-class chips: on cold load the board starts empty, so populate/patch the
   // chip row once the set of available classes changes (e.g. first feed arrives).

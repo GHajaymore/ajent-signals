@@ -74,3 +74,29 @@ export function marketSession(market) {
 
 export function isMarketOpen(market) { return marketSession(market) === 'open'; }
 export function isMarketClosed(market) { return marketSession(market) === 'closed'; }
+
+// Is a country's cash exchange open right now? true/false, or null if we don't have
+// that country's session. Weekends closed; DST handled by the IANA zone.
+export function countryOpen(country) {
+  const tz = TZ[country], sess = SESSION[country];
+  if (!tz || !sess) return null;
+  const n = localNow(tz); if (!n) return null;
+  if (n.day === 0 || n.day === 6) return false;
+  return n.min >= sess[0] && n.min < sess[1];
+}
+
+// The major world exchanges, west→east, with their live open/closed state — for the
+// "markets open now" strip at the top of the board. Local exchange clocks, real DST.
+const MAJOR_SESSIONS = [
+  { c: 'US', flag: '🇺🇸', label: 'New York' },
+  { c: 'BR', flag: '🇧🇷', label: 'São Paulo' },
+  { c: 'GB', flag: '🇬🇧', label: 'London' },
+  { c: 'EU', flag: '🇪🇺', label: 'Frankfurt' },
+  { c: 'IN', flag: '🇮🇳', label: 'Mumbai' },
+  { c: 'HK', flag: '🇭🇰', label: 'Hong Kong' },
+  { c: 'JP', flag: '🇯🇵', label: 'Tokyo' },
+  { c: 'AU', flag: '🇦🇺', label: 'Sydney' },
+];
+export function openSessions() {
+  return MAJOR_SESSIONS.map((s) => ({ ...s, open: !!countryOpen(s.c) }));
+}
