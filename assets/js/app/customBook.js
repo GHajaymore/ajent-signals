@@ -20,9 +20,11 @@ function save() { try { localStorage.setItem(LS, JSON.stringify(book)); } catch 
 function closePos(m, price, reason) {
   const p = book.open[m.symbol];
   if (!p) return;
-  const resultR = (price - p.entry) / (p.entry - p.stop || 1e-9);
+  const dir = p.dir || 1; // +1 long, -1 short
+  const riskPerUnit = Math.abs(p.entry - p.stop) || 1e-9;
+  const resultR = (dir * (price - p.entry)) / riskPerUnit;
   const pnl = Math.round(resultR * p.riskDollars);
-  book.closed.unshift({ symbol: p.symbol, name: p.name, entry: p.entry, exit: price, resultR: +resultR.toFixed(3), pnl, riskDollars: p.riskDollars, outcome: pnl > 0 ? 'Win' : pnl < 0 ? 'Loss' : 'Break-even', reason, decimals: p.decimals, openedAt: p.openedAt, closedAt: Date.now() });
+  book.closed.unshift({ symbol: p.symbol, name: p.name, side: dir < 0 ? 'SHORT' : 'LONG', entry: p.entry, exit: price, resultR: +resultR.toFixed(3), pnl, riskDollars: p.riskDollars, outcome: pnl > 0 ? 'Win' : pnl < 0 ? 'Loss' : 'Break-even', reason, decimals: p.decimals, openedAt: p.openedAt, closedAt: Date.now() });
   if (book.closed.length > 300) book.closed.length = 300;
   delete book.open[m.symbol];
 }
@@ -46,10 +48,14 @@ export function runCustomStrategy(engine) {
     if (!(price > 0)) continue;
     const pos = book.open[m.symbol];
     if (pos) {
-      if (price <= pos.stop) { closePos(m, pos.stop, 'stop'); changed = true; }
-      else if (e.rsi > cfg.exitAbove) { closePos(m, price, 'rsiRecover'); changed = true; }
+      const long = (pos.dir || 1) > 0;
+      // Exit on the protective stop, or when the user's own setup no longer holds in
+      // this position's direction (a generic, indicator-agnostic exit).
+      if (long ? price <= pos.stop : price >= pos.stop) { closePos(m, pos.stop, 'stop'); changed = true; }
+      else if (long ? !e.longFires : !e.shortFires) { closePos(m, price, 'setupEnded'); changed = true; }
     } else if (e.fires) {
-      book.open[m.symbol] = { symbol: m.symbol, name: m.name, entry: price, stop: price * (1 - STOP_FRAC), riskDollars: perTradeRisk(), decimals: m.decimals, openedAt: Date.now() };
+      const long = e.dir > 0;
+      book.open[m.symbol] = { symbol: m.symbol, name: m.name, dir: e.dir, entry: price, stop: long ? price * (1 - STOP_FRAC) : price * (1 + STOP_FRAC), riskDollars: perTradeRisk(), decimals: m.decimals, openedAt: Date.now() };
       changed = true;
     }
   }
