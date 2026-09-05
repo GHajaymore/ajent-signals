@@ -50,7 +50,7 @@ export function render(container) {
     <div class="panel" style="text-align:center;padding:40px 20px">
       <i class="ph ph-bell-simple" style="font-size:32px;color:var(--text-muted)"></i>
       <div style="font:600 15px var(--font-heading);margin-top:14px">No alerts yet</div>
-      <p class="text-muted" style="font-size:13px;line-height:1.6;margin-top:8px;max-width:40ch;margin-left:auto;margin-right:auto">You'll be notified here the moment a market fires a BUY, or when one of your paper trades closes on the bounce, its stop, or its time exit.</p>
+      <p class="text-muted" style="font-size:13px;line-height:1.6;margin-top:8px;max-width:40ch;margin-left:auto;margin-right:auto">You'll be notified here the moment a market fires a signal — a long or a short — or when one of your paper trades closes on the bounce, its stop, or its time exit.</p>
     </div>` : ''}
     ${alerts.map((a) => {
       const meta = ALERT_META[a.type] || ALERT_META.NEWS;
@@ -66,7 +66,7 @@ export function render(container) {
 
     ${brewing.length ? `
     <div class="section-label" style="margin-top:22px">Closest to firing<a data-nav="#/markets">All markets &rsaquo;</a></div>
-    <div class="sub-hint">No alert yet — these markets are nearest a BUY setup. You'll be notified the moment one triggers.</div>
+    <div class="sub-hint">No alert yet — these markets are nearest a setup. You'll be notified the moment one triggers.</div>
     <div class="card" style="padding:2px 12px">${brewing.map(brewingRow).join('')}</div>
     <div class="text-faint" style="font-size:11px;text-align:center;margin-top:10px">Get pushed the instant a setup fires — turn on alerts in <a data-nav="#/settings" style="color:var(--accent-300)">Settings</a>.</div>
     ` : ''}
