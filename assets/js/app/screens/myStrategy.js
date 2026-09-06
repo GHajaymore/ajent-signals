@@ -2,6 +2,7 @@ import { state } from '../state.js';
 import { isRealMarket } from './markets.js';
 import { INDICATORS, INDICATOR_KEYS, defaultCondition, evalCustom, getCustomConfig, setCustomConfig, resetCustomConfig } from '../customStrategy.js';
 import { customStats, customEquity, ajentAvgR } from '../customBook.js';
+import { userStats } from '../userBook.js';
 import { getPerformanceSummary, getClosedTrades } from '../paperTrading.js';
 import { sparklineSvg } from '../components.js';
 
@@ -107,10 +108,29 @@ function boardHtml(cfg) {
 }
 
 function recordPanel() {
-  const you = customStats();
+  const cfg = getCustomConfig();
   const aj = getPerformanceSummary() || { totalPnl: 0, winRate: 0, profitFactor: null };
   const money = (n) => `${n >= 0 ? '+$' : '−$'}${Math.abs(Math.round(n)).toLocaleString('en-US')}`;
   const pf = (v) => (v == null ? '∞' : (+v).toFixed(2));
+  const rr = (v) => (v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(2)}R`);
+  const ajR = ajentAvgR(getClosedTrades());
+  // MANUAL mode: the strategy alerts instead of auto-trading, so the trades live in the
+  // user's own book (userBook), not the auto customBook. Show that record + explain.
+  if (cfg.mode === 'manual') {
+    const yb = userStats();
+    const note = `<div class="text-muted" style="font-size:12px;line-height:1.55;padding:4px 0 2px"><i class="ph-bold ph-bell" style="color:var(--accent-300)"></i> Manual mode — Ajent <b style="color:var(--text)">alerts</b> you when your rule fires; you add each trade your own way. They're tracked in <b style="color:var(--text)">your book</b> (Paper screen), alongside any "trade it your way" entries.</div>`;
+    if (!yb.trades && !yb.open) {
+      return `<div class="panel"><div class="panel-title">Your strategy&rsquo;s record · manual</div>${note}
+        <div class="text-muted" style="font-size:12.5px;padding:6px 0">No trades in your book yet — you&rsquo;ll get an alert when your rule fires, then add it your way.</div></div>`;
+    }
+    return `<div class="panel"><div class="panel-title">Your book vs Ajent · manual</div>
+      <div class="vs-grid">
+        <div class="vs-col"><div class="vs-who">AJENT</div><div class="vs-exp" style="color:${(ajR || 0) >= 0 ? 'var(--buy)' : 'var(--sell)'}">${rr(ajR)}<span class="vs-exp-l">avg/trade</span></div><div class="vs-sub">${money(aj.totalPnl || 0)} · ${aj.winRate || 0}% · PF ${pf(aj.profitFactor)}</div></div>
+        <div class="vs-mid">vs</div>
+        <div class="vs-col"><div class="vs-who">YOUR BOOK</div><div class="vs-exp" style="color:${(yb.avgR || 0) >= 0 ? 'var(--buy)' : 'var(--sell)'}">${rr(yb.avgR)}<span class="vs-exp-l">avg/trade</span></div><div class="vs-sub">${money(yb.net)} · ${yb.winRate}% · ${yb.trades}T · ${yb.open} open</div></div>
+      </div>${note}</div>`;
+  }
+  const you = customStats();
   if (!you.trades && !you.open) {
     return `<div class="panel">
       <div class="panel-title">Your strategy's record</div>
@@ -119,8 +139,6 @@ function recordPanel() {
   }
   const eq = customEquity();
   const spark = eq.length > 2 ? sparklineSvg(eq, you.net >= 0 ? 'var(--buy)' : 'var(--sell)', 240, 40) : '';
-  const ajR = ajentAvgR(getClosedTrades());
-  const rr = (v) => (v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(2)}R`);
   return `<div class="panel">
     <div class="panel-title">Your strategy's record</div>
     <div class="vs-grid">
