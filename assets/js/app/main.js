@@ -15,6 +15,7 @@ import * as myStrategy from './screens/myStrategy.js';
 import * as stocks from './screens/stocks.js';
 import * as faq from './screens/faq.js';
 import * as onboarding from './screens/onboarding.js';
+import * as signupScreen from './screens/signup.js';
 import { startLiveDataLoop, startFocusDataLoop } from './liveData.js';
 import { checkUserPositions } from './userBook.js';
 import { runCustomStrategy } from './customBook.js';
@@ -38,7 +39,7 @@ const TABS = [
 ];
 
 const LIVE_SCREENS = new Set(['home', 'markets', 'signal', 'track']);
-const NO_TABBAR = new Set(['gate', 'paywall', 'methodology', 'welcome', 'pro-success', 'chart', 'faq']);
+const NO_TABBAR = new Set(['gate', 'paywall', 'methodology', 'welcome', 'signup', 'pro-success', 'chart', 'faq']);
 
 const contentEl = document.getElementById('app-content');
 const tabbarEl = document.getElementById('tabbar');
@@ -170,6 +171,9 @@ function renderRoute() {
       break;
     case 'welcome':
       onboarding.render(contentEl);
+      break;
+    case 'signup':
+      signupScreen.render(contentEl);
       break;
     default:
       home.render(contentEl);

@@ -9,7 +9,7 @@ import { STRATEGY, publicStrategy, publicSignal, publicPosition } from './meta.j
 import { addSubscription, removeSubscription, pushToAll } from './push.js';
 import { requirePro } from './auth.js';
 import { registerWebhook, listWebhooks, deleteWebhook, deliverEvents, sampleEvent, EDU_DISCLAIMER } from './webhooks.js';
-import { createCheckoutSession, verifyStripeSignature, handleStripeEvent, tokenForSession, refreshToken, validateApple, validateGoogle } from './billing.js';
+import { createCheckoutSession, verifyStripeSignature, handleStripeEvent, tokenForSession, refreshToken, validateApple, validateGoogle, startTrial } from './billing.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -301,6 +301,11 @@ export default {
     if (url.pathname.startsWith('/billing/')) {
       const store = db(env);
       try {
+        if (url.pathname === '/signup' && request.method === 'POST') {
+          const b = await readJson(request);
+          const r = await startTrial(env, store, b && b.email);
+          return json(r.error ? { error: r.error } : r, r.error ? (r.status || 400) : 200);
+        }
         if (url.pathname === '/billing/checkout' && request.method === 'POST') {
           const b = await readJson(request);
           const r = await createCheckoutSession(env, { plan: b.plan, successUrl: b.successUrl, cancelUrl: b.cancelUrl, ref: b.ref });

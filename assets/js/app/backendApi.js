@@ -21,22 +21,51 @@ function proToken() {
 }
 export function hasProToken() { return !!proToken(); }
 
-// --- Free trial -------------------------------------------------------------
-// New users get the full experience free for TRIAL_DAYS, then drop to the Free
-// tier (limited markets + extra-delayed signals) unless they go Pro. The clock
-// starts on first launch and is stored locally.
+// --- Sign-up + free trial ---------------------------------------------------
+// The full experience is free for TRIAL_DAYS, then drops to the Free tier unless
+// the user goes Pro. The trial now STARTS ON SIGN-UP (passwordless — email only),
+// not automatically, so we capture the account first. The clock (ajent_trial_start)
+// is set by signup(); anyone who already had the old auto-trial keeps it (grandfathered).
 export const TRIAL_DAYS = 30;
 function trialStartMs() {
-  try {
-    let t = localStorage.getItem('ajent_trial_start');
-    if (!t) { t = String(Date.now()); localStorage.setItem('ajent_trial_start', t); }
-    return Number(t) || Date.now();
-  } catch (e) { return Date.now(); }
+  try { return Number(localStorage.getItem('ajent_trial_start')) || 0; } catch (e) { return 0; }
 }
 export function trialDaysLeft() {
-  return Math.max(0, Math.ceil((TRIAL_DAYS * 86400000 - (Date.now() - trialStartMs())) / 86400000));
+  const start = trialStartMs();
+  if (!start) return 0; // no trial until the user signs up
+  return Math.max(0, Math.ceil((TRIAL_DAYS * 86400000 - (Date.now() - start)) / 86400000));
 }
 export function trialActive() { return trialDaysLeft() > 0; }
+export function isSignedUp() { try { return !!localStorage.getItem('ajent_signup_email'); } catch (e) { return false; } }
+export function signupEmail() { try { return localStorage.getItem('ajent_signup_email') || ''; } catch (e) { return ''; } }
+
+// Passwordless sign-up → starts the 30-day trial. Sends only an email (no password).
+// The server captures it, enforces one trial per email, and returns the trial state
+// (plus a Pro token if the backend is gated). Persists locally so the trial is active.
+export async function signup(email) {
+  const e = String(email || '').trim().toLowerCase();
+  // Start the trial locally — used offline AND as a graceful fallback if the /signup
+  // endpoint isn't reachable yet (e.g. the worker hasn't been deployed), so the user is
+  // never blocked. Once the server is live it upgrades to a server-backed trial + token.
+  const startLocal = () => {
+    try { localStorage.setItem('ajent_signup_email', e); if (!localStorage.getItem('ajent_trial_start')) localStorage.setItem('ajent_trial_start', String(Date.now())); } catch (x) { /* ignore */ }
+    return { ok: true, daysLeft: TRIAL_DAYS };
+  };
+  const b = base();
+  if (!b) return startLocal();
+  try {
+    const r = await fetch(b + '/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: e }) });
+    if (r.status === 400) { const d = await r.json().catch(() => ({})); return { error: d.error || 'Please enter a valid email address.' }; }
+    if (!r.ok) return startLocal(); // endpoint missing / server error: don't block the user
+    const d = await r.json().catch(() => ({}));
+    try {
+      localStorage.setItem('ajent_signup_email', d.email || e);
+      localStorage.setItem('ajent_trial_start', String(d.startedAt || Date.now()));
+      if (d.token) localStorage.setItem('ajent_pro_token', d.token);
+    } catch (x) { /* ignore storage failure */ }
+    return { ok: true, daysLeft: d.daysLeft, returning: !!d.returning };
+  } catch (x) { return startLocal(); } // network error: fall back to a local trial
+}
 
 // Entitled to Pro features (all markets, real-time data, Active, alerts, export)?
 // True during the free trial, for a native purchase, a valid Pro token, or the

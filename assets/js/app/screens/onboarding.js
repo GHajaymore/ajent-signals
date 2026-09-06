@@ -1,4 +1,5 @@
 import { completeOnboarding } from '../state.js';
+import { isSignedUp, trialActive, isPaid } from '../backendApi.js';
 
 const SLIDES = [
   {
@@ -31,7 +32,9 @@ const SLIDES = [
 
 let step = 0;
 
-function finish() { completeOnboarding(); location.hash = '#/home'; }
+// After the walkthrough, offer sign-up (starts the trial) — unless the user already
+// has a trial/Pro (e.g. grandfathered from the old auto-trial), then go straight home.
+function finish() { completeOnboarding(); location.hash = (isSignedUp() || trialActive() || isPaid()) ? '#/home' : '#/signup'; }
 
 export function render(container) {
   const s = SLIDES[step];

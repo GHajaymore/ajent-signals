@@ -129,6 +129,17 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .cell-meta { font: 500 11.5px var(--font-mono); color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .cell-await { color: var(--flat); opacity: 0.85; font-style: italic; }
 
+/* Passwordless sign-up screen (starts the free trial) */
+.signup-form { width: 100%; max-width: 340px; margin: 22px auto 0; display: flex; flex-direction: column; gap: 10px; }
+.signup-input { width: 100%; font: 500 15px var(--font); color: var(--text); background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 12px; padding: 13px 15px; outline: none; transition: border-color 0.15s; }
+.signup-input:focus { border-color: var(--accent); }
+.signup-input::placeholder { color: var(--text-faint); }
+.signup-err { color: var(--sell); font: 500 12px var(--font); min-height: 14px; text-align: left; padding: 0 2px; }
+.signup-fine { max-width: 340px; margin: 14px auto 0; font: 500 11px var(--font); line-height: 1.55; color: var(--text-faint); }
+.signup-fine a { color: var(--accent-300); }
+.signup-skip { margin-top: 20px; font: 600 13px var(--font); color: var(--text-muted); background: none; border: none; cursor: pointer; text-decoration: underline; }
+.signup-skip:hover { color: var(--text); }
+
 /* Live price-tick flash (streaming crypto) — a brief green/red background pulse. */
 .tick-up, .tick-down { border-radius: 4px; }
 .tick-up { animation: tickUp 0.6s ease-out; }

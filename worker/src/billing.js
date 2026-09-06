@@ -9,6 +9,29 @@ import { issueProToken, readProToken } from './auth.js';
 
 const enc = new TextEncoder();
 const PLAN_TTL_DAYS = { monthly: 35, annual: 400 }; // token lifetime; renewals re-issue
+const TRIAL_DAYS = 30;
+
+// ---- signup → 30-day free trial --------------------------------------------
+// Passwordless: the user gives only an email (NO password is ever collected or stored).
+// One trial per email — re-signing up returns the existing trial's state, never a fresh
+// 30 days. If PRO_SECRET is set we mint a trial Pro token here (server-enforced); if not,
+// the backend is open and the trial is a client-side unlock. The email is stored so the
+// trial can't be farmed by reinstalling, and so checkout can be tied to the account later.
+export async function startTrial(env, store, emailRaw) {
+  const email = String(emailRaw || '').trim().toLowerCase();
+  if (email.length > 200 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { error: 'Enter a valid email', status: 400 };
+  const now = Date.now();
+  const TRIAL_MS = TRIAL_DAYS * 86400000;
+  const existing = await store.get('SIGNUP', email);
+  if (existing && existing.startedAt) {
+    const exp = existing.startedAt + TRIAL_MS;
+    return { ok: true, email, startedAt: existing.startedAt, exp, daysLeft: Math.max(0, Math.ceil((exp - now) / 86400000)), token: existing.token || null, returning: true };
+  }
+  let token = null;
+  if (env.PRO_SECRET) { try { token = await issueProToken(email, TRIAL_DAYS, env.PRO_SECRET); } catch (e) { /* gate stays open without a token */ } }
+  await store.put({ pk: 'SIGNUP', sk: email, email, startedAt: now, exp: now + TRIAL_MS, token, plan: 'trial', updatedAt: now });
+  return { ok: true, email, startedAt: now, exp: now + TRIAL_MS, daysLeft: TRIAL_DAYS, token };
+}
 
 // ---- small crypto helpers ---------------------------------------------------
 async function hmacHex(secret, data) {
