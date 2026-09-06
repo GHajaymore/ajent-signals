@@ -406,13 +406,16 @@ function openPositionsHtml() {
 function trialNudgeHtml() {
   if (isPaid() || !isSignedUp()) return '';
   const days = trialDaysLeft();
-  if (days <= 0 || days > 5) return '';
+  if (days > 5) return ''; // only in the last 5 days, or once ended
   let dismissedToday = false;
   try { dismissedToday = localStorage.getItem('ajent_trial_nudge') === new Date().toDateString(); } catch (e) { /* ignore */ }
   if (dismissedToday) return '';
-  return `<div class="trial-nudge" id="trial-nudge">
-    <i class="ph-fill ph-hourglass-high"></i>
-    <span class="tn-text"><b>${days} day${days === 1 ? '' : 's'} left</b> in your free trial — keep every market, real-time &amp; alerts.</span>
+  // Ended (day 0) explains the drop to Free so it never reads as a bug; else counts down.
+  const inner = days <= 0
+    ? `<i class="ph-fill ph-lock-simple"></i><span class="tn-text">Your free trial ended — you're on the <b>Free plan</b> (1 market). Go Pro to unlock every market, real-time &amp; alerts.</span>`
+    : `<i class="ph-fill ph-hourglass-high"></i><span class="tn-text"><b>${days} day${days === 1 ? '' : 's'} left</b> in your free trial — keep every market, real-time &amp; alerts.</span>`;
+  return `<div class="trial-nudge${days <= 0 ? ' ended' : ''}" id="trial-nudge">
+    ${inner}
     <button class="tn-go" data-nav="#/paywall">Go Pro</button>
     <button class="tn-x" id="tn-dismiss" aria-label="Dismiss"><i class="ph-bold ph-x"></i></button>
   </div>`;

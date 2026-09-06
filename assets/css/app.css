@@ -137,6 +137,12 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .trial-nudge .tn-go { flex: none; font: 700 12px var(--font-heading); color: var(--accent-800); background: var(--accent-100); border: none; border-radius: 16px; padding: 5px 12px; cursor: pointer; }
 .trial-nudge .tn-x { flex: none; display: inline-flex; color: var(--accent-200); background: none; border: none; padding: 4px; cursor: pointer; opacity: 0.7; }
 .trial-nudge .tn-x:hover { opacity: 1; }
+/* Ended state — calmer/informational (a lock, not a countdown), so it doesn't alarm. */
+.trial-nudge.ended { background: var(--surface-2); border-color: var(--hairline); }
+.trial-nudge.ended > i { color: var(--text-muted); }
+.trial-nudge.ended .tn-text { color: var(--text-muted); }
+.trial-nudge.ended .tn-text b { color: var(--text); }
+.trial-nudge.ended .tn-go { background: var(--accent); color: #fff; }
 
 /* Passwordless sign-up screen (starts the free trial) */
 .signup-form { width: 100%; max-width: 340px; margin: 22px auto 0; display: flex; flex-direction: column; gap: 10px; }
