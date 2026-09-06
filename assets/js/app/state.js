@@ -23,6 +23,10 @@ function loadSettings() {
     // strategy runs. Coerce any legacy stored mode so returning users aren't
     // pinned to a mode that no longer exists (and whose toggle is gone).
     if (parsed.strategyMode && parsed.strategyMode !== 'daily') delete parsed.strategyMode;
+    // One-time: the old '1D' chart default renders near-empty (intraday history is
+    // usually unavailable on the free feed). Bump legacy '1D' to '1W' once; the flag
+    // stops it from ever fighting a user who later re-selects 1D on purpose.
+    if (!parsed.chartRangeMigrated) { if (parsed.chartRange === '1D') parsed.chartRange = '1W'; parsed.chartRangeMigrated = true; }
     return parsed;
   } catch (e) { /* ignore malformed local storage */ }
   return null;
@@ -111,7 +115,8 @@ const defaultSettings = {
   // to improve return-per-unit-risk and Sharpe, but it deepens drawdowns too — a
   // genuine, double-edged tradeoff — so it's off by default.
   scaleByConviction: false,
-  chartRange: '1D',
+  chartRange: '1W', // 1D intraday history is usually unavailable on the free feed (shows a
+  // near-empty fallback); 1W renders a full daily candlestick chart, so it's the better default.
   chartType: 'candles',
   notifications: { buy: true, sell: true, stop: true, target: true, reversal: true, volatility: true, news: true },
   subscription: { tier: 'trial' },

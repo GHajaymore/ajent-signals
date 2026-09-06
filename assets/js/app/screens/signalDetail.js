@@ -125,7 +125,17 @@ const RANGES = {
   '1D': { interval: '5m', range: '1d', label: '1D' },
   '1W': { interval: '30m', range: '5d', label: '1W' },
   '1M': { interval: '1d', range: '1mo', label: '1M' },
+  '3M': { interval: '1d', range: '3mo', label: '3M' },
+  '6M': { interval: '1d', range: '6mo', label: '6M' },
+  '1Y': { interval: '1d', range: '1y', label: '1Y' },
 };
+
+// The range selector as its OWN full-width row — 6 ranges no longer fit beside the label
+// and type toggle on mobile (1Y was getting clipped). Buttons share the width evenly.
+function rangeButtonsHtml(activeRange) {
+  return `<div class="chart-range-row">${Object.keys(RANGES).map((k) =>
+    `<button class="chart-range-btn${k === activeRange ? ' on' : ''}" data-range="${k}">${RANGES[k].label}</button>`).join('')}</div>`;
+}
 const candleCache = new Map();   // `${symbol}|${rangeKey}` -> { candles, ts, failed }
 const inflight = new Set();
 let activeRange = null;          // resolved from settings on first chart render
@@ -145,12 +155,12 @@ function loadCandles(symbol, ySym, rangeKey) {
       // Patch the chart in place if the user is still looking at it.
       if (state.selectedSymbol === symbol && state.detailTab === 'chart' && activeRange === rangeKey) {
         const el = document.getElementById('chart-canvas');
-        if (el) { el.innerHTML = chartCanvasHtml(symbol, rangeKey); wireChartHover(el); }
+        if (el) { el.innerHTML = chartCanvasHtml(symbol, rangeKey, 300); wireChartHover(el); }
       }
       // Full-screen chart page has its own canvas.
       if (activeRange === rangeKey && location.hash.startsWith('#/chart/')) {
         const fc = document.getElementById('full-chart-canvas');
-        if (fc) { fc.innerHTML = chartCanvasHtml(symbol, rangeKey, 340); wireChartHover(fc); }
+        if (fc) { fc.innerHTML = chartCanvasHtml(symbol, rangeKey, 460); wireChartHover(fc); }
       }
     });
 }
@@ -475,7 +485,7 @@ export function renderChartPage(container) {
   if (!market) { location.hash = '#/home'; return; }
   const color = verdictColorVar(market.verdict(state.settings.threshold));
   const ySym = YAHOO_SYMBOL[symbol];
-  if (ySym && !activeRange) activeRange = RANGES[state.settings.chartRange] ? state.settings.chartRange : '1D';
+  if (ySym && !activeRange) activeRange = RANGES[state.settings.chartRange] ? state.settings.chartRange : '1W';
   if (ySym) queueMicrotask(() => loadCandles(symbol, ySym, activeRange));
   const trades = getClosedTrades().filter((c) => c.symbol === symbol);
   const open = getOpenPositions().filter((p) => p.symbol === symbol);
@@ -491,14 +501,10 @@ export function renderChartPage(container) {
     <div class="chart-box">
       <div class="chart-box-head">
         <div style="font:600 13px var(--font-heading)">${symbol} price</div>
-        <div style="display:flex;align-items:center;gap:6px">
-          ${chartTypeToggleHtml()}
-          <div style="display:flex;gap:3px;background:var(--neutral-900);border-radius:8px;padding:3px">
-            ${Object.keys(RANGES).map((k) => `<button class="chart-range-btn" data-range="${k}" style="border:none;cursor:pointer;font:600 12px var(--font-heading);padding:5px 13px;border-radius:6px;background:${k === activeRange ? 'var(--accent-800)' : 'transparent'};color:${k === activeRange ? 'var(--accent-100)' : 'var(--text-muted)'}">${RANGES[k].label}</button>`).join('')}
-          </div>
-        </div>
+        ${chartTypeToggleHtml()}
       </div>
-      <div id="full-chart-canvas">${chartCanvasHtml(symbol, activeRange, 340)}</div>
+      ${rangeButtonsHtml(activeRange)}
+      <div id="full-chart-canvas">${chartCanvasHtml(symbol, activeRange, 460)}</div>
       <div class="overlay-tags" style="margin-top:8px">
         <span class="overlay-tag"><span class="dot" style="background:var(--buy)"></span>Buy</span>
         <span class="overlay-tag"><span class="dot" style="background:var(--sell)"></span>Sell</span>
@@ -942,7 +948,7 @@ function renderChartTab(market, color, verdict) {
   const clvStop = s.plan ? capStopUsdPrice(s.plan.entry, planStopPrice(s.plan.entry, s.plan.stop, clvLong, clvCfg), clvLong, market.pointValue, maxStopUsd()) : 0;
   const clvTarget = s.plan ? planTargetPrice(s.plan.entry, clvStop, clvLong, clvCfg) : 0;
   const clvRr = (Number(clvCfg.rr) || 1).toFixed(clvCfg.rr % 1 ? 1 : 0);
-  if (!activeRange) activeRange = RANGES[state.settings.chartRange] ? state.settings.chartRange : '1D';
+  if (!activeRange) activeRange = RANGES[state.settings.chartRange] ? state.settings.chartRange : '1W';
   const ySym = YAHOO_SYMBOL[market.symbol];
   if (ySym) queueMicrotask(() => loadCandles(market.symbol, ySym, activeRange));
   return `
@@ -951,13 +957,11 @@ function renderChartTab(market, color, verdict) {
       <div style="font:600 13px var(--font-heading)">${market.symbol} price</div>
       <div style="display:flex;align-items:center;gap:6px">
         ${chartTypeToggleHtml()}
-        <div style="display:flex;gap:3px;background:var(--neutral-900);border-radius:8px;padding:3px">
-          ${Object.keys(RANGES).map((k) => `<button class="chart-range-btn" data-range="${k}" style="border:none;cursor:pointer;font:600 12px var(--font-heading);padding:5px 13px;border-radius:6px;background:${k === activeRange ? 'var(--accent-800)' : 'transparent'};color:${k === activeRange ? 'var(--accent-100)' : 'var(--text-muted)'}">${RANGES[k].label}</button>`).join('')}
-        </div>
         <button data-nav="#/chart/${market.symbol}" title="Full-screen chart" style="border:none;cursor:pointer;background:var(--neutral-900);border-radius:8px;width:32px;height:32px;color:var(--text-muted);display:flex;align-items:center;justify-content:center;flex:none"><i class="ph-bold ph-arrows-out"></i></button>
       </div>
     </div>
-    <div id="chart-canvas">${chartCanvasHtml(market.symbol, activeRange)}</div>
+    ${rangeButtonsHtml(activeRange)}
+    <div id="chart-canvas">${chartCanvasHtml(market.symbol, activeRange, 300)}</div>
     ${getClosedTrades().some((c) => c.symbol === market.symbol) || getOpenPositions().some((p) => p.symbol === market.symbol) ? `
     <div class="overlay-tags" style="margin-top:8px">
       <span class="overlay-tag"><span class="dot" style="background:var(--buy)"></span>Buy</span>
