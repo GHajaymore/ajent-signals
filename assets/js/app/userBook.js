@@ -6,7 +6,7 @@
 // Anonymous + per-browser for now (localStorage). When accounts land (Track B) this
 // same shape moves server-side, keyed by user, so it syncs across devices. Still
 // 100% simulated — no real orders, educational only.
-import { perTradeRisk } from './state.js';
+import { perTradeRisk, maxPortfolioRiskUsd, maxPortfolioRiskPct, maxDrawdownPct, state } from './state.js';
 
 const LS = 'ajent_userbook_v1';
 
@@ -24,8 +24,56 @@ export function userTradeFor(symbol) { return book.open[symbol] || null; }
 // comparison against Ajent is apples-to-apples (both size a trade by 1R = risk $).
 export function defaultRiskDollars() { return perTradeRisk(); }
 
+// --- Personal risk limits (YOUR book only; Ajent's shared record is untouched) -----
+// Total $ currently at risk across open trades.
+export function openRiskTotal() {
+  return Object.values(book.open).reduce((s, p) => s + (Number(p.riskDollars) || 0), 0);
+}
+// Realized equity curve of your book: start at the account balance, apply each closed
+// trade oldest→newest, and track the peak — so we can measure drawdown from that peak.
+export function bookEquity() {
+  const bal = Number(state.settings.accountBalance) || 0;
+  const chron = [...book.closed].reverse(); // stored newest-first → oldest-first
+  let eq = bal, peak = bal, trough = bal;
+  for (const t of chron) { eq += (Number(t.pnl) || 0); if (eq > peak) peak = eq; if (eq < trough) trough = eq; }
+  const ddPct = peak > 0 ? +(((eq - peak) / peak) * 100).toFixed(2) : 0; // ≤ 0
+  return { equity: Math.round(eq), peak: Math.round(peak), ddPct };
+}
+// Decide whether a new copied trade of `newRisk` dollars is allowed under the user's
+// limits. Returns { ok } or { ok:false, reason }. Off (0) limits never block.
+export function riskGate(newRisk) {
+  const dd = maxDrawdownPct();
+  if (dd > 0) {
+    const { ddPct } = bookEquity();
+    if (ddPct <= -dd) return { ok: false, reason: `Your book is down ${Math.abs(ddPct).toFixed(1)}% — at your ${dd}% max-drawdown limit. New copied trades are paused until it recovers.`, kind: 'drawdown' };
+  }
+  const cap = maxPortfolioRiskUsd();
+  if (cap > 0) {
+    const after = openRiskTotal() + (Number(newRisk) || 0);
+    if (after > cap) return { ok: false, reason: `That would put ${fmtUsd(after)} at risk across your open trades, over your ${maxPortfolioRiskPct()}% portfolio cap (${fmtUsd(cap)}).`, kind: 'portfolio' };
+  }
+  return { ok: true };
+}
+function fmtUsd(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
+
+// Snapshot for the Paper-screen risk meter.
+export function riskLimitsStatus() {
+  const cap = maxPortfolioRiskUsd(), openRisk = openRiskTotal();
+  const { equity, peak, ddPct } = bookEquity();
+  const ddLimit = maxDrawdownPct();
+  return {
+    active: cap > 0 || ddLimit > 0,
+    openRisk, cap, capPct: maxPortfolioRiskPct(),
+    portfolioBreached: cap > 0 && openRisk > cap,
+    ddPct, ddLimit, equity, peak,
+    drawdownBreached: ddLimit > 0 && ddPct <= -ddLimit,
+  };
+}
+
 export function openUserTrade({ symbol, name, side = 'LONG', entry, stop, target, riskDollars, decimals = 2, ajPlan = null }) {
   if (!(entry > 0) || !(stop > 0) || !(riskDollars > 0)) return false;
+  const gate = riskGate(riskDollars);
+  if (!gate.ok) return gate; // blocked by a personal risk limit — caller shows gate.reason
   const risk = Math.abs(entry - stop) || (entry * 0.004);
   // ajPlan = Ajent's OWN suggested entry/stop/target for this signal, captured at
   // open — a "shadow" trade we track alongside, so we can compare your levels vs

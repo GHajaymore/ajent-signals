@@ -16,6 +16,8 @@ function loadSettings() {
     if (!Number.isFinite(parsed.accountBalance)) delete parsed.accountBalance;
     if (!Number.isFinite(parsed.threshold)) delete parsed.threshold;
     if (!Number.isFinite(parsed.riskPct)) delete parsed.riskPct;
+    if (!Number.isFinite(parsed.maxPortfolioRiskPct)) delete parsed.maxPortfolioRiskPct;
+    if (!Number.isFinite(parsed.maxDrawdownPct)) delete parsed.maxDrawdownPct;
     if (!Number.isFinite(parsed.targetRatio)) delete parsed.targetRatio;
     // The intraday ("Active") strategy was retired — only the validated daily
     // strategy runs. Coerce any legacy stored mode so returning users aren't
@@ -94,6 +96,12 @@ const defaultSettings = {
   paperMarkets: [...DAILY_AUTOTRADE_MARKETS],
   threshold: 75,
   riskPct: 1,
+  // Personal risk limits for YOUR OWN book (the "trade it your way" account). 0 = off.
+  // maxPortfolioRiskPct caps total simultaneous open risk; maxDrawdownPct is a personal
+  // circuit breaker that pauses new copied trades once your book draws down that far from
+  // its peak. These NEVER touch Ajent's shared record (that stays honest + unedited).
+  maxPortfolioRiskPct: 0,
+  maxDrawdownPct: 0,
   // Reward:Risk for the first target (target distance ÷ stop distance). Lower =
   // higher win rate / smaller wins; higher = bigger wins / lower win rate.
   // Default 0.35 → ~74% geometric win rate (a buffer above the 70% target).
@@ -116,6 +124,15 @@ export function perTradeRisk() {
   const bal = Number(state.settings.accountBalance) || 0;
   const pct = Number(state.settings.riskPct) || 0;
   return Math.max(1, Math.round(bal * (pct / 100)));
+}
+
+// Personal risk-limit accessors (all in the account's own USD base; 0 = off).
+export function maxPortfolioRiskPct() { return Math.max(0, Number(state.settings.maxPortfolioRiskPct) || 0); }
+export function maxDrawdownPct() { return Math.max(0, Number(state.settings.maxDrawdownPct) || 0); }
+// Total dollars allowed at risk across all open trades in your book (0 = no cap).
+export function maxPortfolioRiskUsd() {
+  const bal = Number(state.settings.accountBalance) || 0;
+  return Math.round(bal * (maxPortfolioRiskPct() / 100));
 }
 
 // Which markets the user has opted into for auto paper-trading. When the

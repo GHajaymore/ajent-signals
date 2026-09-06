@@ -1,4 +1,4 @@
-import { state, saveSettings, perTradeRisk, planConfigFor, setPlanConfig, activeStyleLabel, maxStopUsd } from '../state.js';
+import { state, saveSettings, perTradeRisk, planConfigFor, setPlanConfig, activeStyleLabel, maxStopUsd, maxPortfolioRiskPct, maxDrawdownPct } from '../state.js';
 import { fmtMoney } from '../format.js';
 import { resetPaperTrades } from '../paperTrading.js';
 import { wireSignalExport, signalExportHtml } from './signalExport.js';
@@ -189,6 +189,8 @@ function patchRiskCalc() {
 
 export function render(container) {
   const { threshold, riskPct, accountBalance, notifications, targetRatio } = state.settings;
+  const maxPortPct = maxPortfolioRiskPct();
+  const maxDdPct = maxDrawdownPct();
   const rr = Number.isFinite(targetRatio) ? targetRatio : 0.4;
   const estWin = Math.round(100 / (1 + rr));
   const market = state.engine.get(state.selectedSymbol);
@@ -247,6 +249,21 @@ export function render(container) {
         <div class="notif-label" style="flex:1">Scale up on high-conviction<div class="setting-help" style="margin-top:2px">Risk 1.5&times; on the deepest-oversold setups. Backtested to lift return-per-risk &mdash; but it deepens drawdowns too. Double-edged, so it&rsquo;s off by default.</div></div>
         <div class="switch ${state.settings.scaleByConviction ? 'on' : ''}" id="conviction-switch"></div>
       </div>` : ''}
+    </div>
+
+    <div class="panel setting-block">
+      <div class="panel-title">Risk limits · your book</div>
+      <div class="setting-help" style="margin:0 0 14px">Guardrails for <b style="color:var(--text)">your own</b> "trade it your way" book. They pause <b>your</b> copied trades when a limit is hit — they never touch Ajent's shared record, which always trades every signal so its track record stays honest. <b>0 = off.</b></div>
+      <div>
+        <div class="risk-label">Max portfolio risk <span id="maxport-val" style="color:var(--accent-300)">${maxPortPct ? maxPortPct + '%' : 'Off'}</span></div>
+        <input id="maxport-range" class="range" type="range" min="0" max="25" step="1" value="${maxPortPct}" style="margin-top:12px">
+        <div class="setting-help" style="margin-top:8px">Caps the <b>total</b> at risk across all your open trades at once (${maxPortPct ? fmtMoney(Math.round(accountBalance * maxPortPct / 100)) : 'no cap'}). Signals cluster in selloffs, so this stops a broad dip from stacking many trades into one oversized bet.</div>
+      </div>
+      <div style="margin-top:18px">
+        <div class="risk-label">Max drawdown <span id="maxdd-val" style="color:var(--accent-300)">${maxDdPct ? maxDdPct + '%' : 'Off'}</span></div>
+        <input id="maxdd-range" class="range" type="range" min="0" max="40" step="1" value="${maxDdPct}" style="margin-top:12px">
+        <div class="setting-help" style="margin-top:8px">A personal circuit breaker: once your book is down this far from its peak, new copied trades pause until it recovers. Your discipline, enforced — the levels you'd actually trade with.</div>
+      </div>
     </div>
 
     <div class="pro-card" data-nav="#/methodology" style="cursor:pointer">
@@ -409,6 +426,22 @@ export function render(container) {
   balanceInput.addEventListener('input', () => {
     state.settings.accountBalance = Math.round(displayToUsd(Number(balanceInput.value) || 0)); // input is in display currency; store USD
     patchRiskCalc();
+    saveSettings();
+  });
+
+  // Personal risk limits (your book only). 0 = Off.
+  const maxPortRange = document.getElementById('maxport-range');
+  if (maxPortRange) maxPortRange.addEventListener('input', () => {
+    const v = Number(maxPortRange.value) || 0;
+    state.settings.maxPortfolioRiskPct = v;
+    document.getElementById('maxport-val').textContent = v ? `${v}%` : 'Off';
+    saveSettings();
+  });
+  const maxDdRange = document.getElementById('maxdd-range');
+  if (maxDdRange) maxDdRange.addEventListener('input', () => {
+    const v = Number(maxDdRange.value) || 0;
+    state.settings.maxDrawdownPct = v;
+    document.getElementById('maxdd-val').textContent = v ? `${v}%` : 'Off';
     saveSettings();
   });
 

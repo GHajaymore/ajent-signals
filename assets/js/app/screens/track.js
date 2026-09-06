@@ -1,5 +1,5 @@
 import { getClosedTrades, getPerformanceSummary, getOpenPositions, tradePnl } from '../paperTrading.js';
-import { userStats, getUserBook, closeUserTrade } from '../userBook.js';
+import { userStats, getUserBook, closeUserTrade, riskLimitsStatus } from '../userBook.js';
 import { customStats, ajentAvgR, getCustomBook } from '../customBook.js';
 import { positionCallPill, updateCallPill, exitProgressText } from '../tradeGuidance.js';
 import { getStrategy, getAdaptive } from '../strategyMeta.js';
@@ -833,6 +833,45 @@ function yourOpenTradesHtml() {
 // "You vs Ajent" on the record's home — the user's own book + strategy scored
 // against Ajent by expectancy (the scale-fair metric). Selection stays your own,
 // so net $ is secondary; avg R/trade is the headline.
+// Personal risk-limit status for YOUR book (only when a limit is set in Settings).
+function riskMeterHtml() {
+  const s = riskLimitsStatus();
+  if (!s.active) return '';
+  const rmoney = (n) => fmtMoneyCcy(n, { sign: false }); // risk amounts are not P&L — no +/- sign
+  const row = (label, valTxt, pct, breached, sub) => {
+    const col = breached ? 'var(--sell)' : pct >= 80 ? 'var(--flat)' : 'var(--buy)';
+    return `<div style="margin:10px 0 2px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px">
+        <span style="color:var(--text-muted)">${label}</span>
+        <span style="font-weight:700;color:${col};font-variant-numeric:tabular-nums">${valTxt}</span>
+      </div>
+      <div class="setup-conf-bar" style="margin-top:6px"><span style="width:${Math.min(100, Math.max(2, pct))}%;background:${col}"></span></div>
+      <div class="setting-help" style="margin-top:5px">${sub}</div>
+    </div>`;
+  };
+  const parts = [];
+  if (s.cap > 0) {
+    const pct = s.cap ? Math.round((s.openRisk / s.cap) * 100) : 0;
+    parts.push(row(`Portfolio risk · cap ${s.capPct}%`, `${rmoney(s.openRisk)} / ${rmoney(s.cap)}`, pct,
+      s.portfolioBreached, s.portfolioBreached ? 'At the cap — new copied trades are paused until an open one closes.' : `${rmoney(Math.max(0, s.cap - s.openRisk))} of room left before new trades pause.`));
+  }
+  if (s.ddLimit > 0) {
+    const pct = s.ddLimit ? Math.round((Math.abs(s.ddPct) / s.ddLimit) * 100) : 0;
+    parts.push(row(`Drawdown · limit ${s.ddLimit}%`, `${Math.abs(s.ddPct).toFixed(1)}% / ${s.ddLimit}%`, pct,
+      s.drawdownBreached, s.drawdownBreached ? 'Limit reached — new copied trades paused until your book recovers.' : `Your book is ${s.ddPct === 0 ? 'at its peak' : Math.abs(s.ddPct).toFixed(1) + '% off peak'}.`));
+  }
+  const anyBreach = s.portfolioBreached || s.drawdownBreached;
+  return `
+    <div class="card" style="padding:14px 16px;${anyBreach ? 'border:1px solid color-mix(in srgb, var(--sell) 45%, var(--hairline))' : ''}">
+      <div style="display:flex;align-items:center;gap:8px">
+        <i class="ph-bold ${anyBreach ? 'ph-hand-palm' : 'ph-shield-check'}" style="color:${anyBreach ? 'var(--sell)' : 'var(--buy)'};font-size:17px"></i>
+        <div style="font:700 13.5px var(--font-heading)">Your risk limits ${anyBreach ? '· <span style="color:var(--sell)">paused</span>' : '· <span style="color:var(--buy)">within limits</span>'}</div>
+      </div>
+      ${parts.join('')}
+      <div class="setting-help" style="margin-top:8px;opacity:.85">Applies only to your own book — Ajent's shared record keeps trading every signal. Edit in Settings → Risk limits.</div>
+    </div>`;
+}
+
 function youVsAjentCard(perf, ajTradeCount) {
   const you = userStats();
   const cs = customStats();
@@ -903,6 +942,8 @@ export function render(container) {
     ${youVsAjentCard(perf, closed.length)}
 
     ${yourOpenTradesHtml()}
+
+    ${riskMeterHtml()}
 
     <div class="stat2-grid">
       <div class="stat-card"><div class="stat-label">Win rate</div><div class="stat-value" style="color:var(--buy)">${perf.winRate}%</div><div class="stat-sub">${perf.wins}W / ${perf.losses}L</div></div>

@@ -1,6 +1,7 @@
 import { state, saveSettings, toggleWatchlist, isInWatchlist, getEnabledPaperMarkets, dailyEdge, planConfigFor, planStopPrice, planTargetPrice, isDefaultPlan, perTradeRisk, capStopUsdPrice, maxStopUsd } from '../state.js';
 import { hoverAttrs, hoverLayerSvg, wireChartHover } from '../chartHover.js';
 import { shareOrCopy } from '../share.js';
+import { flashToast } from '../share.js';
 import { getStrategy } from '../strategyMeta.js';
 import { getClosedTrades, getPerformanceSummary } from '../paperTrading.js';
 import { userTradeFor, userStats, unrealizedFor, defaultRiskDollars, openUserTrade, closeUserTrade, headToHead } from '../userBook.js';
@@ -995,8 +996,9 @@ export function render(container) {
         const v = m.verdict(state.settings.threshold);
         const p = m.signal && m.signal.plan;
         const ajPlan = p && p.entry > 0 ? { entry: p.entry, stop: p.stop, target: p.target1 } : null;
-        const ok = openUserTrade({ symbol: add.dataset.ubAdd, name: m.name, side: v === 'SELL' ? 'SHORT' : 'LONG', entry: num('entry'), stop: num('stop'), target: num('target'), riskDollars: Math.round(displayToUsd(num('risk'))), decimals: m.decimals, ajPlan });
-        if (ok) render(container);
+        const res = openUserTrade({ symbol: add.dataset.ubAdd, name: m.name, side: v === 'SELL' ? 'SHORT' : 'LONG', entry: num('entry'), stop: num('stop'), target: num('target'), riskDollars: Math.round(displayToUsd(num('risk'))), decimals: m.decimals, ajPlan });
+        if (res === true) render(container);
+        else if (res && res.reason) flashToast(res.reason); // blocked by a personal risk limit
       } else {
         closeUserTrade(close.dataset.ubClose, m.price, 'manual');
         render(container);
