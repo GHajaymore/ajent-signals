@@ -22,6 +22,7 @@ function edgeNote(symbol) {
   return `<div class="reason-row" style="align-items:flex-start;margin-top:2px"><i class="ph-fill ${icon}" style="color:${color}"></i><span style="font-size:12px;color:var(--text-muted);line-height:1.55">${text}</span></div>`;
 }
 import { fmtPrice, fmtCountdown, verdictColorVar, countryFlag } from '../format.js';
+import { fmtMoney as fmtMoneyCcy, usdToDisplay, displayToUsd, currencySymbol } from '../currency.js';
 import { confidenceRing, verdictIcon, indicatorRow, planRow, dataTag } from '../components.js';
 import { YAHOO_SYMBOL } from '../liveData.js';
 import { fetchCandles } from '../candles.js';
@@ -631,7 +632,7 @@ function userBookPanel(market, verdict, s, dispEntry, dispStop, dispTarget) {
         <label class="ub-field"><span>Entry</span><input type="number" step="any" data-ub="entry" value="${(+dispEntry).toFixed(market.decimals)}"></label>
         <label class="ub-field"><span>Stop</span><input type="number" step="any" data-ub="stop" value="${(+dispStop).toFixed(market.decimals)}"></label>
         <label class="ub-field"><span>Target</span><input type="number" step="any" data-ub="target" value="${(+dispTarget).toFixed(market.decimals)}"></label>
-        <label class="ub-field"><span>Risk&nbsp;$</span><input type="number" step="any" data-ub="risk" value="${defaultRiskDollars()}"></label>
+        <label class="ub-field"><span>Risk&nbsp;${currencySymbol().trim()}</span><input type="number" step="any" data-ub="risk" value="${Math.round(usdToDisplay(defaultRiskDollars()))}"></label>
         <button class="btn btn-primary ub-add" data-ub-add="${sym}" style="height:42px;width:100%;margin-top:11px">Add to my book</button>
       </div>
     </details>`;
@@ -752,7 +753,7 @@ function renderSignalTab(market, verdict, color) {
       if (!(pv >= 5) || !(stopPts > 0)) return '';
       const perContract = Math.round(stopPts * pv);
       const cap = perTradeRisk();
-      const usd = (n) => `$${Math.round(n).toLocaleString('en-US')}`;
+      const usd = (n) => fmtMoneyCcy(n, { sign: false }); // display currency (local/USD)
       const round = (n) => Math.round(n).toLocaleString('en-US');
       if (stopCapped) {
         const rawPts = Math.abs(planEntry - rawStop);
@@ -993,7 +994,7 @@ export function render(container) {
         const v = m.verdict(state.settings.threshold);
         const p = m.signal && m.signal.plan;
         const ajPlan = p && p.entry > 0 ? { entry: p.entry, stop: p.stop, target: p.target1 } : null;
-        const ok = openUserTrade({ symbol: add.dataset.ubAdd, name: m.name, side: v === 'SELL' ? 'SHORT' : 'LONG', entry: num('entry'), stop: num('stop'), target: num('target'), riskDollars: num('risk'), decimals: m.decimals, ajPlan });
+        const ok = openUserTrade({ symbol: add.dataset.ubAdd, name: m.name, side: v === 'SELL' ? 'SHORT' : 'LONG', entry: num('entry'), stop: num('stop'), target: num('target'), riskDollars: Math.round(displayToUsd(num('risk'))), decimals: m.decimals, ajPlan });
         if (ok) render(container);
       } else {
         closeUserTrade(close.dataset.ubClose, m.price, 'manual');
