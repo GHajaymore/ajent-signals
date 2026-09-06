@@ -2,7 +2,7 @@ import { state, saveSettings, perTradeRisk, planConfigFor, setPlanConfig, active
 import { fmtMoney } from '../format.js';
 import { resetPaperTrades } from '../paperTrading.js';
 import { wireSignalExport, signalExportHtml } from './signalExport.js';
-import { isPaid, trialDaysLeft } from '../backendApi.js';
+import { isPaid, trialDaysLeft, isSignedUp } from '../backendApi.js';
 import { dayExperimentPanelHtml, wireDayExperiment } from '../dayExperiment.js';
 import { isStandalone, isIOS, installAvailable, promptInstall } from '../install.js';
 import { pushSupported, pushPermission, enablePush, disablePush } from '../pushClient.js';
@@ -133,6 +133,13 @@ function planCard() {
       <div class="pro-icon"><i class="ph-fill ph-crown-simple"></i></div>
       <div class="pro-body"><div class="pro-title">Free trial · ${days} day${days === 1 ? '' : 's'} left</div><div class="pro-sub">Everything unlocked — real-time, all markets, alerts, export</div></div>
       <span class="chip-upgrade">Go Pro</span></div>`;
+  }
+  if (!isSignedUp()) {
+    // Never started the trial — offer it (free, no card), not a paid upsell.
+    return `<div class="pro-card" data-nav="#/signup">
+      <div class="pro-icon"><i class="ph-fill ph-rocket-launch"></i></div>
+      <div class="pro-body"><div class="pro-title">Start your 30-day free trial</div><div class="pro-sub">All markets, real-time, alerts &amp; export — free, no card</div></div>
+      <span class="chip-upgrade">Start free</span></div>`;
   }
   return `<div class="pro-card" data-nav="#/paywall">
     <div class="pro-icon"><i class="ph-fill ph-crown-simple"></i></div>
