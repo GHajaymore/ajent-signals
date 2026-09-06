@@ -515,6 +515,7 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .ring-num { font: 700 30px var(--font-heading); }
 .ring-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-top: 2px; }
+.verdict-conf-note { font-size: 11px; color: var(--text-faint); margin-top: 6px; font-style: italic; }
 
 .stat3-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
 .stat3-cell { background: var(--surface); border: 1px solid var(--neutral-800); border-radius: var(--radius-md); padding: 11px 12px; text-align: center; }
