@@ -104,6 +104,13 @@ export function cancelUserOrder(symbol) {
   if (p && p.status === 'pending') { delete book.open[symbol]; save(); return true; }
   return false;
 }
+// Cancel every working (pending) order at once. Filled positions are untouched.
+export function cancelAllPending() {
+  let n = 0;
+  for (const symbol of Object.keys(book.open)) if (book.open[symbol].status === 'pending') { delete book.open[symbol]; n++; }
+  if (n) save();
+  return n;
+}
 
 // Result-in-R of Ajent's shadow plan at a given price (its stop/target define its R).
 function ajShadowR(ap, price, long) {

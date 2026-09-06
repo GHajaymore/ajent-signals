@@ -29,6 +29,25 @@ function closePos(m, price, reason) {
   delete book.open[m.symbol];
 }
 
+// Manually close ONE strategy position at the live price (records the outcome, so the
+// strategy's record stays honest — closing isn't hiding the trade). Returns true if closed.
+export function closeCustomPosition(symbol, engine) {
+  const p = book.open[symbol];
+  if (!p) return false;
+  const m = engine && engine.get ? engine.get(symbol) : null;
+  const price = (m && m.price > 0) ? m.price : p.entry; // fall back to entry if no live price
+  closePos({ symbol }, price, 'manual');
+  save();
+  return true;
+}
+// Close EVERY open strategy position at once (each at its live price). Returns the count.
+export function closeAllCustom(engine) {
+  let n = 0;
+  for (const symbol of Object.keys(book.open)) if (closeCustomPosition(symbol, engine)) n++;
+  return n;
+}
+export function openCustomCount() { return Object.keys(book.open).length; }
+
 // Run one tick of the user's strategy across the board. Behaviour depends on the
 // configured MODE:
 //  • 'auto'   — opens/closes positions automatically (builds a clean, unbiased edge

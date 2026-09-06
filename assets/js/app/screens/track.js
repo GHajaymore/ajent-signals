@@ -1,6 +1,6 @@
 import { getClosedTrades, getPerformanceSummary, getOpenPositions, tradePnl } from '../paperTrading.js';
-import { userStats, getUserBook, closeUserTrade, cancelUserOrder, userTradeFor, riskLimitsStatus } from '../userBook.js';
-import { customStats, ajentAvgR, getCustomBook } from '../customBook.js';
+import { userStats, getUserBook, closeUserTrade, cancelUserOrder, cancelAllPending, userTradeFor, riskLimitsStatus } from '../userBook.js';
+import { customStats, ajentAvgR, getCustomBook, closeCustomPosition, closeAllCustom } from '../customBook.js';
 import { positionCallPill, updateCallPill, exitProgressText } from '../tradeGuidance.js';
 import { getStrategy, getAdaptive } from '../strategyMeta.js';
 import { fmtPrice } from '../format.js';
@@ -833,8 +833,9 @@ function yourOpenTradesHtml() {
     const lvls = pending
       ? `Fills @ ${fmtPrice(p.entry, p.decimals)} · SL ${fmtPrice(p.stop, p.decimals)}${p.target ? ` · TP ${fmtPrice(p.target, p.decimals)}` : ''}`
       : `${fmtPrice(p.entry, p.decimals)} · SL ${fmtPrice(p.stop, p.decimals)}${p.target ? ` · TP ${fmtPrice(p.target, p.decimals)}` : ''}`;
-    const btn = p.src !== 'manual' ? '<span class="uot-auto">auto</span>'
-      : `<button class="uot-close" data-uot-close="${p.symbol}">${pending ? 'Cancel' : 'Close'}</button>`;
+    const btn = p.src === 'manual'
+      ? `<button class="uot-close" data-uot-close="${p.symbol}">${pending ? 'Cancel' : 'Close'}</button>`
+      : `<button class="uot-close" data-uot-close-strat="${p.symbol}">Close</button>`;
     return `<div class="uot-row">
       <div class="uot-main"><span class="uot-sym">${p.symbol}</span>${tag}</div>
       <div class="uot-lvls">${lvls}</div>
@@ -844,7 +845,13 @@ function yourOpenTradesHtml() {
   }).join('');
   const nPending = manual.filter((p) => p.status === 'pending').length;
   const title = nPending ? `Your open trades · ${all.length - nPending} <span class="text-muted" style="font-weight:400">· ${nPending} working</span>` : `Your open trades · ${all.length}`;
-  return `<div class="panel"><div class="panel-title">${title}</div>${rows}<div class="text-faint" style="font-size:10px;margin-top:8px">Virtual money · closes at the live price. Working orders fill when price reaches your entry. Strategy trades run on their own rules.</div></div>`;
+  // Close-all controls: one for working orders, one for strategy positions (each records
+  // the outcome at the live price — closing never hides a trade from the record).
+  const closeAllBtns = [
+    nPending > 1 ? '<button class="uot-closeall" data-uot-cancelall>Cancel all working</button>' : '',
+    auto.length > 1 ? `<button class="uot-closeall" data-uot-closeallstrat>Close all ${auto.length} strategy</button>` : '',
+  ].filter(Boolean).join('');
+  return `<div class="panel"><div class="panel-title">${title}</div>${rows}${closeAllBtns ? `<div class="uot-closeall-row">${closeAllBtns}</div>` : ''}<div class="text-faint" style="font-size:10px;margin-top:8px">Virtual money · closes at the live price. Working orders fill when price reaches your entry. Strategy trades run on their own rules.</div></div>`;
 }
 
 // "You vs Ajent" on the record's home — the user's own book + strategy scored
@@ -1039,6 +1046,17 @@ export function render(container) {
     else closeUserTrade(sym, (m && m.price) || 0, 'manual');
     render(container);
   }));
+  // Close ONE strategy (auto) position at the live price.
+  container.querySelectorAll('[data-uot-close-strat]').forEach((b) => b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeCustomPosition(b.dataset.uotCloseStrat, state.engine);
+    render(container);
+  }));
+  // Cancel ALL working orders / close ALL strategy positions.
+  const cancelAllBtn = container.querySelector('[data-uot-cancelall]');
+  if (cancelAllBtn) cancelAllBtn.addEventListener('click', () => { cancelAllPending(); render(container); });
+  const closeAllStratBtn = container.querySelector('[data-uot-closeallstrat]');
+  if (closeAllStratBtn) closeAllStratBtn.addEventListener('click', () => { closeAllCustom(state.engine); render(container); });
 
   // Crosshair + P&L tooltip on the equity curve and the You-vs-Ajent comparison.
   wireChartHover(container);
