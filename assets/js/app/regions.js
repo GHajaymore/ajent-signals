@@ -11,7 +11,7 @@ export const REGION_OF_COUNTRY = { US: 'americas', CA: 'americas', BR: 'americas
 export const REGIONS = [
   { key: 'americas', short: 'AMER', name: 'Americas' },
   { key: 'europe', short: 'EUR', name: 'Europe' },
-  { key: 'asia', short: 'APAC', name: 'Asia-Pacific' },
+  { key: 'asia', short: 'ASIA', name: 'Asia-Pacific' },
 ];
 
 // Global, non-regional markets — they trade 24h and aren't tied to one exchange's
