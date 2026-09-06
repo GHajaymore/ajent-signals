@@ -17,7 +17,7 @@ const MAP = { BTC: 'BTC-USD', ETH: 'ETH-USD' };
 const REV = {}; for (const [k, v] of Object.entries(MAP)) REV[v] = k;
 const WS_URL = 'wss://ws-feed.exchange.coinbase.com';
 
-let ws = null, backoff = 1000, stopped = false, repaintTimer = null;
+let ws = null, backoff = 1000, stopped = false, repaintTimer = null, onTickRef = null;
 
 function applyPrice(productId, price) {
   const appSym = REV[productId];
@@ -89,7 +89,15 @@ function repaint(onTick) {
   repaintTimer = setTimeout(() => { repaintTimer = null; try { onTick(); } catch (e) { /* ignore */ } }, 2000);
 }
 
-export function startCryptoStream(onTick) { stopped = false; connect(onTick); }
+export function startCryptoStream(onTick) { stopped = false; onTickRef = onTick; connect(onTick); }
+
+// Reconnect immediately if the socket isn't open (e.g. the browser dropped it while the
+// app was backgrounded on mobile) — call this when the app returns to the foreground so
+// prices resume at once instead of waiting out the backoff timer.
+export function pokeCryptoStream() {
+  if (stopped) return;
+  if (!ws || ws.readyState >= 2 /* CLOSING or CLOSED */) { backoff = 1000; connect(onTickRef); }
+}
 export function stopCryptoStream() {
   stopped = true;
   if (repaintTimer) { clearTimeout(repaintTimer); repaintTimer = null; }

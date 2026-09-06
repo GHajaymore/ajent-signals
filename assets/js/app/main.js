@@ -21,7 +21,7 @@ import { runCustomStrategy } from './customBook.js';
 import { applyGeoDefaults } from './geo.js';
 import { startUpdateWatcher } from './updateCheck.js';
 import { startSignalRefreshLoop } from './signalRefreshLoop.js';
-import { startCryptoStream } from './cryptoStream.js';
+import { startCryptoStream, pokeCryptoStream } from './cryptoStream.js';
 import { maybeOpenPositions, checkOpenPositions, applyServerRecord, getClosedTrades } from './paperTrading.js';
 import { fmtPrice } from './format.js';
 import { backendConfigured, fetchServerTrades, fetchServerSignals, fetchLiveQuotes, redeemSession, refreshProToken, confirmEntitlement, initBilling, isEntitled } from './backendApi.js';
@@ -360,6 +360,17 @@ async function syncLiveQuotes() {
   if (touched && LIVE_SCREENS.has(parseHash()[0])) refreshRoute();
 }
 if (backendConfigured()) { syncLiveQuotes(); setInterval(syncLiveQuotes, 12000); }
+
+// Returning to the app (mobile PWA foreground, tab re-focus): the browser throttles or
+// suspends timers and can drop the crypto WebSocket while backgrounded, so refresh at
+// once instead of waiting out the next poll, and reconnect the price stream if needed.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !backendConfigured()) return;
+  try { syncServerSignals(); } catch (e) { /* ignore */ }
+  try { syncServerRecord(); } catch (e) { /* ignore */ }
+  try { syncLiveQuotes(); } catch (e) { /* ignore */ }
+  pokeCryptoStream();
+});
 
 // Probe whether a real purchase path exists (Stripe configured) so the paywall
 // shows checkout vs. the waitlist correctly. Re-render if we're on the paywall.
