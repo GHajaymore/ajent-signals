@@ -820,8 +820,12 @@ function yourOpenTradesHtml() {
     // Pending (working) order: no unrealized P&L yet — show how far price is from the entry.
     let metricHtml;
     if (pending) {
-      const away = priceReal ? Math.abs((p.entry - m.price) / m.price * 100) : null;
-      metricHtml = `<div class="uot-un" style="color:var(--flat);font-size:11px">${away == null ? 'working' : away.toFixed(1) + '% away'}</div>`;
+      // How far the market must move to reach your entry — labelled with direction so it
+      // reads as a fill distance, not a loss/risk figure.
+      const diff = priceReal ? (p.entry - m.price) / m.price * 100 : null;
+      metricHtml = diff == null
+        ? '<div class="uot-un" style="color:var(--text-muted);font-size:10.5px">waiting</div>'
+        : `<div class="uot-un" style="color:var(--text-muted);font-size:10.5px">${Math.abs(diff).toFixed(1)}% ${diff < 0 ? 'below' : 'above'}</div>`;
     } else {
       const un = priceReal ? unreal(p, m.price) : null;
       metricHtml = un == null

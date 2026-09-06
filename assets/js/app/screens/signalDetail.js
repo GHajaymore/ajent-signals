@@ -649,9 +649,9 @@ function userBookPanel(market, verdict, s, dispEntry, dispStop, dispTarget) {
     // A working (limit/stop) order — waiting for price to reach the entry, not filled yet.
     const away = market.price > 0 ? ((pos.entry - market.price) / market.price * 100) : 0;
     action = `<div class="ub-open ub-pending">
-      <div class="ub-open-row"><span><i class="ph-bold ph-hourglass-medium" style="color:var(--flat);vertical-align:-1px"></i> <b style="color:var(--text)">Your ${sym} ${pos.side === 'SHORT' ? 'short' : 'long'}</b> · <span style="color:var(--flat)">working order</span></span><span class="text-muted" style="font-size:12px">${Math.abs(away).toFixed(2)}% away</span></div>
+      <div class="ub-open-row"><span><i class="ph-bold ph-hourglass-medium" style="color:var(--flat);vertical-align:-1px"></i> <b style="color:var(--text)">Your ${sym} ${pos.side === 'SHORT' ? 'short' : 'long'}</b> · <span style="color:var(--flat)">working order</span></span><span class="text-muted" style="font-size:12px">entry ${Math.abs(away).toFixed(1)}% ${away < 0 ? 'below' : 'above'} market</span></div>
       <div class="ub-lvls">Fills at <b style="color:var(--text)">${fmtPrice(pos.entry, pos.decimals)}</b> · Stop ${fmtPrice(pos.stop, pos.decimals)}${pos.target ? ` · Target ${fmtPrice(pos.target, pos.decimals)}` : ''} · ${money(pos.riskDollars)} risk</div>
-      <div class="text-faint" style="font-size:11.5px;margin-top:6px">Waits until ${sym} trades at your entry, then opens automatically. Nothing is at risk until it fills.</div>
+      <div class="text-faint" style="font-size:11.5px;margin-top:6px">Waits until ${sym} reaches your entry (${fmtPrice(pos.entry, pos.decimals)}, now ${fmtPrice(market.price, pos.decimals)}), then opens automatically. Nothing is at risk until it fills.</div>
       <button class="btn btn-ghost ub-close" data-ub-close="${sym}" style="height:38px;margin-top:9px;width:100%">Cancel working order</button>
     </div>`;
   } else if (pos) {
