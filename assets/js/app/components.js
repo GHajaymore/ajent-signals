@@ -76,6 +76,14 @@ export function verdictChip(verdict) {
   return `<span class="${verdictChipClass(verdict)}">${label}</span>`;
 }
 
+// Compact verdict for the scannable market LIST: BUY/SELL keep their chips so they pop,
+// but NO_TRADE (most rows, most of the time) recedes to a quiet dash — less noise and
+// more room for the market name. The breadth bar + filters still surface the counts.
+export function rowVerdictChip(verdict) {
+  if (verdict === 'NO_TRADE') return '<span class="mkt-flat" title="No setup — waiting">—</span>';
+  return `<span class="${verdictChipClass(verdict)}">${verdict}</span>`;
+}
+
 export function verdictIcon(verdict) {
   if (verdict === 'BUY') return '<i class="ph-fill ph-arrow-up-right"></i>';
   if (verdict === 'SELL') return '<i class="ph-fill ph-arrow-down-right"></i>';
@@ -85,6 +93,16 @@ export function verdictIcon(verdict) {
 // Reflects whether THIS signal is real (indicators computed from real 1h/5d
 // candles) vs. the simulator fallback — the more important trust signal than
 // price alone, since price is now live for nearly every symbol regardless.
+// Lighter tag for the market LIST: every listed market is real (non-real are hidden and
+// the header says "real signals only"), so the per-row REAL badge is redundant noise that
+// pushed the exchange line to two lines. Keep only the meaningful CLOSED state; freshness
+// (LIVE/~RT/DELAYED) is shown separately. The full REAL/NO DATA badge stays on detail views.
+export function rowStatusTag(market) {
+  return marketSession(market) === 'closed'
+    ? ' <span class="data-tag closed" title="Exchange is closed — price is the last traded value and won\'t move until it reopens">CLOSED</span>'
+    : '';
+}
+
 export function dataTag(market) {
   const closed = marketSession(market) === 'closed'
     ? ' <span class="data-tag closed" title="Exchange is closed — price is the last traded value and won\'t move until it reopens">CLOSED</span>'
@@ -208,14 +226,14 @@ export function marketRow(market, verdict) {
   <div class="mkt-row" data-nav="#/signal/${market.symbol}" data-sym="${market.symbol}" data-verdict="${verdict}" data-real="${market.signalIsReal ? '1' : '0'}">
     ${symTile(market.symbol, 36)}
     <div class="mkt-body">
-      <div class="mkt-name">${market.name}</div>
-      <div class="mkt-ex">${countryFlag(market.country)} ${market.exchange} · <span data-f="tag">${dataTag(market)}</span><span data-f="fresh">${rowFreshness(market)}</span></div>
+      <div class="mkt-name">${market.name.replace(/^E-mini\s+/i, '')}</div>
+      <div class="mkt-ex">${countryFlag(market.country)} ${market.exchange}<span data-f="tag">${rowStatusTag(market)}</span><span data-f="fresh">${rowFreshness(market)}</span></div>
     </div>
     <div class="mkt-price">
       <div class="px tabular" data-f="price">${fmtPrice(market.price, market.decimals)}</div>
       <div class="chg tabular" data-f="chg" style="color:${chgColor}">${fmtPct(market.changePct)}</div>
     </div>
-    <span class="mkt-verdict" data-f="verdict">${verdictChip(verdict)}</span>
+    <span class="mkt-verdict" data-f="verdict">${rowVerdictChip(verdict)}</span>
     ${starToggle(market.symbol)}
   </div>`;
 }
@@ -273,7 +291,7 @@ export function patchRow(el, market, verdict) {
   if (chg) { if (chg.textContent !== chgStr) chg.textContent = chgStr; chg.style.color = chgColor; }
   if (el.dataset.verdict !== verdict) {
     const v = el.querySelector('[data-f="verdict"]');
-    if (v) v.innerHTML = verdictChip(verdict);
+    if (v) v.innerHTML = rowVerdictChip(verdict);
     el.dataset.verdict = verdict;
   }
   const fresh = el.querySelector('[data-f="fresh"]');
@@ -281,7 +299,7 @@ export function patchRow(el, market, verdict) {
   const realStr = market.signalIsReal ? '1' : '0';
   if (el.dataset.real !== realStr) {
     const tag = el.querySelector('[data-f="tag"]');
-    if (tag) tag.innerHTML = dataTag(market);
+    if (tag) tag.innerHTML = rowStatusTag(market);
     const spark = el.querySelector('[data-f="spark"]');
     if (spark) spark.innerHTML = sparklineSvg(market.history, chgColor);
     el.dataset.real = realStr;
