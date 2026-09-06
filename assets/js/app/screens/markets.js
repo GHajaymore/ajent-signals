@@ -317,9 +317,10 @@ export function render(container) {
 
     <div id="aclass-wrap">${assetChipsHtml()}</div>
 
-    <div id="mkt-view-wrap">${viewToggle()}</div>
-
-    <div id="mkt-filters-wrap"${view === 'heat' ? ' hidden' : ''}>${filterChips()}</div>
+    <div class="mkt-controls-row">
+      <div id="mkt-view-wrap">${viewToggle()}</div>
+      <div id="mkt-filters-wrap"${view === 'heat' ? ' hidden' : ''}>${filterChips()}</div>
+    </div>
 
     <div id="market-list-wrap">${contentHtml()}</div>
   </div>`;
