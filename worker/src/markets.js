@@ -24,6 +24,13 @@ export const MARKETS = {
   DAX: { yahoo: '^GDAXI', country: 'DE', assetClass: 'index', name: 'DAX 40' },
   HSI: { yahoo: '^HSI', country: 'HK', assetClass: 'index', name: 'Hang Seng' },
   NIFTY: { yahoo: '^NSEI', country: 'IN', assetClass: 'index', name: 'Nifty 50' },
+  // Deeper LOCAL coverage so every major market's own users get a fair share — not just
+  // the US. India (Sensex + Bank Nifty), China, Korea and France, each with its top index.
+  SENSEX: { yahoo: '^BSESN', country: 'IN', assetClass: 'index', name: 'BSE Sensex' },
+  BNF: { yahoo: '^NSEBANK', country: 'IN', assetClass: 'index', name: 'Bank Nifty' },
+  SSE: { yahoo: '000001.SS', country: 'CN', assetClass: 'index', name: 'Shanghai Composite' },
+  KOSPI: { yahoo: '^KS11', country: 'KR', assetClass: 'index', name: 'KOSPI' },
+  CAC: { yahoo: '^FCHI', country: 'FR', assetClass: 'index', name: 'CAC 40' },
   // Crypto trades 24/7 — a natural fit for the always-on server loop. Same
   // RSI-2 mean-reversion strategy applied to real BTC-USD / ETH-USD daily candles.
   BTC: { yahoo: 'BTC-USD', country: 'US', crypto: true, assetClass: 'crypto', name: 'Bitcoin' },
@@ -61,8 +68,8 @@ export const MARKETS = {
   NG: { yahoo: 'NG=F', country: 'US', futures: true, assetClass: 'commodity', engine: 'mrBoth', cell: 'commodity', name: 'Natural Gas' },
 };
 
-const TZ = { US: 'America/New_York', CA: 'America/Toronto', AU: 'Australia/Sydney', EU: 'Europe/Berlin', JP: 'Asia/Tokyo', GB: 'Europe/London', DE: 'Europe/Berlin', HK: 'Asia/Hong_Kong', IN: 'Asia/Kolkata' };
-const SESSION = { US: [570, 960], CA: [570, 960], AU: [600, 960], EU: [540, 1050], JP: [540, 900], GB: [480, 990], DE: [540, 1050], HK: [570, 960], IN: [555, 930] };
+const TZ = { US: 'America/New_York', CA: 'America/Toronto', AU: 'Australia/Sydney', EU: 'Europe/Berlin', JP: 'Asia/Tokyo', GB: 'Europe/London', DE: 'Europe/Berlin', HK: 'Asia/Hong_Kong', IN: 'Asia/Kolkata', CN: 'Asia/Shanghai', KR: 'Asia/Seoul', FR: 'Europe/Paris' };
+const SESSION = { US: [570, 960], CA: [570, 960], AU: [600, 960], EU: [540, 1050], JP: [540, 900], GB: [480, 990], DE: [540, 1050], HK: [570, 960], IN: [555, 930], CN: [570, 900], KR: [540, 930], FR: [540, 1050] };
 const WD = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
 
 function localNow(tz) {

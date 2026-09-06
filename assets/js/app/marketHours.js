@@ -7,6 +7,7 @@ const TZ = {
   US: 'America/New_York', CA: 'America/Toronto', IN: 'Asia/Kolkata', GB: 'Europe/London',
   DE: 'Europe/Berlin', EU: 'Europe/Berlin', JP: 'Asia/Tokyo', HK: 'Asia/Hong_Kong',
   CN: 'Asia/Shanghai', AU: 'Australia/Sydney', BR: 'America/Sao_Paulo', SG: 'Asia/Singapore',
+  KR: 'Asia/Seoul', FR: 'Europe/Paris',
 };
 
 // Regular cash-session [openMinute, closeMinute] in local exchange time, Mon–Fri.
@@ -19,6 +20,8 @@ const SESSION = {
   JP: [540, 900],   // 09:00–15:00 JST
   HK: [570, 960],   // 09:30–16:00 HKT
   CN: [570, 900],   // 09:30–15:00 CST
+  KR: [540, 930],   // 09:00–15:30 KST
+  FR: [540, 1050],  // 09:00–17:30 CET
   AU: [600, 960],   // 10:00–16:00 AEST
   BR: [600, 1020],  // 10:00–17:00 BRT
   SG: [540, 1020],  // 09:00–17:00 SGT

@@ -7,7 +7,7 @@ import { marketSession } from './marketHours.js';
 
 const isReal = (m) => !!(m && (m.hasServerSignal || m.signalIsReal)); // inlined to avoid a cycle
 
-export const REGION_OF_COUNTRY = { US: 'americas', CA: 'americas', BR: 'americas', EU: 'europe', DE: 'europe', FR: 'europe', GB: 'europe', JP: 'asia', AU: 'asia', HK: 'asia', CN: 'asia', SG: 'asia', IN: 'asia' };
+export const REGION_OF_COUNTRY = { US: 'americas', CA: 'americas', BR: 'americas', EU: 'europe', DE: 'europe', FR: 'europe', GB: 'europe', JP: 'asia', AU: 'asia', HK: 'asia', CN: 'asia', SG: 'asia', IN: 'asia', KR: 'asia' };
 export const REGIONS = [
   { key: 'americas', short: 'AMER', name: 'Americas' },
   { key: 'europe', short: 'EUR', name: 'Europe' },

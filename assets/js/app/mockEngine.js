@@ -43,6 +43,8 @@ const MARKET_DEFS = [
   { symbol: 'N225', name: 'Nikkei 225', category: 'Global Index', exchange: 'TSE', country: 'JP', decimals: 0, pointValue: 5, basePrice: 39800, atrPct: 0.009 },
   { symbol: 'HSI', name: 'Hang Seng Index', category: 'Global Index', exchange: 'HKEX', country: 'HK', decimals: 0, pointValue: 50, basePrice: 17600, atrPct: 0.013 },
   { symbol: 'SSE', name: 'Shanghai Composite', category: 'Global Index', exchange: 'SSE', country: 'CN', decimals: 2, pointValue: 300, basePrice: 3050, atrPct: 0.011 },
+  { symbol: 'KOSPI', name: 'KOSPI', category: 'Global Index', exchange: 'KRX', country: 'KR', decimals: 2, pointValue: 250, basePrice: 2600, atrPct: 0.009 },
+  { symbol: 'CAC', name: 'CAC 40', category: 'Global Index', exchange: 'Euronext', country: 'FR', decimals: 2, pointValue: 10, basePrice: 7500, atrPct: 0.008 },
   { symbol: 'XJO', name: 'ASX 200', category: 'Global Index', exchange: 'ASX', country: 'AU', decimals: 1, pointValue: 25, basePrice: 7950, atrPct: 0.007 },
   { symbol: 'TSX', name: 'S&P/TSX Composite', category: 'Global Index', exchange: 'TSX', country: 'CA', decimals: 0, pointValue: 5, basePrice: 23400, atrPct: 0.007 },
   { symbol: 'BVSP', name: 'Bovespa', category: 'Global Index', exchange: 'B3', country: 'BR', decimals: 0, pointValue: 1, basePrice: 128000, atrPct: 0.014 },
