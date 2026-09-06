@@ -10,7 +10,7 @@ import { isEntitled } from '../backendApi.js';
 
 // User-facing summary of how fresh the data is (kept honest — see the scan cadence in the
 // Worker and the client poll intervals in main.js). Reused wherever we surface freshness.
-export const DATA_REFRESH_NOTE = 'The strategy re-scans the markets about every 2 minutes while a market session is open (roughly every 5 minutes on weekends, when only crypto trades). The app refreshes what you see about once a minute. Live prices for crypto and FX tick near real-time (~15s); index, futures and ETF markets use a free, delayed public feed. Ajent Pro adds a ~12-second live price overlay.';
+export const DATA_REFRESH_NOTE = 'The strategy re-scans the markets about every 2 minutes while a market session is open (roughly every 5 minutes on weekends, when only crypto trades). The app refreshes what you see about once a minute. Crypto prices stream in real time (live from Coinbase); index, futures, FX and ETF markets use a free, delayed public feed. Ajent Pro adds a ~12-second live price overlay on those.';
 
 // Trading styles (industry-standard, by holding period). 'swing' is live and
 // validated; 'day' is a SELECTABLE but clearly-labelled EXPERIMENT (intraday, not
