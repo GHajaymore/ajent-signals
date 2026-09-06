@@ -71,12 +71,16 @@ export function render(container) {
     ${alerts.map((a) => {
       const meta = ALERT_META[a.type] || ALERT_META.NEWS;
       const secAgo = (Date.now() - a.ts) / 1000;
-      return `<div class="alert-card" style="border-left-color:${meta.color}">
+      // Tap an alert with a market to jump straight to that signal (and, for a fresh
+      // BUY/SELL, the "add it your way" form) so the alert is actionable, not just a notice.
+      const nav = a.symbol ? ` data-nav="#/signal/${a.symbol}" style="border-left-color:${meta.color};cursor:pointer"` : ` style="border-left-color:${meta.color}"`;
+      return `<div class="alert-card"${nav}>
         <div class="alert-tile" style="background:${meta.dim};color:${meta.color}"><i class="ph-fill ${meta.icon}"></i></div>
         <div class="alert-body">
           <div class="alert-top"><span class="alert-title">${a.title}</span><span class="alert-time">${fmtAgo(secAgo)}</span></div>
           <div class="alert-text">${a.body}</div>
         </div>
+        ${a.symbol ? '<i class="ph-bold ph-caret-right" style="color:var(--text-faint);font-size:14px;align-self:center;flex-shrink:0"></i>' : ''}
       </div>`;
     }).join('')}
 
