@@ -42,6 +42,12 @@ export function isConverted() { const c = displayCurrencyCode(); return c !== 'U
 
 function rateFor(ccy) { if (ccy === 'USD') return 1; return (rates && rates[ccy]) || null; }
 
+// Raw USD↔display conversion, for editable inputs (account size). Falls back to 1:1 when
+// no rate yet, so a slider is never stuck.
+export function displayRate() { const r = rateFor(displayCurrencyCode()); return r == null ? 1 : r; }
+export function usdToDisplay(usd) { return usd * displayRate(); }
+export function displayToUsd(v) { const r = displayRate(); return r ? v / r : v; }
+
 // Format a USD amount in the display currency. `sign` prefixes +/- (for P&L).
 export function fmtMoney(usd, { sign = true } = {}) {
   const want = displayCurrencyCode();

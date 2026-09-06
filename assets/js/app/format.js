@@ -1,3 +1,5 @@
+import { fmtMoney as fmtMoneyCcy } from './currency.js';
+
 export function countryFlag(code) {
   if (!code || code.length !== 2) return '';
   const points = [...code.toUpperCase()].map((c) => 127397 + c.charCodeAt(0));
@@ -18,8 +20,11 @@ export function fmtCompact(n) {
   return String(Math.round(n));
 }
 
+// Money amounts (paper account, P&L, staked) in the user's display currency — local by
+// default, USD when the Settings toggle forces it. Unsigned (callers add +/- where needed);
+// subscription prices are hardcoded literals elsewhere and are intentionally not routed here.
 export function fmtMoney(n) {
-  return '$' + Math.round(n).toLocaleString('en-US');
+  return fmtMoneyCcy(n, { sign: false });
 }
 
 export function fmtAgo(seconds) {

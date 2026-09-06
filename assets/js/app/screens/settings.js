@@ -3,7 +3,7 @@ import { fmtMoney } from '../format.js';
 import { resetPaperTrades } from '../paperTrading.js';
 import { wireSignalExport, signalExportHtml } from './signalExport.js';
 import { isPaid, trialDaysLeft, isSignedUp } from '../backendApi.js';
-import { localCurrencyCode, currencySymbol, displayCurrencyCode } from '../currency.js';
+import { localCurrencyCode, currencySymbol, displayCurrencyCode, usdToDisplay, displayToUsd } from '../currency.js';
 import { dayExperimentPanelHtml, wireDayExperiment } from '../dayExperiment.js';
 import { isStandalone, isIOS, installAvailable, promptInstall } from '../install.js';
 import { pushSupported, pushPermission, enablePush, disablePush } from '../pushClient.js';
@@ -227,8 +227,8 @@ export function render(container) {
       <div class="panel-title">Account &amp; risk</div>
       <div class="risk-grid">
         <div>
-          <div class="risk-label">Account size ($)</div>
-          <input id="balance-input" class="text-input" type="number" min="0" step="500" value="${accountBalance}">
+          <div class="risk-label">Account size (${currencySymbol().trim()})</div>
+          <input id="balance-input" class="text-input" type="number" min="0" step="${Math.max(1, Math.round(usdToDisplay(500)))}" value="${Math.round(usdToDisplay(accountBalance))}">
         </div>
         <div>
           <div class="risk-label">Risk per trade <span id="risk-val" style="color:var(--accent-300)">${riskPct}%</span></div>
@@ -292,7 +292,7 @@ export function render(container) {
       const usd = displayCurrencyCode() === 'usd';
       return localCode === 'USD' ? '' : `
       <div class="panel-title" style="margin-top:22px;margin-bottom:4px">Display currency</div>
-      <div class="setting-help" style="margin:0 0 8px">Your paper account &amp; P&amp;L are shown in your local currency (converted from USD at the daily rate). Market prices stay in each market's own currency.</div>
+      <div class="setting-help" style="margin:0 0 8px">Your paper account, P&amp;L and the account size you set are all shown in your local currency (converted from USD — the simulation's base — at the daily rate). Only market prices stay in each market's own currency.</div>
       <div class="seg-toggle" id="ccy-toggle">
         <button class="seg-opt ${usd ? '' : 'on'}" data-ccy="local">${localCode} (${currencySymbol(localCode).trim()})</button>
         <button class="seg-opt ${usd ? 'on' : ''}" data-ccy="usd">USD ($)</button>
@@ -407,7 +407,7 @@ export function render(container) {
 
   const balanceInput = document.getElementById('balance-input');
   balanceInput.addEventListener('input', () => {
-    state.settings.accountBalance = Number(balanceInput.value) || 0;
+    state.settings.accountBalance = Math.round(displayToUsd(Number(balanceInput.value) || 0)); // input is in display currency; store USD
     patchRiskCalc();
     saveSettings();
   });
