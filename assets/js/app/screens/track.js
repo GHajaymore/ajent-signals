@@ -1,5 +1,5 @@
 import { getClosedTrades, getPerformanceSummary, getOpenPositions, tradePnl } from '../paperTrading.js';
-import { userStats, getUserBook, closeUserTrade, riskLimitsStatus } from '../userBook.js';
+import { userStats, getUserBook, closeUserTrade, cancelUserOrder, userTradeFor, riskLimitsStatus } from '../userBook.js';
 import { customStats, ajentAvgR, getCustomBook } from '../customBook.js';
 import { positionCallPill, updateCallPill, exitProgressText } from '../tradeGuidance.js';
 import { getStrategy, getAdaptive } from '../strategyMeta.js';
@@ -816,18 +816,35 @@ function yourOpenTradesHtml() {
     // Only compute unrealized against a REAL live price — before data loads a stale
     // SIM price would show a garbage number.
     const priceReal = !!(m && m.signalIsReal && m.price > 0);
-    const un = priceReal ? unreal(p, m.price) : null;
-    const unHtml = un == null
-      ? '<span class="uot-un" style="color:var(--text-faint)">…</span>'
-      : `<div class="uot-un" style="color:${un >= 0 ? 'var(--buy)' : 'var(--sell)'}">${un >= 0 ? '+$' : '−$'}${Math.abs(un).toLocaleString('en-US')}</div>`;
+    const pending = p.status === 'pending';
+    // Pending (working) order: no unrealized P&L yet — show how far price is from the entry.
+    let metricHtml;
+    if (pending) {
+      const away = priceReal ? Math.abs((p.entry - m.price) / m.price * 100) : null;
+      metricHtml = `<div class="uot-un" style="color:var(--flat);font-size:11px">${away == null ? 'working' : away.toFixed(1) + '% away'}</div>`;
+    } else {
+      const un = priceReal ? unreal(p, m.price) : null;
+      metricHtml = un == null
+        ? '<span class="uot-un" style="color:var(--text-faint)">…</span>'
+        : `<div class="uot-un" style="color:${un >= 0 ? 'var(--buy)' : 'var(--sell)'}">${un >= 0 ? '+$' : '−$'}${Math.abs(un).toLocaleString('en-US')}</div>`;
+    }
+    const tag = pending ? '<span class="uot-src working">WORKING</span>'
+      : p.src === 'manual' ? '<span class="uot-src manual">YOUR TRADE</span>' : '<span class="uot-src strategy">STRATEGY</span>';
+    const lvls = pending
+      ? `Fills @ ${fmtPrice(p.entry, p.decimals)} · SL ${fmtPrice(p.stop, p.decimals)}${p.target ? ` · TP ${fmtPrice(p.target, p.decimals)}` : ''}`
+      : `${fmtPrice(p.entry, p.decimals)} · SL ${fmtPrice(p.stop, p.decimals)}${p.target ? ` · TP ${fmtPrice(p.target, p.decimals)}` : ''}`;
+    const btn = p.src !== 'manual' ? '<span class="uot-auto">auto</span>'
+      : `<button class="uot-close" data-uot-close="${p.symbol}">${pending ? 'Cancel' : 'Close'}</button>`;
     return `<div class="uot-row">
-      <div class="uot-main"><span class="uot-sym">${p.symbol}</span><span class="uot-src ${p.src}">${p.src === 'manual' ? 'YOUR TRADE' : 'STRATEGY'}</span></div>
-      <div class="uot-lvls">${fmtPrice(p.entry, p.decimals)} · SL ${fmtPrice(p.stop, p.decimals)}${p.target ? ` · TP ${fmtPrice(p.target, p.decimals)}` : ''}</div>
-      ${unHtml}
-      ${p.src === 'manual' ? `<button class="uot-close" data-uot-close="${p.symbol}">Close</button>` : '<span class="uot-auto">auto</span>'}
+      <div class="uot-main"><span class="uot-sym">${p.symbol}</span>${tag}</div>
+      <div class="uot-lvls">${lvls}</div>
+      ${metricHtml}
+      ${btn}
     </div>`;
   }).join('');
-  return `<div class="panel"><div class="panel-title">Your open trades · ${all.length}</div>${rows}<div class="text-faint" style="font-size:10px;margin-top:8px">Virtual money · closes at the live price. Strategy trades run on their own rules.</div></div>`;
+  const nPending = manual.filter((p) => p.status === 'pending').length;
+  const title = nPending ? `Your open trades · ${all.length - nPending} <span class="text-muted" style="font-weight:400">· ${nPending} working</span>` : `Your open trades · ${all.length}`;
+  return `<div class="panel"><div class="panel-title">${title}</div>${rows}<div class="text-faint" style="font-size:10px;margin-top:8px">Virtual money · closes at the live price. Working orders fill when price reaches your entry. Strategy trades run on their own rules.</div></div>`;
 }
 
 // "You vs Ajent" on the record's home — the user's own book + strategy scored
@@ -1017,7 +1034,9 @@ export function render(container) {
     e.stopPropagation();
     const sym = b.dataset.uotClose;
     const m = state.engine.get(sym);
-    closeUserTrade(sym, (m && m.price) || 0, 'manual');
+    const t = userTradeFor(sym);
+    if (t && t.status === 'pending') cancelUserOrder(sym); // working order → cancel
+    else closeUserTrade(sym, (m && m.price) || 0, 'manual');
     render(container);
   }));
 

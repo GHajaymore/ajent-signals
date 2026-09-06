@@ -19,6 +19,11 @@ function save() { try { localStorage.setItem(LS, JSON.stringify(book)); } catch 
 
 export function getUserBook() { return book; }
 export function userTradeFor(symbol) { return book.open[symbol] || null; }
+// A book entry is 'pending' (working order, not yet filled) or 'open' (filled position).
+// Older entries saved before pending orders existed have no status → treat as 'open'.
+export function isPending(p) { return p && p.status === 'pending'; }
+export function pendingOrders() { return Object.values(book.open).filter(isPending); }
+export function openPositions() { return Object.values(book.open).filter((p) => !isPending(p)); }
 
 // Default the risk-per-trade to the user's own setting (account × risk%) so the
 // comparison against Ajent is apples-to-apples (both size a trade by 1R = risk $).
@@ -70,17 +75,34 @@ export function riskLimitsStatus() {
   };
 }
 
-export function openUserTrade({ symbol, name, side = 'LONG', entry, stop, target, riskDollars, decimals = 2, ajPlan = null }) {
+export function openUserTrade({ symbol, name, side = 'LONG', entry, stop, target, riskDollars, decimals = 2, ajPlan = null, currentPrice = null }) {
   if (!(entry > 0) || !(stop > 0) || !(riskDollars > 0)) return false;
   const gate = riskGate(riskDollars);
   if (!gate.ok) return gate; // blocked by a personal risk limit — caller shows gate.reason
   const risk = Math.abs(entry - stop) || (entry * 0.004);
-  // ajPlan = Ajent's OWN suggested entry/stop/target for this signal, captured at
-  // open — a "shadow" trade we track alongside, so we can compare your levels vs
-  // Ajent's on the exact same setup (head-to-head, selection held constant).
-  book.open[symbol] = { symbol, name, side, entry, stop, target: target || null, risk, riskDollars: Math.round(riskDollars), decimals, openedAt: Date.now(), ajPlan: ajPlan && ajPlan.entry > 0 && ajPlan.stop > 0 ? ajPlan : null, ajResultR: null };
+  const now = Date.now();
+  // Fill-now vs PENDING (a working/limit order). If the entry is at the current market
+  // (within a whisker) we fill immediately; otherwise the order WAITS and fills only when
+  // price touches the entry from the side it's on now — like a real limit/stop order.
+  const px = currentPrice > 0 ? currentPrice : entry;
+  const atMarket = Math.abs(px - entry) <= entry * 0.0005;
+  // ajPlan = Ajent's OWN suggested entry/stop/target for this signal, captured at placement
+  // — a "shadow" trade we track alongside, so we can compare your levels vs Ajent's on the
+  // exact same setup (head-to-head, selection held constant).
+  const base = { symbol, name, side, entry, stop, target: target || null, risk, riskDollars: Math.round(riskDollars), decimals, placedAt: now, ajPlan: ajPlan && ajPlan.entry > 0 && ajPlan.stop > 0 ? ajPlan : null, ajResultR: null };
+  book.open[symbol] = atMarket
+    ? { ...base, status: 'open', openedAt: now }
+    : { ...base, status: 'pending', fillDir: px > entry ? 'down' : 'up', openedAt: null };
   save();
   return true;
+}
+
+// Cancel a working (unfilled) order. Only pending orders can be cancelled; a filled
+// position is closed with closeUserTrade instead.
+export function cancelUserOrder(symbol) {
+  const p = book.open[symbol];
+  if (p && p.status === 'pending') { delete book.open[symbol]; save(); return true; }
+  return false;
 }
 
 // Result-in-R of Ajent's shadow plan at a given price (its stop/target define its R).
@@ -113,6 +135,13 @@ export function checkUserPositions(engine) {
     const m = engine.get ? engine.get(p.symbol) : null;
     const price = m && m.price;
     if (!(price > 0)) continue;
+    // Pending (working) order: fills only when price TOUCHES the entry from the side it
+    // was placed on. Until then it just waits — no stop/target management yet.
+    if (p.status === 'pending') {
+      const filled = p.fillDir === 'down' ? price <= p.entry : price >= p.entry;
+      if (filled) { p.status = 'open'; p.openedAt = Date.now(); changed = true; }
+      continue;
+    }
     const long = p.side !== 'SHORT';
     // Resolve Ajent's shadow first if ITS stop/target hits (its outcome locks in even
     // if your own leg is still open) — so the head-to-head is true to each plan's path.

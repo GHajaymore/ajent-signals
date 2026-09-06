@@ -4,7 +4,7 @@ import { shareOrCopy } from '../share.js';
 import { flashToast } from '../share.js';
 import { getStrategy } from '../strategyMeta.js';
 import { getClosedTrades, getPerformanceSummary } from '../paperTrading.js';
-import { userTradeFor, userStats, unrealizedFor, defaultRiskDollars, openUserTrade, closeUserTrade, headToHead, riskLimitsStatus } from '../userBook.js';
+import { userTradeFor, userStats, unrealizedFor, defaultRiskDollars, openUserTrade, closeUserTrade, cancelUserOrder, headToHead, riskLimitsStatus } from '../userBook.js';
 import { ajentAvgR } from '../customBook.js';
 import { evalCustom, getCustomConfig, customTradesMarket } from '../customStrategy.js';
 
@@ -645,7 +645,16 @@ function userBookPanel(market, verdict, s, dispEntry, dispStop, dispTarget) {
     <div class="vs-col"><div class="vs-who">YOU</div><div class="vs-exp" style="color:${(you.avgR || 0) >= 0 ? 'var(--buy)' : 'var(--sell)'}">${rr(you.avgR)}<span class="vs-exp-l">avg/trade</span></div><div class="vs-sub">${money(you.net)} · ${you.winRate}% · ${you.trades}T</div></div>
   </div>`;
   let action = '';
-  if (pos) {
+  if (pos && pos.status === 'pending') {
+    // A working (limit/stop) order — waiting for price to reach the entry, not filled yet.
+    const away = market.price > 0 ? ((pos.entry - market.price) / market.price * 100) : 0;
+    action = `<div class="ub-open ub-pending">
+      <div class="ub-open-row"><span><i class="ph-bold ph-hourglass-medium" style="color:var(--flat);vertical-align:-1px"></i> <b style="color:var(--text)">Your ${sym} ${pos.side === 'SHORT' ? 'short' : 'long'}</b> · <span style="color:var(--flat)">working order</span></span><span class="text-muted" style="font-size:12px">${Math.abs(away).toFixed(2)}% away</span></div>
+      <div class="ub-lvls">Fills at <b style="color:var(--text)">${fmtPrice(pos.entry, pos.decimals)}</b> · Stop ${fmtPrice(pos.stop, pos.decimals)}${pos.target ? ` · Target ${fmtPrice(pos.target, pos.decimals)}` : ''} · ${money(pos.riskDollars)} risk</div>
+      <div class="text-faint" style="font-size:11.5px;margin-top:6px">Waits until ${sym} trades at your entry, then opens automatically. Nothing is at risk until it fills.</div>
+      <button class="btn btn-ghost ub-close" data-ub-close="${sym}" style="height:38px;margin-top:9px;width:100%">Cancel working order</button>
+    </div>`;
+  } else if (pos) {
     const un = unrealizedFor(pos, market.price);
     action = `<div class="ub-open">
       <div class="ub-open-row"><span><b style="color:var(--text)">Your ${sym} trade</b> · open</span><span style="color:${un >= 0 ? 'var(--buy)' : 'var(--sell)'};font:600 13px var(--font-mono)">${money(un)} <span class="text-faint" style="font-weight:400">unreal.</span></span></div>
@@ -1041,11 +1050,17 @@ export function render(container) {
         // Side comes from the form (set from Ajent's verdict OR the user's custom fire).
         const sideEl = body && body.querySelector('[data-ub-side]');
         const side = (sideEl && sideEl.value) || (v === 'SELL' ? 'SHORT' : 'LONG');
-        const res = openUserTrade({ symbol: add.dataset.ubAdd, name: m.name, side, entry: num('entry'), stop: num('stop'), target: num('target'), riskDollars: Math.round(displayToUsd(num('risk'))), decimals: m.decimals, ajPlan });
-        if (res === true) render(container);
-        else if (res && res.reason) flashToast(res.reason); // blocked by a personal risk limit
+        const res = openUserTrade({ symbol: add.dataset.ubAdd, name: m.name, side, entry: num('entry'), stop: num('stop'), target: num('target'), riskDollars: Math.round(displayToUsd(num('risk'))), decimals: m.decimals, ajPlan, currentPrice: m.price });
+        if (res === true) {
+          const placed = userTradeFor(add.dataset.ubAdd);
+          if (placed && placed.status === 'pending') flashToast(`Working order placed — fills when ${m.symbol} reaches ${fmtPrice(placed.entry, m.decimals)}.`);
+          render(container);
+        } else if (res && res.reason) flashToast(res.reason); // blocked by a personal risk limit
       } else {
-        closeUserTrade(close.dataset.ubClose, m.price, 'manual');
+        // A pending (unfilled) order is cancelled; a filled position is closed at market.
+        const t = userTradeFor(close.dataset.ubClose);
+        if (t && t.status === 'pending') cancelUserOrder(close.dataset.ubClose);
+        else closeUserTrade(close.dataset.ubClose, m.price, 'manual');
         render(container);
       }
     });

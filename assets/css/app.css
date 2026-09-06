@@ -299,6 +299,7 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .uot-src { font: 700 8px var(--font-mono); letter-spacing: 0.05em; padding: 2px 6px; border-radius: 5px; }
 .uot-src.manual { color: #08101f; background: var(--accent); }
 .uot-src.strategy { color: var(--accent-100); background: var(--accent-800); }
+.uot-src.working { color: #f5b35a; background: rgba(245, 179, 90, 0.15); }
 .uot-lvls { grid-column: 1; font: 500 10.5px var(--font-mono); color: var(--text-muted); margin-top: -4px; }
 .uot-un { font: 700 14px var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
 .uot-close { font: 600 11px var(--font-body); color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
