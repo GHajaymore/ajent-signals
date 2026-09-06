@@ -111,6 +111,8 @@ export function defaultCondition(key) {
 // Default = the classic dip-buy so an untouched builder still does something sensible.
 export const CUSTOM_DEFAULT = {
   direction: 'long', // 'long' | 'short' | 'both'
+  mode: 'auto',      // 'auto' = trade automatically (clean edge record) | 'manual' = alert me, I add each trade
+  markets: null,     // null/[] = every real market; else an allow-list of symbols
   conditions: [
     { key: 'rsi', period: 2, value: 15 },
     { key: 'ma', maType: 'sma', period: 50 },
@@ -118,9 +120,19 @@ export const CUSTOM_DEFAULT = {
 };
 
 export function getCustomConfig() {
-  try { const c = JSON.parse(localStorage.getItem(LS)); if (c && Array.isArray(c.conditions)) return { direction: c.direction || 'long', conditions: c.conditions }; } catch (e) { /* ignore */ }
-  return { direction: CUSTOM_DEFAULT.direction, conditions: CUSTOM_DEFAULT.conditions.map((x) => ({ ...x })) };
+  try {
+    const c = JSON.parse(localStorage.getItem(LS));
+    if (c && Array.isArray(c.conditions)) return {
+      direction: c.direction || 'long',
+      mode: c.mode === 'manual' ? 'manual' : 'auto',
+      markets: Array.isArray(c.markets) ? c.markets : null,
+      conditions: c.conditions,
+    };
+  } catch (e) { /* ignore */ }
+  return { direction: CUSTOM_DEFAULT.direction, mode: 'auto', markets: null, conditions: CUSTOM_DEFAULT.conditions.map((x) => ({ ...x })) };
 }
+// True when the strategy should run on this market symbol (null/empty list = all).
+export function customTradesMarket(cfg, symbol) { return !cfg.markets || !cfg.markets.length || cfg.markets.includes(symbol); }
 export function setCustomConfig(cfg) { try { localStorage.setItem(LS, JSON.stringify(cfg)); } catch (e) { /* ignore */ } }
 export function resetCustomConfig() { try { localStorage.removeItem(LS); } catch (e) { /* ignore */ } }
 

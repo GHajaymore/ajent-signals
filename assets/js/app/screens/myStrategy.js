@@ -40,10 +40,29 @@ function condCard(cond, idx, direction) {
 function configPanel(cfg) {
   const used = new Set(cfg.conditions.map((c) => c.key));
   const addable = INDICATOR_KEYS; // duplicates allowed (e.g. two MAs)
+  const manual = cfg.mode === 'manual';
+  const realMkts = (state.engine.markets || []).filter(isRealMarket);
   return `<div class="panel cs-config">
     <div class="cs-dir-row">
       <span class="cs-l">Direction</span>
       <div class="cs-seg">${DIRS.map(([k, l]) => `<button class="cs-seg-b${cfg.direction === k ? ' on' : ''}" data-cs-dir="${k}">${l}</button>`).join('')}</div>
+    </div>
+    <div class="cs-dir-row">
+      <span class="cs-l">How it runs</span>
+      <div class="cs-seg">
+        <button class="cs-seg-b${!manual ? ' on' : ''}" data-cs-mode="auto">Automated</button>
+        <button class="cs-seg-b${manual ? ' on' : ''}" data-cs-mode="manual">Manual · alert me</button>
+      </div>
+    </div>
+    <div class="cs-hint">${manual
+      ? '<i class="ph-bold ph-bell"></i> Ajent <b>alerts</b> you when your rule fires — you add each trade your own way (your own exit), tracked in your risk-limited book.'
+      : '<i class="ph-bold ph-robot"></i> <b>Trades automatically</b> as your rule fires, building an unbiased record to compare against Ajent.'}</div>
+    <div class="cs-mkt-row">
+      <span class="cs-l">Markets</span>
+      <div class="cs-mkt-chips">
+        <button class="cs-mkt-chip${!cfg.markets ? ' on' : ''}" data-cs-mkt="__all">All</button>
+        ${realMkts.map((m) => `<button class="cs-mkt-chip${cfg.markets && cfg.markets.includes(m.symbol) ? ' on' : ''}" data-cs-mkt="${m.symbol}">${m.symbol}</button>`).join('')}
+      </div>
     </div>
     <div class="cs-cond-list">
       ${cfg.conditions.length ? cfg.conditions.map((c, i) => condCard(c, i, cfg.direction)).join('')
@@ -139,6 +158,25 @@ export function render(container) {
     // Direction
     container.querySelectorAll('[data-cs-dir]').forEach((b) => b.addEventListener('click', () => {
       const c = getCustomConfig(); c.direction = b.dataset.csDir; setCustomConfig(c); draw();
+    }));
+    // Mode (Automated / Manual)
+    container.querySelectorAll('[data-cs-mode]').forEach((b) => b.addEventListener('click', () => {
+      const c = getCustomConfig(); c.mode = b.dataset.csMode === 'manual' ? 'manual' : 'auto'; setCustomConfig(c); draw();
+    }));
+    // Market picker: "All" clears the list; a market toggles into an explicit allow-list
+    // (empty or full collapses back to null = all).
+    container.querySelectorAll('[data-cs-mkt]').forEach((b) => b.addEventListener('click', () => {
+      const c = getCustomConfig();
+      const all = (state.engine.markets || []).filter(isRealMarket).map((m) => m.symbol);
+      if (b.dataset.csMkt === '__all') { c.markets = null; }
+      else if (!c.markets || !c.markets.length) {
+        c.markets = [b.dataset.csMkt]; // from "All", a click narrows to just this market
+      } else {
+        const sel = new Set(c.markets);
+        if (sel.has(b.dataset.csMkt)) sel.delete(b.dataset.csMkt); else sel.add(b.dataset.csMkt);
+        c.markets = (sel.size === 0 || sel.size === all.length) ? null : [...sel]; // empty or full → All
+      }
+      setCustomConfig(c); draw();
     }));
     // Add indicator
     container.querySelectorAll('[data-cond-add]').forEach((b) => b.addEventListener('click', () => {

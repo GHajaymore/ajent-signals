@@ -6,6 +6,7 @@ import { getStrategy } from '../strategyMeta.js';
 import { getClosedTrades, getPerformanceSummary } from '../paperTrading.js';
 import { userTradeFor, userStats, unrealizedFor, defaultRiskDollars, openUserTrade, closeUserTrade, headToHead, riskLimitsStatus } from '../userBook.js';
 import { ajentAvgR } from '../customBook.js';
+import { evalCustom, getCustomConfig, customTradesMarket } from '../customStrategy.js';
 
 // Honest per-market note about the DAILY strategy's backtested edge on this
 // specific market (daily mode only). Never implies an edge the backtest didn't
@@ -601,6 +602,32 @@ function actionSuggestion(market, s, verdict) {
   return { icon: 'ph-hourglass-medium', tone: 'var(--flat)', title: 'No setup — waiting', text: 'Not stretched enough to buy — the strategy waits for a deeper oversold flush in an uptrend. Watching.' };
 }
 
+// The user's OWN custom strategy, if it fired here in manual mode (else null).
+function customFireFor(market) {
+  const cfg = getCustomConfig();
+  if (cfg.mode !== 'manual' || !customTradesMarket(cfg, market.symbol)) return null;
+  const e = evalCustom(market, cfg);
+  return (e && e.ready && e.fires) ? e : null;
+}
+// The "trade it your way" form shows when Ajent signals BUY/SELL, or when the user's
+// manual-mode custom strategy fired here (so they can add it even if Ajent is quiet).
+function canTakeThisTrade(market, verdict, s) {
+  if (s.plan && (verdict === 'BUY' || verdict === 'SELL')) return true;
+  return !!customFireFor(market);
+}
+// Side + prefilled levels for the form — from Ajent's plan when it signals, else from
+// the custom fire (live price, a 4% protective stop matching the engine, a 1R target).
+function takeTradePrefill(market, verdict, s, dispEntry, dispStop, dispTarget) {
+  if (s.plan && (verdict === 'BUY' || verdict === 'SELL')) {
+    return { side: verdict === 'SELL' ? 'SHORT' : 'LONG', entry: dispEntry, stop: dispStop, target: dispTarget, fromCustom: false };
+  }
+  const e = customFireFor(market);
+  const px = market.price || dispEntry || 0;
+  const SF = 0.04;
+  const long = e ? e.dir > 0 : true;
+  return { side: long ? 'LONG' : 'SHORT', entry: px, stop: long ? px * (1 - SF) : px * (1 + SF), target: long ? px * (1 + SF) : px * (1 - SF), fromCustom: true };
+}
+
 // "You vs Ajent" — the user's own book (custom trades) scored against the
 // algorithm's record, plus the action to take a signal your own way.
 function userBookPanel(market, verdict, s, dispEntry, dispStop, dispTarget) {
@@ -625,14 +652,18 @@ function userBookPanel(market, verdict, s, dispEntry, dispStop, dispTarget) {
       <div class="ub-lvls">Entry ${fmtPrice(pos.entry, pos.decimals)} · Stop ${fmtPrice(pos.stop, pos.decimals)}${pos.target ? ` · Target ${fmtPrice(pos.target, pos.decimals)}` : ''} · ${money(pos.riskDollars)} risk</div>
       <button class="btn btn-ghost ub-close" data-ub-close="${sym}" style="height:38px;margin-top:9px;width:100%">Close at market · ${fmtPrice(market.price, pos.decimals)}</button>
     </div>`;
-  } else if (s.plan && (verdict === 'BUY' || verdict === 'SELL')) {
-    action = `<details class="ub-form">
-      <summary class="ub-cta">Trade it your way <i class="ph-bold ph-caret-down"></i></summary>
+  } else if (canTakeThisTrade(market, verdict, s)) {
+    // Show the "your way" form when Ajent signals BUY/SELL, OR when the user's OWN custom
+    // strategy fired here in manual mode (so they can add it even if Ajent is quiet).
+    const t = takeTradePrefill(market, verdict, s, dispEntry, dispStop, dispTarget);
+    action = `<details class="ub-form"${t.fromCustom ? ' open' : ''}>
+      <summary class="ub-cta">${t.fromCustom ? 'Add your strategy&rsquo;s trade' : 'Trade it your way'} <i class="ph-bold ph-caret-down"></i></summary>
       <div class="ub-form-body">
-        <p class="text-muted" style="font-size:11.5px;line-height:1.5;margin:2px 0 10px">Set your own entry, stop and target — tracked in <b style="color:var(--text)">your book</b> (virtual money) so you can see how your version does against Ajent's.</p>
-        <label class="ub-field"><span>Entry</span><input type="number" step="any" data-ub="entry" value="${(+dispEntry).toFixed(market.decimals)}"></label>
-        <label class="ub-field"><span>Stop</span><input type="number" step="any" data-ub="stop" value="${(+dispStop).toFixed(market.decimals)}"></label>
-        <label class="ub-field"><span>Target</span><input type="number" step="any" data-ub="target" value="${(+dispTarget).toFixed(market.decimals)}"></label>
+        <p class="text-muted" style="font-size:11.5px;line-height:1.5;margin:2px 0 10px">${t.fromCustom ? `<b style="color:var(--text)">Your strategy triggered a ${t.side === 'SHORT' ? 'short' : 'long'} here.</b> Set your entry, stop and target — tracked in your book (virtual money).` : 'Set your own entry, stop and target — tracked in <b style="color:var(--text)">your book</b> (virtual money) so you can see how your version does against Ajent\'s.'}</p>
+        <input type="hidden" data-ub-side value="${t.side}">
+        <label class="ub-field"><span>Entry</span><input type="number" step="any" data-ub="entry" value="${(+t.entry).toFixed(market.decimals)}"></label>
+        <label class="ub-field"><span>Stop</span><input type="number" step="any" data-ub="stop" value="${(+t.stop).toFixed(market.decimals)}"></label>
+        <label class="ub-field"><span>Target</span><input type="number" step="any" data-ub="target" value="${(+t.target).toFixed(market.decimals)}"></label>
         <label class="ub-field"><span>Risk&nbsp;${currencySymbol().trim()}</span><input type="number" step="any" data-ub="risk" value="${Math.round(usdToDisplay(defaultRiskDollars()))}"></label>
         ${(() => {
           const rl = riskLimitsStatus();
@@ -1007,7 +1038,10 @@ export function render(container) {
         const v = m.verdict(state.settings.threshold);
         const p = m.signal && m.signal.plan;
         const ajPlan = p && p.entry > 0 ? { entry: p.entry, stop: p.stop, target: p.target1 } : null;
-        const res = openUserTrade({ symbol: add.dataset.ubAdd, name: m.name, side: v === 'SELL' ? 'SHORT' : 'LONG', entry: num('entry'), stop: num('stop'), target: num('target'), riskDollars: Math.round(displayToUsd(num('risk'))), decimals: m.decimals, ajPlan });
+        // Side comes from the form (set from Ajent's verdict OR the user's custom fire).
+        const sideEl = body && body.querySelector('[data-ub-side]');
+        const side = (sideEl && sideEl.value) || (v === 'SELL' ? 'SHORT' : 'LONG');
+        const res = openUserTrade({ symbol: add.dataset.ubAdd, name: m.name, side, entry: num('entry'), stop: num('stop'), target: num('target'), riskDollars: Math.round(displayToUsd(num('risk'))), decimals: m.decimals, ajPlan });
         if (res === true) render(container);
         else if (res && res.reason) flashToast(res.reason); // blocked by a personal risk limit
       } else {

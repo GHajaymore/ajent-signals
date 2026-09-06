@@ -254,6 +254,11 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .cs-add-chip { font: 600 12px var(--font-heading); color: var(--text); background: var(--surface-2); border: 1px dashed color-mix(in srgb, var(--accent) 42%, var(--hairline)); border-radius: 20px; padding: 6px 12px; cursor: pointer; transition: background 0.15s; }
 .cs-add-chip:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .cs-add-chip.dim { opacity: 0.55; }
+.cs-mkt-row { padding: 4px 0 6px; }
+.cs-mkt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.cs-mkt-chip { font: 600 11px var(--font-heading); color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 20px; padding: 5px 11px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+.cs-mkt-chip:hover { color: var(--text); }
+.cs-mkt-chip.on { background: var(--accent-800); color: var(--accent-100); border-color: color-mix(in srgb, var(--accent) 42%, var(--hairline)); }
 .cs-hint { display: flex; gap: 7px; align-items: flex-start; font: 500 11.5px var(--font-body); color: var(--text-muted); line-height: 1.5; margin-top: 13px; padding-top: 12px; border-top: 1px solid var(--hairline); }
 .cs-hint i { color: var(--accent); margin-top: 1px; flex: none; }
 .cs-prox { color: var(--text-muted); font-weight: 600; }

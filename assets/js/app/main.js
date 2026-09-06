@@ -278,6 +278,12 @@ function signalAlert(m, verdict) {
   pushAlert({ type: verdict, symbol: m.symbol, title: `${verdict} · ${m.symbol}`,
     body: `${m.name} triggered a ${verdict === 'BUY' ? 'long' : 'short'} — ${s.confidence}% confidence${lvls}.`, ts: Date.now() });
 }
+// The user's OWN custom strategy fired (manual mode) — prompt them to add it their way.
+function customSignalAlert(f) {
+  const verdict = f.dir > 0 ? 'BUY' : 'SELL';
+  pushAlert({ type: verdict, symbol: f.symbol, title: `Your strategy · ${verdict} · ${f.symbol}`,
+    body: `${f.name} triggered your ${verdict === 'BUY' ? 'long' : 'short'} rule at ${fmtPrice(f.price, f.decimals)} — open the market to add it your way.`, ts: Date.now(), custom: true });
+}
 function tradeCloseAlert(c) {
   const win = (c.pnl || 0) >= 0;
   const why = c.exitReason === 'stop' ? 'hit its stop'
@@ -339,7 +345,8 @@ async function syncServerSignals() {
     // and run one tick of the user's configured strategy (if they built one) — both
     // on the same real prices as Ajent's record.
     checkUserPositions(state.engine);
-    runCustomStrategy(state.engine);
+    const cs = runCustomStrategy(state.engine);
+    if (cs && cs.fires) for (const f of cs.fires) customSignalAlert(f);
     const route = parseHash()[0];
     if (LIVE_SCREENS.has(route) || route === 'alerts') refreshRoute();
   }

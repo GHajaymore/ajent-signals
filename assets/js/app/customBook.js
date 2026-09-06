@@ -3,7 +3,7 @@
 // snapshot of which markets fire now. Long or short per the user's configured
 // direction, with a simple protective stop. Virtual money, on this device; clearly the
 // user's experiment, never presented as validated.
-import { evalCustom, getCustomConfig } from './customStrategy.js';
+import { evalCustom, getCustomConfig, customTradesMarket } from './customStrategy.js';
 import { perTradeRisk } from './state.js';
 
 const LS = 'ajent_custombook_v1';
@@ -29,17 +29,24 @@ function closePos(m, price, reason) {
   delete book.open[m.symbol];
 }
 
-// Run one tick of the user's strategy across the board. Opens when the rule fires
-// and there's no open position; exits on the user's RSI-recovery threshold or the
-// protective stop. Returns true if anything changed.
+// Run one tick of the user's strategy across the board. Behaviour depends on the
+// configured MODE:
+//  • 'auto'   — opens/closes positions automatically (builds a clean, unbiased edge
+//               record to compare against Ajent). Existing positions are always managed.
+//  • 'manual' — never auto-opens; on a FRESH fire it returns an alert so Ajent prompts
+//               the user, who adds the trade their own way (with their own exit) into the
+//               risk-gated "trade it your way" book. Existing auto-positions still exit.
+// Market selection (cfg.markets) gates which markets it acts on. Returns { changed, fires }.
 export function runCustomStrategy(engine) {
-  // Opt-in: only auto-trade once the user has actually configured a strategy, so we
-  // never build a record for someone who never opened the builder.
+  // Opt-in: only run once the user has actually configured a strategy.
   let hasConfig = false;
   try { hasConfig = !!localStorage.getItem('ajent_customstrat_v1'); } catch (e) { /* ignore */ }
-  if (!hasConfig) return false;
+  if (!hasConfig) return { changed: false, fires: [] };
   const cfg = getCustomConfig();
+  const manual = cfg.mode === 'manual';
+  if (!book.fired) book.fired = {}; // per-symbol last-fired direction, for manual-mode dedup
   let changed = false;
+  const fires = [];
   for (const m of engine.markets) {
     if (!isReal(m)) continue;
     const e = evalCustom(m, cfg);
@@ -48,11 +55,21 @@ export function runCustomStrategy(engine) {
     if (!(price > 0)) continue;
     const pos = book.open[m.symbol];
     if (pos) {
+      // Manage an existing position ALWAYS (even in manual mode or if the market was
+      // later deselected) — never strand an open trade. Exit on the protective stop or
+      // when the user's setup no longer holds in this position's direction.
       const long = (pos.dir || 1) > 0;
-      // Exit on the protective stop, or when the user's own setup no longer holds in
-      // this position's direction (a generic, indicator-agnostic exit).
       if (long ? price <= pos.stop : price >= pos.stop) { closePos(m, pos.stop, 'stop'); changed = true; }
       else if (long ? !e.longFires : !e.shortFires) { closePos(m, price, 'setupEnded'); changed = true; }
+      continue;
+    }
+    if (!customTradesMarket(cfg, m.symbol)) continue; // opening/alerting only on selected markets
+    if (manual) {
+      // Alert on a fresh fire (transition into firing), then remember it so we don't
+      // re-alert every tick; reset once the setup stops firing.
+      const prevDir = book.fired[m.symbol] || 0;
+      if (e.fires && e.dir !== prevDir) { fires.push({ symbol: m.symbol, name: m.name, dir: e.dir, price, decimals: m.decimals, confidence: e.confidence }); book.fired[m.symbol] = e.dir; changed = true; }
+      else if (!e.fires && prevDir) { book.fired[m.symbol] = 0; changed = true; }
     } else if (e.fires) {
       const long = e.dir > 0;
       book.open[m.symbol] = { symbol: m.symbol, name: m.name, dir: e.dir, entry: price, stop: long ? price * (1 - STOP_FRAC) : price * (1 + STOP_FRAC), riskDollars: perTradeRisk(), decimals: m.decimals, openedAt: Date.now() };
@@ -60,7 +77,7 @@ export function runCustomStrategy(engine) {
     }
   }
   if (changed) save();
-  return changed;
+  return { changed, fires };
 }
 
 export function customStats() {
