@@ -547,7 +547,9 @@ function posLivePnl(p) {
   const m = state.engine.get(p.symbol);
   const px = m && m.price;
   const riskPer = Math.abs(p.risk || (p.entry != null && p.stop != null ? p.entry - p.stop : 0));
-  if (!px || p.entry == null || !riskPer) return null;
+  // Mark to market only against a REAL price — a placeholder catalog price before the feed
+  // loads would show a wildly wrong unrealized figure. Skip until real data arrives.
+  if (!m || !m.signalIsReal || !(px > 0) || p.entry == null || !riskPer) return null;
   const long = (p.side || 'LONG') === 'LONG';
   const r = (long ? (px - p.entry) : (p.entry - px)) / riskPer;
   return { r, dollars: r * (p.riskDollars || 250), px };

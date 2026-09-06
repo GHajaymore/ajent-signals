@@ -655,9 +655,11 @@ function userBookPanel(market, verdict, s, dispEntry, dispStop, dispTarget) {
       <button class="btn btn-ghost ub-close" data-ub-close="${sym}" style="height:38px;margin-top:9px;width:100%">Cancel working order</button>
     </div>`;
   } else if (pos) {
-    const un = unrealizedFor(pos, market.price);
+    // Only show unrealized against a REAL price — a placeholder price before the feed loads
+    // would show a wrong figure.
+    const un = (market.signalIsReal && market.price > 0) ? unrealizedFor(pos, market.price) : null;
     action = `<div class="ub-open">
-      <div class="ub-open-row"><span><b style="color:var(--text)">Your ${sym} trade</b> · open</span><span style="color:${un >= 0 ? 'var(--buy)' : 'var(--sell)'};font:600 13px var(--font-mono)">${money(un)} <span class="text-faint" style="font-weight:400">unreal.</span></span></div>
+      <div class="ub-open-row"><span><b style="color:var(--text)">Your ${sym} trade</b> · open</span>${un == null ? '<span class="text-faint" style="font:600 13px var(--font-mono)">…</span>' : `<span style="color:${un >= 0 ? 'var(--buy)' : 'var(--sell)'};font:600 13px var(--font-mono)">${money(un)} <span class="text-faint" style="font-weight:400">unreal.</span></span>`}</div>
       <div class="ub-lvls">Entry ${fmtPrice(pos.entry, pos.decimals)} · Stop ${fmtPrice(pos.stop, pos.decimals)}${pos.target ? ` · Target ${fmtPrice(pos.target, pos.decimals)}` : ''} · ${money(pos.riskDollars)} risk</div>
       <button class="btn btn-ghost ub-close" data-ub-close="${sym}" style="height:38px;margin-top:9px;width:100%">Close at market · ${fmtPrice(market.price, pos.decimals)}</button>
     </div>`;
