@@ -4,7 +4,7 @@ import { shareOrCopy } from '../share.js';
 import { flashToast } from '../share.js';
 import { getStrategy } from '../strategyMeta.js';
 import { getClosedTrades, getPerformanceSummary } from '../paperTrading.js';
-import { userTradeFor, userStats, unrealizedFor, defaultRiskDollars, openUserTrade, closeUserTrade, headToHead } from '../userBook.js';
+import { userTradeFor, userStats, unrealizedFor, defaultRiskDollars, openUserTrade, closeUserTrade, headToHead, riskLimitsStatus } from '../userBook.js';
 import { ajentAvgR } from '../customBook.js';
 
 // Honest per-market note about the DAILY strategy's backtested edge on this
@@ -634,6 +634,17 @@ function userBookPanel(market, verdict, s, dispEntry, dispStop, dispTarget) {
         <label class="ub-field"><span>Stop</span><input type="number" step="any" data-ub="stop" value="${(+dispStop).toFixed(market.decimals)}"></label>
         <label class="ub-field"><span>Target</span><input type="number" step="any" data-ub="target" value="${(+dispTarget).toFixed(market.decimals)}"></label>
         <label class="ub-field"><span>Risk&nbsp;${currencySymbol().trim()}</span><input type="number" step="any" data-ub="risk" value="${Math.round(usdToDisplay(defaultRiskDollars()))}"></label>
+        ${(() => {
+          const rl = riskLimitsStatus();
+          if (!rl.active) return '';
+          if (rl.drawdownBreached) return `<div class="ub-risk-note breach"><i class="ph-bold ph-hand-palm"></i> Paused — your book is down ${Math.abs(rl.ddPct).toFixed(1)}% (your ${rl.ddLimit}% limit). New trades resume when it recovers.</div>`;
+          if (rl.cap > 0) {
+            const left = Math.max(0, rl.cap - rl.openRisk);
+            const over = rl.portfolioBreached;
+            return `<div class="ub-risk-note ${over ? 'breach' : ''}"><i class="ph-bold ph-scales"></i> ${over ? 'At your portfolio cap' : `${fmtMoneyCcy(left, { sign: false })} of your ${rl.capPct}% risk budget left`}.</div>`;
+          }
+          return '';
+        })()}
         <button class="btn btn-primary ub-add" data-ub-add="${sym}" style="height:42px;width:100%;margin-top:11px">Add to my book</button>
       </div>
     </details>`;
