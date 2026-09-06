@@ -589,8 +589,8 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .mkt-price { text-align: right; flex: none; }
 .mkt-price .px { font: 600 13.5px var(--font-mono); font-variant-numeric: tabular-nums; }
 .mkt-price .chg { font: 500 11px var(--font-mono); margin-top: 1px; font-variant-numeric: tabular-nums; }
-.mkt-verdict { flex: none; width: 52px; display: flex; justify-content: flex-end; }
-.mkt-flat { color: var(--text-faint); font: 600 15px var(--font-mono); line-height: 1; padding-right: 4px; }
+.mkt-verdict { flex: none; width: 52px; display: flex; justify-content: center; }
+.mkt-flat { color: var(--text-faint); font: 600 15px var(--font-mono); line-height: 1; }
 .setup-row { display: flex; align-items: center; gap: 11px; padding: 10px 4px; border-bottom: 1px solid var(--divider); cursor: pointer; }
 .setup-row:last-child { border-bottom: none; }
 .setup-row.hi-conv { margin: 0 -8px; padding: 10px 12px; border-bottom: none; border-radius: 12px; background: linear-gradient(100deg, color-mix(in srgb, var(--flat) 12%, transparent), transparent 70%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--flat) 32%, transparent); }
