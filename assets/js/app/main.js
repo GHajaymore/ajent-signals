@@ -268,8 +268,7 @@ initIap(() => {
 // fresh signals and trade closes arrive via polling, not client-side trading —
 // turn them into the notifications a signals app is expected to surface.
 function pushAlert(alert) {
-  state.engine.alerts.unshift(alert);
-  if (state.engine.alerts.length > 40) state.engine.alerts.pop();
+  state.engine.addAlert(alert); // persists to localStorage so the feed survives reloads
   if (state.lastTab !== 'alerts' && parseHash()[0] !== 'alerts') state.hasUnreadAlerts = true;
 }
 function signalAlert(m, verdict) {

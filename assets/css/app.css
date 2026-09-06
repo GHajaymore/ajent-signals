@@ -848,6 +848,10 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .alert-top { display: flex; justify-content: space-between; gap: 8px; }
 .alert-title { font: 600 13.5px var(--font-heading); }
 .alert-time { font-size: 11px; color: var(--text-muted); white-space: nowrap; flex: none; }
+.alert-del { flex: none; align-self: flex-start; margin: -2px -4px 0 0; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; color: var(--text-faint); border-radius: 7px; cursor: pointer; font-size: 13px; transition: background 0.15s, color 0.15s; }
+.alert-del:hover { background: var(--sell-dim); color: var(--sell); }
+.alert-clear-btn { flex: none; border: 1px solid var(--hairline); background: transparent; color: var(--text-muted); font: 600 11.5px var(--font-body); padding: 5px 12px; border-radius: 999px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+.alert-clear-btn:hover { color: var(--sell); border-color: color-mix(in srgb, var(--sell) 40%, var(--hairline)); }
 .alert-text { font-size: 12.5px; color: var(--text-muted); margin-top: 3px; line-height: 1.45; }
 
 /* Settings */

@@ -57,7 +57,10 @@ export function render(container) {
   container.innerHTML = `
   <div class="fade-in glow-wrap">
     <div class="dash-glow"></div>
-    <h1 class="h-title">Alerts</h1>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px">
+      <h1 class="h-title">Alerts</h1>
+      ${alerts.length ? '<button class="alert-clear-btn" data-alert-clear>Clear all</button>' : ''}
+    </div>
     <p class="text-muted" style="font-size:13px;margin:4px 0 18px">Real-time signal &amp; market notifications${focusLabel ? ` · <span style="color:var(--accent-300)">${focusLabel} only</span>` : ''}.</p>
 
     ${alerts.length === 0 ? `
@@ -80,7 +83,7 @@ export function render(container) {
           <div class="alert-top"><span class="alert-title">${a.title}</span><span class="alert-time">${fmtAgo(secAgo)}</span></div>
           <div class="alert-text">${a.body}</div>
         </div>
-        ${a.symbol ? '<i class="ph-bold ph-caret-right" style="color:var(--text-faint);font-size:14px;align-self:center;flex-shrink:0"></i>' : ''}
+        <button class="alert-del" data-alert-del="${a.id}" aria-label="Delete this alert" title="Delete"><i class="ph-bold ph-x"></i></button>
       </div>`;
     }).join('')}
 
@@ -91,4 +94,13 @@ export function render(container) {
     <div class="text-faint" style="font-size:11px;text-align:center;margin-top:10px">Get pushed the instant a setup fires — turn on alerts in <a data-nav="#/settings" style="color:var(--accent-300)">Settings</a>.</div>
     ` : ''}
   </div>`;
+
+  // Delete one alert (stop the click from also opening the market) / clear all.
+  container.querySelectorAll('[data-alert-del]').forEach((b) => b.addEventListener('click', (e) => {
+    e.stopPropagation(); e.preventDefault();
+    state.engine.removeAlert?.(b.dataset.alertDel);
+    render(container);
+  }));
+  const clr = container.querySelector('[data-alert-clear]');
+  if (clr) clr.addEventListener('click', () => { state.engine.clearAlerts?.(); state.hasUnreadAlerts = false; render(container); });
 }

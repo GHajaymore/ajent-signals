@@ -473,22 +473,35 @@ const CALENDAR_SEED = [
 ];
 
 // No seeded/demo alerts — the feed fills with REAL notifications as signals fire
-// and paper trades close, so nothing shown here is fabricated.
-const ALERTS_SEED = [];
+// and paper trades close, so nothing shown here is fabricated. The list is PERSISTED
+// (localStorage) so it survives reloads/navigation; without this an in-memory-only feed
+// vanished on any reload (and the anti-stale-dump guards kept it empty afterwards).
+const ALERTS_LS = 'ajent_alerts_v1';
+const MAX_ALERTS = 40;
+function loadAlerts() {
+  try { const a = JSON.parse(localStorage.getItem(ALERTS_LS)); if (Array.isArray(a)) return a.slice(0, MAX_ALERTS).map(withId); } catch (e) { /* ignore */ }
+  return [];
+}
+function saveAlerts(alerts) {
+  try { localStorage.setItem(ALERTS_LS, JSON.stringify(alerts.slice(0, MAX_ALERTS))); } catch (e) { /* storage may be blocked */ }
+}
+function withId(a) { if (a && !a.id) a.id = `${a.ts || Date.now()}-${Math.random().toString(36).slice(2, 7)}`; return a; }
 
 export function createEngine() {
   const markets = MARKET_DEFS.map((d) => new MarketModel(d));
   const bySymbol = new Map(markets.map((m) => [m.symbol, m]));
-  const now = Date.now();
-  const alerts = ALERTS_SEED.map((a) => ({ ...a, ts: now - a.ageSec * 1000 }));
+  const alerts = loadAlerts();
+
+  function addAlert(alert) {
+    withId(alert);
+    alerts.unshift(alert);
+    if (alerts.length > MAX_ALERTS) alerts.length = MAX_ALERTS;
+    saveAlerts(alerts);
+    return alert;
+  }
 
   function tick(threshold) {
-    for (const m of markets) {
-      m.tick(threshold, (alert) => {
-        alerts.unshift(alert);
-        if (alerts.length > 40) alerts.pop();
-      });
-    }
+    for (const m of markets) m.tick(threshold, (alert) => addAlert(alert));
   }
 
   return {
@@ -496,5 +509,9 @@ export function createEngine() {
     calendar: CALENDAR_SEED,
     tick,
     get: (symbol) => bySymbol.get(symbol),
+    addAlert,
+    removeAlert: (id) => { const i = alerts.findIndex((a) => a.id === id); if (i >= 0) { alerts.splice(i, 1); saveAlerts(alerts); } },
+    clearAlerts: () => { alerts.length = 0; saveAlerts(alerts); },
+    persistAlerts: () => saveAlerts(alerts),
   };
 }
