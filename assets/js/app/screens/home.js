@@ -4,6 +4,7 @@ import { getPerformanceSummary, getOpenCount, getOpenPositions, getClosedTrades 
 import { marketSession } from '../marketHours.js';
 import { backendConfigured, isEntitled, isPaid, isSignedUp, trialDaysLeft, fetchNews, fetchStocks, fetchDayExperiment } from '../backendApi.js';
 import { groupForSymbol, ASSET_GROUPS, labelForKey } from '../assetClass.js';
+import { fmtMoney as fmtMoneyCcy } from '../currency.js';
 
 // --- Home focus mode --------------------------------------------------------
 // Scope the whole Home dashboard (P&L, signals, positions) to ONE asset class, so a
@@ -235,10 +236,7 @@ function strategyChip() {
   </div>`;
 }
 
-function money(n) {
-  const sign = n >= 0 ? '+$' : '-$';
-  return sign + Math.abs(Math.round(n)).toLocaleString('en-US');
-}
+function money(n) { return fmtMoneyCcy(n); } // display currency (local by default, USD toggle)
 
 // One ranked "best opportunity" row — the strongest current dip-buy / pop-sell
 // setups the engine sees, ordered by confidence.

@@ -8,6 +8,7 @@ import { state, getEnabledPaperMarkets, setPaperMarketEnabled, setAllPaperMarket
 import { isEntitled, fetchDayExperiment } from '../backendApi.js';
 import { CATEGORY_ORDER } from '../mockEngine.js';
 import { groupForSymbol, labelForKey, EXPERIMENT_CLASSES, ASSET_GROUPS } from '../assetClass.js';
+import { fmtMoney as fmtMoneyCcy } from '../currency.js';
 import { hoverAttrs, hoverLayerSvg, wireChartHover } from '../chartHover.js';
 import { shareOrCopy } from '../share.js';
 import { dayExperimentPanelHtml, wireDayExperiment } from '../dayExperiment.js';
@@ -172,10 +173,7 @@ function wireSelector(container) {
 }
 
 // Plain-dollar formatter, e.g. +$1,240 / -$250
-function money(n) {
-  const sign = n >= 0 ? '+$' : '-$';
-  return sign + Math.abs(Math.round(n)).toLocaleString('en-US');
-}
+function money(n) { return fmtMoneyCcy(n); } // display currency (local by default, USD toggle)
 
 function fmtHoldMin(min) {
   if (min < 60) return `${min} min`;

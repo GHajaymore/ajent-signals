@@ -80,6 +80,9 @@ const defaultSettings = {
   // 'scalping' needs a paid sub-minute feed — the Settings picker shows each one's
   // real status. Non-'swing' values fall back to swing for the actual engine.
   tradingStyle: 'swing',
+  // Display currency for the virtual money (P&L + paper account). 'local' = the user's
+  // geo currency (default); 'usd' forces US dollars. Market prices stay native either way.
+  displayCurrency: 'local',
   // Per-strategy SUGGESTED trade-plan config. stopMode: 'atr' (× volatility unit,
   // the validated default), 'pct' (% of entry) or 'usd' (fixed price distance);
   // stopValue is its magnitude. rr = reward:risk (gain:loss) ratio → the reference

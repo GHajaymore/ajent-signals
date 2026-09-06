@@ -3,6 +3,7 @@ import { fmtMoney } from '../format.js';
 import { resetPaperTrades } from '../paperTrading.js';
 import { wireSignalExport, signalExportHtml } from './signalExport.js';
 import { isPaid, trialDaysLeft, isSignedUp } from '../backendApi.js';
+import { localCurrencyCode, currencySymbol, displayCurrencyCode } from '../currency.js';
 import { dayExperimentPanelHtml, wireDayExperiment } from '../dayExperiment.js';
 import { isStandalone, isIOS, installAvailable, promptInstall } from '../install.js';
 import { pushSupported, pushPermission, enablePush, disablePush } from '../pushClient.js';
@@ -286,6 +287,18 @@ export function render(container) {
 
     ${signalExportHtml()}
 
+    ${(() => {
+      const localCode = localCurrencyCode();
+      const usd = displayCurrencyCode() === 'usd';
+      return localCode === 'USD' ? '' : `
+      <div class="panel-title" style="margin-top:22px;margin-bottom:4px">Display currency</div>
+      <div class="setting-help" style="margin:0 0 8px">Your paper account &amp; P&amp;L are shown in your local currency (converted from USD at the daily rate). Market prices stay in each market's own currency.</div>
+      <div class="seg-toggle" id="ccy-toggle">
+        <button class="seg-opt ${usd ? '' : 'on'}" data-ccy="local">${localCode} (${currencySymbol(localCode).trim()})</button>
+        <button class="seg-opt ${usd ? 'on' : ''}" data-ccy="usd">USD ($)</button>
+      </div>`;
+    })()}
+
     <div class="panel-title" style="margin-top:22px;margin-bottom:4px">Data &amp; refresh</div>
     <div class="setting-help" style="margin-top:0">${DATA_REFRESH_NOTE}</div>
 
@@ -340,6 +353,15 @@ export function render(container) {
 
   // Trade-plan profile: stop mode / distance and reward:risk.
   const activeStyleKey = () => state.settings.tradingStyle || 'swing';
+  container.querySelectorAll('#ccy-toggle .seg-opt').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const v = btn.dataset.ccy === 'usd' ? 'usd' : 'local';
+      if (state.settings.displayCurrency === v) return;
+      state.settings.displayCurrency = v;
+      saveSettings();
+      render(container); // re-render so amounts + the toggle reflect the new currency
+    });
+  });
   container.querySelectorAll('#stop-mode .seg-opt').forEach((btn) => {
     btn.addEventListener('click', () => {
       const mode = btn.dataset.stopmode;
