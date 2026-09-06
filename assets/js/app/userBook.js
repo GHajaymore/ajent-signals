@@ -134,10 +134,12 @@ export function closeUserTrade(symbol, exitPrice, reason) {
   save();
 }
 
-// Evaluate open user trades against live prices — auto-close on a stop or target hit,
-// the same way Ajent's own record closes. Returns true if anything changed.
+// Evaluate open user trades against live prices — fill working orders that reach their
+// entry, and auto-close filled positions on a stop/target hit (like Ajent's own record).
+// Returns { changed, fills } — fills lists working orders that just became live positions.
 export function checkUserPositions(engine) {
   let changed = false;
+  const fills = [];
   for (const p of Object.values(book.open)) {
     const m = engine.get ? engine.get(p.symbol) : null;
     const price = m && m.price;
@@ -146,7 +148,7 @@ export function checkUserPositions(engine) {
     // was placed on. Until then it just waits — no stop/target management yet.
     if (p.status === 'pending') {
       const filled = p.fillDir === 'down' ? price <= p.entry : price >= p.entry;
-      if (filled) { p.status = 'open'; p.openedAt = Date.now(); changed = true; }
+      if (filled) { p.status = 'open'; p.openedAt = Date.now(); changed = true; fills.push({ symbol: p.symbol, name: p.name, side: p.side, entry: p.entry, decimals: p.decimals }); }
       continue;
     }
     const long = p.side !== 'SHORT';
@@ -161,7 +163,7 @@ export function checkUserPositions(engine) {
     else if (p.target && (long ? price >= p.target : price <= p.target)) { closeUserTrade(p.symbol, p.target, 'target'); changed = true; }
   }
   if (changed) save();
-  return changed;
+  return { changed, fills };
 }
 
 // Same-trade head-to-head: over closed trades where we have Ajent's shadow outcome,

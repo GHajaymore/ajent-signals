@@ -277,6 +277,13 @@ function signalAlert(m, verdict) {
   pushAlert({ type: verdict, symbol: m.symbol, title: `${verdict} · ${m.symbol}`,
     body: `${m.name} triggered a ${verdict === 'BUY' ? 'long' : 'short'} — ${s.confidence}% confidence${lvls}.`, ts: Date.now() });
 }
+// A working (limit/stop) order the user placed just reached its entry and became a live
+// position — let them know, since they placed it and were waiting for the fill.
+function userFillAlert(f) {
+  const long = f.side !== 'SHORT';
+  pushAlert({ type: long ? 'BUY' : 'SELL', symbol: f.symbol, title: `Filled · ${f.symbol}`,
+    body: `Your ${long ? 'long' : 'short'} working order filled at ${fmtPrice(f.entry, f.decimals)} — now an open position in your book.`, ts: Date.now() });
+}
 // The user's OWN custom strategy fired. Manual mode → an ACTIONABLE prompt (add it your
 // way). Auto + notify → an FYI heads-up (it already auto-traded; nothing to do).
 function customSignalAlert(f) {
@@ -347,7 +354,8 @@ async function syncServerSignals() {
     // Auto-close any of the user's own custom trades that hit their stop/target,
     // and run one tick of the user's configured strategy (if they built one) — both
     // on the same real prices as Ajent's record.
-    checkUserPositions(state.engine);
+    const uf = checkUserPositions(state.engine);
+    if (uf && uf.fills) for (const f of uf.fills) userFillAlert(f);
     const cs = runCustomStrategy(state.engine);
     if (cs && cs.fires) for (const f of cs.fires) customSignalAlert(f);
     const route = parseHash()[0];
