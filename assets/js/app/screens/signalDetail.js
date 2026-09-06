@@ -127,6 +127,7 @@ const RANGES = {
   '1M': { interval: '1d', range: '1mo', label: '1M' },
   '3M': { interval: '1d', range: '3mo', label: '3M' },
   '6M': { interval: '1d', range: '6mo', label: '6M' },
+  'YTD': { interval: '1d', range: 'ytd', label: 'YTD' },
   '1Y': { interval: '1d', range: '1y', label: '1Y' },
 };
 

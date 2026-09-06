@@ -566,7 +566,7 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .chart-box { background: var(--surface); border: 1px solid var(--neutral-800); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 16px; }
 .chart-box-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .chart-range-row { display: flex; gap: 3px; background: var(--neutral-900); border-radius: 8px; padding: 3px; margin: 0 0 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.chart-range-btn { flex: 1 0 auto; min-width: 42px; border: none; cursor: pointer; font: 600 12px var(--font-heading); padding: 6px 8px; border-radius: 6px; background: transparent; color: var(--text-muted); white-space: nowrap; transition: background 0.15s, color 0.15s; }
+.chart-range-btn { flex: 1 1 0; min-width: 0; border: none; cursor: pointer; font: 600 11.5px var(--font-heading); padding: 6px 4px; border-radius: 6px; background: transparent; color: var(--text-muted); white-space: nowrap; transition: background 0.15s, color 0.15s; }
 .chart-range-btn.on { background: var(--accent-800); color: var(--accent-100); }
 .chart-range-btn:hover:not(.on) { color: var(--text); }
 .overlay-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }

@@ -283,7 +283,7 @@ export default {
       const range = url.searchParams.get('range') || '1mo';
       const meta = MARKETS[sym];
       if (!meta) return json({ error: 'unknown symbol' }, 400);
-      if (!/^(1m|2m|5m|15m|30m|60m|90m|1h|1d)$/.test(interval) || !/^(1d|5d|1mo|3mo|6mo|1y|2y)$/.test(range)) return json({ error: 'bad params' }, 400);
+      if (!/^(1m|2m|5m|15m|30m|60m|90m|1h|1d)$/.test(interval) || !/^(1d|5d|1mo|3mo|6mo|ytd|1y|2y)$/.test(range)) return json({ error: 'bad params' }, 400);
       try {
         const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(meta.yahoo)}?interval=${interval}&range=${range}`, { headers: { 'User-Agent': 'ajent-signals-worker/1.0' }, cf: { cacheTtl: 60, cacheEverything: true } });
         const result = (await r.json())?.chart?.result?.[0];
