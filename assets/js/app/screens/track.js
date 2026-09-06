@@ -245,12 +245,14 @@ function wirePnl(container) {
 }
 
 // Performance by ENGINE — mean-reversion vs trend-follow — so each edge's real
-// contribution shows. Pre-ensemble trades default to mean-reversion.
-const ENGINE_NAME = { mr: 'Mean-reversion', trend: 'Trend-follow' };
+// contribution shows. Trades logged before engine-tagging existed carry no `strat`;
+// we don't credit either engine with them (that would misstate a live engine's
+// record) — they sit in their own honest "Earlier signals" bucket.
+const ENGINE_NAME = { mr: 'Mean-reversion', trend: 'Trend-follow', legacy: 'Earlier signals' };
 function byEngineHtml(closed) {
   const map = new Map();
   for (const c of closed) {
-    const k = c.strat || 'mr';
+    const k = c.strat || 'legacy';
     const e = map.get(k) || { key: k, trades: 0, wins: 0, losses: 0, pnl: 0 };
     const p = tradePnl(c);
     e.trades += 1; e.pnl += p;
@@ -266,7 +268,7 @@ function byEngineHtml(closed) {
         const decisive = e.wins + e.losses;
         const wr = decisive ? Math.round((e.wins / decisive) * 100) : 0;
         const color = e.pnl >= 0 ? 'var(--buy)' : 'var(--sell)';
-        const icon = e.key === 'trend' ? 'ph-trend-up' : 'ph-arrow-bend-down-right';
+        const icon = e.key === 'trend' ? 'ph-trend-up' : e.key === 'legacy' ? 'ph-clock-counter-clockwise' : 'ph-arrow-bend-down-right';
         return `<div class="closed-row">
           <div class="closed-sym"><i class="ph-fill ${icon}" style="font-size:16px;color:var(--accent-300)"></i></div>
           <div class="closed-body">
