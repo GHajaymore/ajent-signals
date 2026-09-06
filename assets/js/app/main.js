@@ -277,11 +277,15 @@ function signalAlert(m, verdict) {
   pushAlert({ type: verdict, symbol: m.symbol, title: `${verdict} · ${m.symbol}`,
     body: `${m.name} triggered a ${verdict === 'BUY' ? 'long' : 'short'} — ${s.confidence}% confidence${lvls}.`, ts: Date.now() });
 }
-// The user's OWN custom strategy fired (manual mode) — prompt them to add it their way.
+// The user's OWN custom strategy fired. Manual mode → an ACTIONABLE prompt (add it your
+// way). Auto + notify → an FYI heads-up (it already auto-traded; nothing to do).
 function customSignalAlert(f) {
   const verdict = f.dir > 0 ? 'BUY' : 'SELL';
-  pushAlert({ type: verdict, symbol: f.symbol, title: `Your strategy · ${verdict} · ${f.symbol}`,
-    body: `${f.name} triggered your ${verdict === 'BUY' ? 'long' : 'short'} rule at ${fmtPrice(f.price, f.decimals)} — open the market to add it your way.`, ts: Date.now(), custom: true });
+  const dir = verdict === 'BUY' ? 'long' : 'short';
+  const body = f.fyi
+    ? `${f.name} — your strategy auto-traded a ${dir} at ${fmtPrice(f.price, f.decimals)}. Tracked in its record; nothing to do.`
+    : `${f.name} triggered your ${dir} rule at ${fmtPrice(f.price, f.decimals)} — open the market to add it your way.`;
+  pushAlert({ type: verdict, symbol: f.symbol, title: `Your strategy · ${verdict} · ${f.symbol}`, body, ts: Date.now(), custom: true });
 }
 function tradeCloseAlert(c) {
   const win = (c.pnl || 0) >= 0;

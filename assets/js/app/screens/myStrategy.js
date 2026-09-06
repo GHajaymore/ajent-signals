@@ -58,6 +58,10 @@ function configPanel(cfg) {
     <div class="cs-hint">${manual
       ? '<i class="ph-bold ph-bell"></i> Ajent <b>alerts</b> you when your rule fires — you add each trade your own way (your own exit), tracked in your risk-limited book.'
       : '<i class="ph-bold ph-robot"></i> <b>Trades automatically</b> as your rule fires, building an unbiased record to compare against Ajent.'}</div>
+    ${!manual ? `<div class="cs-notify-row">
+      <div style="flex:1"><div class="cs-l" style="font-size:12.5px">Notify me when it fires</div><div class="setting-help" style="margin-top:2px">An FYI alert each time your rule auto-trades — just a heads-up; the record stays automatic and there&rsquo;s nothing to add.</div></div>
+      <div class="switch ${cfg.notify ? 'on' : ''}" data-cs-notify></div>
+    </div>` : ''}
     <div class="cs-mkt-row">
       <span class="cs-l">Markets</span>
       <div class="cs-mkt-chips">
@@ -181,6 +185,11 @@ export function render(container) {
     container.querySelectorAll('[data-cs-mode]').forEach((b) => b.addEventListener('click', () => {
       const c = getCustomConfig(); c.mode = b.dataset.csMode === 'manual' ? 'manual' : 'auto'; setCustomConfig(c); draw();
     }));
+    // Auto-mode "notify me" (FYI alerts) switch
+    const notifySw = container.querySelector('[data-cs-notify]');
+    if (notifySw) notifySw.addEventListener('click', () => {
+      const c = getCustomConfig(); c.notify = !c.notify; setCustomConfig(c); draw();
+    });
     // Market picker: "All" clears the list; a market toggles into an explicit allow-list
     // (empty or full collapses back to null = all).
     container.querySelectorAll('[data-cs-mkt]').forEach((b) => b.addEventListener('click', () => {

@@ -44,11 +44,14 @@ export function runCustomStrategy(engine) {
   if (!hasConfig) return { changed: false, fires: [] };
   const cfg = getCustomConfig();
   const manual = cfg.mode === 'manual';
+  // Alerting behaviour: 'manual' = actionable prompts (you add the trade); 'fyi' = auto
+  // trades AND sends an informational heads-up; 'none' = silent auto (no alerts).
+  const alertMode = manual ? 'manual' : (cfg.notify ? 'fyi' : 'none');
   if (!book.fired) book.fired = {}; // per-symbol last-fired direction, for manual-mode dedup
-  // On the tick manual mode is (re)enabled, markets that are ALREADY firing get seeded
-  // silently — no alert — so the user isn't flooded with prompts for setups that were
-  // active before they turned alerts on. Only fires that begin AFTER enabling alert.
-  const seedManual = manual && book.lastMode !== 'manual';
+  // On the tick the alerting behaviour is (re)enabled, suppress the alert for markets that
+  // are ALREADY firing/opening — so the user isn't flooded for setups active before they
+  // turned alerts on. Positions still open in auto; only the alert burst is held back.
+  const seedTick = alertMode !== 'none' && book.lastAlertMode !== alertMode;
   let changed = false;
   const fires = [];
   for (const m of engine.markets) {
@@ -71,20 +74,24 @@ export function runCustomStrategy(engine) {
     if (manual) {
       // Alert on a fresh fire (transition into firing), then remember it so we don't
       // re-alert every tick; reset once the setup stops firing. On the seed tick we
-      // record the fire but skip the alert.
+      // record the fire but skip the alert. Manual alerts are ACTIONABLE (fyi:false).
       const prevDir = book.fired[m.symbol] || 0;
       if (e.fires && e.dir !== prevDir) {
-        if (!seedManual) fires.push({ symbol: m.symbol, name: m.name, dir: e.dir, price, decimals: m.decimals, confidence: e.confidence });
+        if (!seedTick) fires.push({ symbol: m.symbol, name: m.name, dir: e.dir, price, decimals: m.decimals, confidence: e.confidence, fyi: false });
         book.fired[m.symbol] = e.dir; changed = true;
       } else if (!e.fires && prevDir) { book.fired[m.symbol] = 0; changed = true; }
     } else if (e.fires) {
+      // AUTO: open the position (the record stays automatic). If notify is on, also emit
+      // an INFORMATIONAL fire (fyi:true) — a heads-up, not a prompt to add anything.
       const long = e.dir > 0;
       book.open[m.symbol] = { symbol: m.symbol, name: m.name, dir: e.dir, entry: price, stop: long ? price * (1 - STOP_FRAC) : price * (1 + STOP_FRAC), riskDollars: perTradeRisk(), decimals: m.decimals, openedAt: Date.now() };
       changed = true;
+      if (alertMode === 'fyi' && !seedTick) fires.push({ symbol: m.symbol, name: m.name, dir: e.dir, price, decimals: m.decimals, confidence: e.confidence, fyi: true });
     }
   }
-  // Persist the mode we just ran so the NEXT tick can tell when manual was (re)enabled.
-  if (book.lastMode !== cfg.mode) { book.lastMode = cfg.mode; changed = true; }
+  // Persist the alerting behaviour we just ran so the NEXT tick can tell when it was
+  // (re)enabled (and seed silently then).
+  if (book.lastAlertMode !== alertMode) { book.lastAlertMode = alertMode; changed = true; }
   if (changed) save();
   return { changed, fires };
 }
