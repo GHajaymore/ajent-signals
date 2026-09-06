@@ -670,7 +670,7 @@ function userBookPanel(market, verdict, s, dispEntry, dispStop, dispTarget) {
       <div class="ub-form-body">
         <p class="text-muted" style="font-size:11.5px;line-height:1.5;margin:2px 0 10px">${t.fromCustom ? `<b style="color:var(--text)">Your strategy triggered a ${t.side === 'SHORT' ? 'short' : 'long'} here.</b> Set your entry, stop and target — tracked in your book (virtual money).` : 'Set your own entry, stop and target — tracked in <b style="color:var(--text)">your book</b> (virtual money) so you can see how your version does against Ajent\'s.'}</p>
         <input type="hidden" data-ub-side value="${t.side}">
-        <label class="ub-field"><span>Entry</span><input type="number" step="any" data-ub="entry" value="${(+t.entry).toFixed(market.decimals)}"></label>
+        <label class="ub-field"><span>Entry</span><input type="number" step="any" data-ub="entry" data-last-entry="${(+t.entry).toFixed(market.decimals)}" value="${(+t.entry).toFixed(market.decimals)}"></label>
         <label class="ub-field"><span>Stop</span><input type="number" step="any" data-ub="stop" value="${(+t.stop).toFixed(market.decimals)}"></label>
         <label class="ub-field"><span>Target</span><input type="number" step="any" data-ub="target" value="${(+t.target).toFixed(market.decimals)}"></label>
         <label class="ub-field"><span>Risk&nbsp;${currencySymbol().trim()}</span><input type="number" step="any" data-ub="risk" value="${Math.round(usdToDisplay(defaultRiskDollars()))}"></label>
@@ -1035,6 +1035,25 @@ export function render(container) {
   // poll's tab rebuild. Reads the market + form values fresh at click time.
   if (!container.dataset.ubWired) {
     container.dataset.ubWired = '1';
+    // Moving the entry shifts the stop & target by the same amount, so the plan keeps its
+    // shape (and a working order can't fill into an instant stop-out). Fires on commit
+    // (blur/Enter), not every keystroke, so typing the entry isn't disrupted.
+    container.addEventListener('change', (e) => {
+      const entryEl = e.target.closest('[data-ub="entry"]');
+      if (!entryEl) return;
+      const body = entryEl.closest('.ub-form-body'); if (!body) return;
+      const newE = parseFloat(entryEl.value);
+      const lastE = parseFloat(entryEl.dataset.lastEntry);
+      if (!(newE > 0) || !(lastE > 0) || newE === lastE) { if (newE > 0) entryEl.dataset.lastEntry = newE; return; }
+      const delta = newE - lastE;
+      const dec = (String(entryEl.value).split('.')[1] || '').length; // match the entry's precision
+      for (const k of ['stop', 'target']) {
+        const el = body.querySelector(`[data-ub="${k}"]`);
+        const v = el && parseFloat(el.value);
+        if (el && v > 0) el.value = (v + delta).toFixed(dec);
+      }
+      entryEl.dataset.lastEntry = newE;
+    });
     container.addEventListener('click', (e) => {
       const add = e.target.closest('[data-ub-add]');
       const close = e.target.closest('[data-ub-close]');
