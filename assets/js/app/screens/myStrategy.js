@@ -42,7 +42,8 @@ function configPanel(cfg) {
   const used = new Set(cfg.conditions.map((c) => c.key));
   const addable = INDICATOR_KEYS; // duplicates allowed (e.g. two MAs)
   const manual = cfg.mode === 'manual';
-  const realMkts = (state.engine.markets || []).filter(isRealMarket);
+  const mine = cfg.marketScope !== 'all';
+  const watched = state.homeWatchlist || [];
   return `<div class="panel cs-config">
     <div class="cs-dir-row">
       <span class="cs-l">Direction</span>
@@ -62,13 +63,18 @@ function configPanel(cfg) {
       <div style="flex:1"><div class="cs-l" style="font-size:12.5px">Notify me when it fires</div><div class="setting-help" style="margin-top:2px">An FYI alert each time your rule auto-trades — just a heads-up; the record stays automatic and there&rsquo;s nothing to add.</div></div>
       <div class="switch ${cfg.notify ? 'on' : ''}" data-cs-notify></div>
     </div>` : ''}
-    <div class="cs-mkt-row">
+    <div class="cs-dir-row">
       <span class="cs-l">Markets</span>
-      <div class="cs-mkt-chips">
-        <button class="cs-mkt-chip${!cfg.markets ? ' on' : ''}" data-cs-mkt="__all">All</button>
-        ${realMkts.map((m) => `<button class="cs-mkt-chip${cfg.markets && cfg.markets.includes(m.symbol) ? ' on' : ''}" data-cs-mkt="${m.symbol}">${m.symbol}</button>`).join('')}
+      <div class="cs-seg">
+        <button class="cs-seg-b${mine ? ' on' : ''}" data-cs-scope="mine">My markets ★</button>
+        <button class="cs-seg-b${!mine ? ' on' : ''}" data-cs-scope="all">All markets</button>
       </div>
     </div>
+    <div class="cs-hint">${mine
+      ? (watched.length
+        ? `<i class="ph-bold ph-star"></i> Runs on your <b>${watched.length} starred market${watched.length === 1 ? '' : 's'}</b> — ${watched.slice(0, 8).join(', ')}${watched.length > 8 ? '…' : ''}. Star markets on the <b>Markets</b> tab to change this set.`
+        : '<i class="ph-bold ph-star"></i> You haven&rsquo;t starred any markets yet — star them on the <b>Markets</b> tab, or switch to <b>All markets</b>.')
+      : '<i class="ph-bold ph-globe-hemisphere-west"></i> Runs on <b>every</b> market with live data.'}</div>
     <div class="cs-cond-list">
       ${cfg.conditions.length ? cfg.conditions.map((c, i) => condCard(c, i, cfg.direction)).join('')
         : '<div class="text-muted" style="font-size:12.5px;padding:8px 2px">No indicators yet — add one below. Your rule fires only when <b>all</b> your indicators agree.</div>'}
@@ -190,20 +196,9 @@ export function render(container) {
     if (notifySw) notifySw.addEventListener('click', () => {
       const c = getCustomConfig(); c.notify = !c.notify; setCustomConfig(c); draw();
     });
-    // Market picker: "All" clears the list; a market toggles into an explicit allow-list
-    // (empty or full collapses back to null = all).
-    container.querySelectorAll('[data-cs-mkt]').forEach((b) => b.addEventListener('click', () => {
-      const c = getCustomConfig();
-      const all = (state.engine.markets || []).filter(isRealMarket).map((m) => m.symbol);
-      if (b.dataset.csMkt === '__all') { c.markets = null; }
-      else if (!c.markets || !c.markets.length) {
-        c.markets = [b.dataset.csMkt]; // from "All", a click narrows to just this market
-      } else {
-        const sel = new Set(c.markets);
-        if (sel.has(b.dataset.csMkt)) sel.delete(b.dataset.csMkt); else sel.add(b.dataset.csMkt);
-        c.markets = (sel.size === 0 || sel.size === all.length) ? null : [...sel]; // empty or full → All
-      }
-      setCustomConfig(c); draw();
+    // Market scope: your starred "My markets" (★) vs every market.
+    container.querySelectorAll('[data-cs-scope]').forEach((b) => b.addEventListener('click', () => {
+      const c = getCustomConfig(); c.marketScope = b.dataset.csScope === 'all' ? 'all' : 'mine'; setCustomConfig(c); draw();
     }));
     // Add indicator
     container.querySelectorAll('[data-cond-add]').forEach((b) => b.addEventListener('click', () => {

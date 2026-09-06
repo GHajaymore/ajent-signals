@@ -63,7 +63,7 @@ function wireStars(wrap) {
       btn.classList.toggle('on', on);
       const icon = btn.querySelector('i');
       if (icon) icon.className = `${on ? 'ph-fill' : 'ph'} ph-star`;
-      btn.title = on ? 'In watchlist — tap to remove' : 'Add to watchlist';
+      btn.title = on ? 'In My markets — tap to remove' : 'Add to My markets (★)';
     });
   });
 }
@@ -184,7 +184,7 @@ function filterChips() {
     ${c('buy', 'Buy', '<i class="ph-fill ph-caret-up" style="color:var(--buy);font-size:11px"></i>')}
     ${c('watch', 'Watching', '<i class="ph-fill ph-eye" style="color:var(--accent-300);font-size:11px"></i>')}
     ${c('conv', 'Conviction', '<i class="ph-fill ph-star" style="color:var(--flat);font-size:11px"></i>')}
-    ${c('fav', 'Watchlist', '<i class="ph-fill ph-star" style="color:var(--accent-200);font-size:11px"></i>')}
+    ${c('fav', 'My markets', '<i class="ph-fill ph-star" style="color:var(--accent-200);font-size:11px"></i>')}
   </div>`;
 }
 

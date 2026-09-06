@@ -6,6 +6,7 @@
 // never presented as validated — and it is NOT the Ajent Pulse recipe: the palette is
 // generic public indicators, and Ajent's exact recipe stays server-side and untouched.
 import { rsi, sma, ema, macd, bollingerBands } from './indicators.js';
+import { isInWatchlist } from './state.js';
 
 const LS = 'ajent_customstrat_v1';
 
@@ -113,7 +114,7 @@ export const CUSTOM_DEFAULT = {
   direction: 'long', // 'long' | 'short' | 'both'
   mode: 'auto',      // 'auto' = trade automatically (clean edge record) | 'manual' = alert me, I add each trade
   notify: false,     // auto mode only: also send an FYI alert each time the rule auto-trades
-  markets: null,     // null/[] = every real market; else an allow-list of symbols
+  marketScope: 'mine', // 'mine' = your starred "My markets" (★) | 'all' = every real market
   conditions: [
     { key: 'rsi', period: 2, value: 15 },
     { key: 'ma', maType: 'sma', period: 50 },
@@ -127,14 +128,15 @@ export function getCustomConfig() {
       direction: c.direction || 'long',
       mode: c.mode === 'manual' ? 'manual' : 'auto',
       notify: !!c.notify,
-      markets: Array.isArray(c.markets) ? c.markets : null,
+      marketScope: c.marketScope === 'all' ? 'all' : 'mine',
       conditions: c.conditions,
     };
   } catch (e) { /* ignore */ }
-  return { direction: CUSTOM_DEFAULT.direction, mode: 'auto', notify: false, markets: null, conditions: CUSTOM_DEFAULT.conditions.map((x) => ({ ...x })) };
+  return { direction: CUSTOM_DEFAULT.direction, mode: 'auto', notify: false, marketScope: 'mine', conditions: CUSTOM_DEFAULT.conditions.map((x) => ({ ...x })) };
 }
-// True when the strategy should run on this market symbol (null/empty list = all).
-export function customTradesMarket(cfg, symbol) { return !cfg.markets || !cfg.markets.length || cfg.markets.includes(symbol); }
+// True when the strategy should run on this market symbol. 'all' = every real market;
+// 'mine' = only the user's starred "My markets" (★, shared with Home & the Markets tab).
+export function customTradesMarket(cfg, symbol) { return cfg.marketScope === 'all' || isInWatchlist(symbol); }
 export function setCustomConfig(cfg) { try { localStorage.setItem(LS, JSON.stringify(cfg)); } catch (e) { /* ignore */ } }
 export function resetCustomConfig() { try { localStorage.removeItem(LS); } catch (e) { /* ignore */ } }
 

@@ -596,13 +596,13 @@ export function render(container) {
     <div class="section-label">Top setups now</div>
     <div id="setups-wrap">${topSetupsHtml(engine, threshold)}</div>
 
-    <div class="section-label">Watchlist<a data-nav="#/markets">All markets &rsaquo;</a></div>
+    <div class="section-label">My markets<a data-nav="#/markets">All markets &rsaquo;</a></div>
     <div class="card" style="padding:4px 12px">
       <div id="watchlist-wrap">${state.homeWatchlist
         .map((sym) => engine.get(sym))
         .filter((m) => m && (!backendConfigured() || isRealMarket(m)))
         .map((m) => watchlistRow(m, m.verdict(threshold)))
-        .join('') || '<div class="text-muted" style="font-size:12.5px;padding:14px 4px">Live data is loading — your watchlist markets will appear as their feeds come in.</div>'}</div>
+        .join('') || '<div class="text-muted" style="font-size:12.5px;padding:14px 4px">Live data is loading — your markets will appear as their feeds come in.</div>'}</div>
     </div>
 
     <div class="section-label">Market-moving events<a data-nav="#/calendar">Calendar &rsaquo;</a></div>

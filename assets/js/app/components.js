@@ -8,7 +8,7 @@ import { getOpenPositions } from './paperTrading.js';
 // from bubbling to the row's navigation.
 function starToggle(symbol) {
   const on = isInWatchlist(symbol);
-  return `<button class="mkt-star ${on ? 'on' : ''}" data-star="${symbol}" title="${on ? 'In watchlist — tap to remove' : 'Add to watchlist'}"><i class="${on ? 'ph-fill' : 'ph'} ph-star"></i></button>`;
+  return `<button class="mkt-star ${on ? 'on' : ''}" data-star="${symbol}" title="${on ? 'In My markets — tap to remove' : 'Add to My markets (★)'}"><i class="${on ? 'ph-fill' : 'ph'} ph-star"></i></button>`;
 }
 
 // Catmull-Rom smoothing shared by the sparkline (kept tiny/local).
