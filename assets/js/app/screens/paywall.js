@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { isNative, isPro, purchase, restore, priceString, hasTrial } from '../iap.js';
-import { backendConfigured, startCheckout, hasProToken, checkoutAvailable, TRIAL_DAYS } from '../backendApi.js';
+import { backendConfigured, startCheckout, hasProToken, checkoutAvailable, TRIAL_DAYS, isSignedUp, trialActive } from '../backendApi.js';
 import { getPerformanceSummary } from '../paperTrading.js';
 import { fmtMoney } from '../format.js';
 
@@ -102,6 +102,9 @@ export function render(container) {
   // then Pro isn't buyable, so the CTA collects waitlist interest instead of
   // dead-ending on the market cap.
   const canBuy = isNative() || checkoutAvailable();
+  // Web users who haven't started the trial yet get the FREE-TRIAL path (email signup,
+  // no card) as the primary CTA; only after the trial do we ask for payment.
+  const offerTrial = !isNative() && !isSignedUp() && !hasProToken() && !trialActive();
 
   container.innerHTML = `
   <div class="fade-in" style="position:relative;padding-top:6px">
@@ -157,9 +160,9 @@ export function render(container) {
       <div class="price">$399.00<div class="per">/yr</div></div>
     </div>
 
-    <button class="btn btn-primary btn-block" id="pw-cta" style="height:52px;font-size:15px;margin-top:8px">${canBuy ? ctaLabel(billing) : 'Join the waitlist'}</button>
+    <button class="btn btn-primary btn-block" id="pw-cta" style="height:52px;font-size:15px;margin-top:8px">${offerTrial ? `Start ${TRIAL_DAYS}-day free trial` : (canBuy ? ctaLabel(billing) : 'Join the waitlist')}</button>
     ${canBuy && isNative() ? '<button class="btn btn-ghost btn-block" id="pw-restore" style="height:44px;font-size:13px;margin-top:8px">Restore purchases</button>' : ''}
-    <p class="text-faint" style="text-align:center;font-size:11px;margin-top:12px">${canBuy ? 'Auto-renews · cancel anytime · Terms apply' : 'No card needed to join the list · we’ll only email about Ajent Pro'}</p>
+    <p class="text-faint" style="text-align:center;font-size:11px;margin-top:12px">${offerTrial ? 'No card, no password — just your email. Cancel anytime.' : (canBuy ? 'Auto-renews · cancel anytime · Terms apply' : 'No card needed to join the list · we’ll only email about Ajent Pro')}</p>
   </div>`;
 
   container.querySelectorAll('.plan-option').forEach((el) => {
@@ -172,6 +175,8 @@ export function render(container) {
   const cta = container.querySelector('#pw-cta');
   if (cta) {
     cta.addEventListener('click', async () => {
+      // Web, trial not yet started: go start the free trial (email signup, no card).
+      if (offerTrial) { location.hash = '#/signup'; return; }
       // Native: StoreKit purchase.
       if (isNative()) {
         cta.disabled = true;
