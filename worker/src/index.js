@@ -297,8 +297,8 @@ export default {
       } catch (e) { return json({ candles: [] }); }
     }
 
-    // --- Billing (UNGATED — this is how a user BECOMES Pro) ---------------------
-    if (url.pathname.startsWith('/billing/')) {
+    // --- Signup + Billing (UNGATED — this is how a user starts a trial / becomes Pro) ---
+    if (url.pathname.startsWith('/billing/') || url.pathname === '/signup') {
       const store = db(env);
       try {
         if (url.pathname === '/signup' && request.method === 'POST') {
