@@ -67,6 +67,7 @@ export function render(container) {
       <div class="reason-row"><i class="ph-bold ph-warning-octagon" style="color:var(--sell)"></i><span><b style="color:var(--text)">Know a breakdown from a pullback.</b> A violent multi-bar collapse against the trend is a trend <b>break</b>, not a dip — fading those is how accounts blow up, so the engine stands aside.</span></div>
       <div class="reason-row"><i class="ph-bold ph-lightning" style="color:var(--accent-300)"></i><span><b style="color:var(--text)">Don't trade the chaos.</b> When volatility spikes vs its recent norm (usually a news shock), there's no edge and slippage is worse — the engine steps back.</span></div>
       <div class="reason-row"><i class="ph-bold ph-scales" style="color:var(--buy)"></i><span><b style="color:var(--text)">Risk a fixed, small fraction.</b> Every position risks the same set % of the account (yours, in Settings), so no single trade can do outsized damage.</span></div>
+      <div class="reason-row"><i class="ph-bold ph-stack" style="color:var(--accent-300)"></i><span><b style="color:var(--text)">Signals cluster — size for the basket.</b> A broad selloff can dip several markets at once, so multiple setups fire together. Each still risks the same small slice, but they add up in a cluster — so if you follow every signal, size for the group, not the single trade.</span></div>
     </div>
 
     ${exitSection}
