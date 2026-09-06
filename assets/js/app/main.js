@@ -23,7 +23,7 @@ import { applyGeoDefaults } from './geo.js';
 import { startUpdateWatcher } from './updateCheck.js';
 import { startSignalRefreshLoop } from './signalRefreshLoop.js';
 import { startCryptoStream, pokeCryptoStream } from './cryptoStream.js';
-import { refreshRates } from './currency.js';
+import { refreshRates, localCurrencyCode } from './currency.js';
 import { maybeOpenPositions, checkOpenPositions, applyServerRecord, getClosedTrades } from './paperTrading.js';
 import { fmtPrice } from './format.js';
 import { backendConfigured, fetchServerTrades, fetchServerSignals, fetchLiveQuotes, redeemSession, refreshProToken, confirmEntitlement, initBilling, isEntitled } from './backendApi.js';
@@ -247,7 +247,10 @@ startSignalRefreshLoop(state.engine);
 // Cloudflare cost). Streams BTC/ETH for every user; repaints the visible live screen.
 if (backendConfigured()) startCryptoStream(() => { if (LIVE_SCREENS.has(parseHash()[0])) refreshRoute(); });
 applyGeoDefaults(state);
-refreshRates(); // USD→local FX rates (cached daily) so money shows in the user's currency
+// USD→local FX rates (cached daily) so money shows in the user's currency. On a
+// first-ever load there's no cached rate, so money renders in the honest USD fallback
+// until the fetch lands — repaint once it does so it flips to the local currency.
+refreshRates().then(() => { if (state.settings.displayCurrency !== 'usd' && localCurrencyCode() !== 'USD') refreshRoute(); });
 startUpdateWatcher();
 // Network-first service worker so the latest app code is always fetched when
 // online — no more stale cached modules serving an old strategy. Scope is the
