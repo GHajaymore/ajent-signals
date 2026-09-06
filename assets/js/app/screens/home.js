@@ -330,7 +330,10 @@ function livePnl(p) {
   const market = state.engine.get(p.symbol);
   const px = market && market.price;
   const riskPerUnit = Math.abs(p.risk || (p.entry != null && p.stop != null ? p.entry - p.stop : 0));
-  if (!px || p.entry == null || !riskPerUnit) return null;
+  // Only mark to market against a REAL live price. Before the feed loads (or while
+  // disconnected) a market carries a placeholder catalog price far from the real entry,
+  // which would show a wildly wrong unrealized figure — skip those until real data arrives.
+  if (!market || !market.signalIsReal || !(px > 0) || p.entry == null || !riskPerUnit) return null;
   const long = (p.side || 'LONG') === 'LONG';
   const r = (long ? (px - p.entry) : (p.entry - px)) / riskPerUnit;
   return { r, dollars: r * (p.riskDollars || 250), px, decimals: market.decimals };
