@@ -2,7 +2,7 @@ import { state, saveSettings, setFocusClass } from '../state.js';
 import { heroCard, watchlistRow, patchRow, patchHero, symTile, dataTag, sparklineSvg } from '../components.js';
 import { getPerformanceSummary, getOpenCount, getOpenPositions, getClosedTrades } from '../paperTrading.js';
 import { marketSession } from '../marketHours.js';
-import { backendConfigured, isEntitled, fetchNews, fetchStocks, fetchDayExperiment } from '../backendApi.js';
+import { backendConfigured, isEntitled, isPaid, isSignedUp, trialDaysLeft, fetchNews, fetchStocks, fetchDayExperiment } from '../backendApi.js';
 import { groupForSymbol, ASSET_GROUPS, labelForKey } from '../assetClass.js';
 
 // --- Home focus mode --------------------------------------------------------
@@ -400,6 +400,24 @@ function openPositionsHtml() {
     <div class="text-faint" style="font-size:10.5px;line-height:1.5;margin:6px 2px 0">Each trade stakes the same fixed amount, so the $ tracks how far the price has moved <b>toward the target</b> — not the raw price change. A crypto target is far away, so a small early move is only a few % of the way there.</div>`;
 }
 
+// A gentle, dismissible nudge as the free trial winds down (last 5 days) — a conversion
+// prompt, not a nag: it shows at most once a day (dismiss remembers the date) and never
+// for paying users. Hidden entirely outside the trial-ending window.
+function trialNudgeHtml() {
+  if (isPaid() || !isSignedUp()) return '';
+  const days = trialDaysLeft();
+  if (days <= 0 || days > 5) return '';
+  let dismissedToday = false;
+  try { dismissedToday = localStorage.getItem('ajent_trial_nudge') === new Date().toDateString(); } catch (e) { /* ignore */ }
+  if (dismissedToday) return '';
+  return `<div class="trial-nudge" id="trial-nudge">
+    <i class="ph-fill ph-hourglass-high"></i>
+    <span class="tn-text"><b>${days} day${days === 1 ? '' : 's'} left</b> in your free trial — keep every market, real-time &amp; alerts.</span>
+    <button class="tn-go" data-nav="#/paywall">Go Pro</button>
+    <button class="tn-x" id="tn-dismiss" aria-label="Dismiss"><i class="ph-bold ph-x"></i></button>
+  </div>`;
+}
+
 function greeting() {
   const h = new Date().getHours();
   if (h < 12) return 'Good morning';
@@ -538,6 +556,7 @@ export function render(container) {
     ${regionBarHtml(engine)}
 
     <div class="home-greeting">${greeting()}${state.focusClass !== 'all' ? ` · <span style="color:var(--accent-200);font-size:13px;font-weight:600">${focusClassLabel(state.focusClass)}</span>` : ''}</div>
+    ${trialNudgeHtml()}
 
     <div class="axis-label">Asset class</div>
     <div id="focus-wrap">${focusSelectorHtml()}</div>
@@ -603,6 +622,12 @@ export function render(container) {
   loadNews(container);
 
   // Region lens: delegated so it survives the update loop refilling the chips.
+  const nudgeX = container.querySelector('#tn-dismiss');
+  if (nudgeX) nudgeX.addEventListener('click', (e) => {
+    e.stopPropagation();
+    try { localStorage.setItem('ajent_trial_nudge', new Date().toDateString()); } catch (x) { /* ignore */ }
+    const n = container.querySelector('#trial-nudge'); if (n) n.remove();
+  });
   const regionBar = container.querySelector('#region-bar');
   if (regionBar) regionBar.addEventListener('click', (e) => {
     const c = e.target.closest('.rgn-chip');
