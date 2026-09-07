@@ -7,7 +7,7 @@ import { MARKETS } from './markets.js';
 import { STRATEGY, publicStrategy, publicSignal, publicPosition } from './meta.js';
 import { addSubscription, removeSubscription, pushToAll } from './push.js';
 import { requirePro } from './auth.js';
-import { regimeGateExperiment, bothWaysRangingExperiment } from './adaptive.js';
+import { regimeGateExperiment, bothWaysRangingExperiment, bollingerBandExperiment } from './adaptive.js';
 import { registerWebhook, listWebhooks, deleteWebhook, deliverEvents, sampleEvent, EDU_DISCLAIMER } from './webhooks.js';
 import { createCheckoutSession, verifyStripeSignature, handleStripeEvent, tokenForSession, refreshToken, validateApple, validateGoogle, startTrial } from './billing.js';
 
@@ -107,7 +107,7 @@ export default {
       if (!env.ADMIN_KEY || url.searchParams.get('key') !== env.ADMIN_KEY) return json({ error: 'not found' }, 404);
       const rec = await db(env).get('RECORD', 'ALL');
       const closed = (rec && rec.closed) || [];
-      return json({ updatedAt: Date.now(), closedTrades: closed.length, equity: regimeGateExperiment(closed), bothWays: bothWaysRangingExperiment(closed) });
+      return json({ updatedAt: Date.now(), closedTrades: closed.length, equity: regimeGateExperiment(closed), bothWays: bothWaysRangingExperiment(closed), bollinger: bollingerBandExperiment(closed) });
     }
 
     // The intraday day-trading experiment was RETIRED 2026-09-06 (a thin edge with heavy

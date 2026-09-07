@@ -82,6 +82,42 @@ export function bothWaysRangingExperiment(closed) {
   };
 }
 
+// EXPERIMENT (measurement only): the Bollinger %B mean-reversion confirmation the lab found
+// (2026-09-07, robustness-gated: smooth parameter plateau, 3/4 walk-forward folds). Buying the
+// dip only when it's below/near the lower band lifts OOS PF hard on INDICES (support+%B<0.20 →
+// OOS pf 2.98; %B<0 → 3.88) — but it HURTS crypto, so the would-be gate is measured
+// crypto-EXCLUDED. Every MR entry carries pbEntry (its %B at entry); this compares the untouched
+// record to the %B-gated one on the live forward trades. NOT adopted — recipe-lock stands.
+const PB_MAX = 0.20, PB_STRICT = 0;
+const PB_CRYPTO = new Set(['BTC', 'ETH']); // the MR crypto names the finding excludes
+export function bollingerBandExperiment(closed) {
+  const mr = (closed || []).filter((c) => (c.strat || 'mr') === 'mr' && typeof c.pbEntry === 'number');
+  const equity = mr.filter((c) => !PB_CRYPTO.has(c.symbol));
+  const crypto = mr.filter((c) => PB_CRYPTO.has(c.symbol));
+  const agg = (list) => {
+    if (!list.length) return { n: 0, pnl: 0, winRate: 0, pf: 0, avgR: 0 };
+    const wins = list.filter((c) => (c.pnl || 0) > 0), losses = list.filter((c) => (c.pnl || 0) < 0);
+    const gw = wins.reduce((s, c) => s + (c.pnl || 0), 0), gl = Math.abs(losses.reduce((s, c) => s + (c.pnl || 0), 0));
+    const pnl = list.reduce((s, c) => s + (c.pnl || 0), 0);
+    return { n: list.length, pnl: Math.round(pnl), winRate: Math.round((wins.length / list.length) * 100), pf: +(gw / (gl || 1)).toFixed(2), avgR: +(list.reduce((s, c) => s + (c.resultR || 0), 0) / list.length).toFixed(3) };
+  };
+  const full = agg(equity);
+  const gate = agg(equity.filter((c) => c.pbEntry < PB_MAX));
+  const strict = agg(equity.filter((c) => c.pbEntry < PB_STRICT));
+  const cryptoFull = agg(crypto), cryptoGate = agg(crypto.filter((c) => c.pbEntry < PB_MAX));
+  const ready = equity.length >= REGIME_MIN;
+  return {
+    ready,
+    tagged: mr.length,          // all MR trades carrying a %B reading
+    equityTagged: equity.length, // the indices subset the gate is measured on (crypto excluded)
+    full, gate, strict,          // untouched vs %B<0.20 vs %B<0, on indices
+    cryptoFull, cryptoGate,      // crypto shown separately (excluded by design — the finding hurt it)
+    note: ready
+      ? `Bollinger %B gate (indices, crypto-excluded), keep %B<${PB_MAX}: PF full ${full.pf} → gated ${gate.pf} (${gate.n}/${equity.length} kept); %B<0 → ${strict.pf}; avgR ${full.avgR} → ${gate.avgR}. Crypto measured apart (${cryptoFull.n} trades, excluded by design). Not adopted.`
+      : `Bollinger %B gate: gathering data — ${equity.length} %B-tagged indices trades (need ${REGIME_MIN}); ${crypto.length} crypto (excluded).`,
+  };
+}
+
 // Per-ENGINE size weight, learned from each engine's own record (recency-weighted
 // expectancy), bounded and gated on a per-engine sample. So the ensemble leans
 // toward whichever engine is actually working — but can't zero one out or overfit.
@@ -145,6 +181,7 @@ export function computeAdaptive(record, base) {
     engines: perEngineWeights(closed), // per-engine size weights (ensemble)
     regimeExperiment: regimeGateExperiment(closed), // equity support+ADX-notch gate — measured, not adopted
     bothWaysExperiment: bothWaysRangingExperiment(closed), // both-ways ranging gate — LIVE (adopted 2026-09-07)
+    bollingerExperiment: bollingerBandExperiment(closed), // equity Bollinger %B gate — measured, crypto-excluded, not adopted
     exitAbove: baseExit, // exit dial reserved for a future, higher-data pass
     // human note surfaced in the app
     note: learning

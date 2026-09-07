@@ -98,6 +98,9 @@ export function computeSignal(candles, live, params) {
     // live record before we ever adopt it. See adaptive.js.
     adxEntry: (() => { const v = adx(c, 14).adx[n - 1]; return v != null ? +v.toFixed(1) : null; })(),
     nearSupport: (() => { try { return nearSupportLevel(c, n - 1, atrN); } catch (e) { return null; } })(),
+    //   pbEntry — Bollinger %B at entry (position in the 20/2SD bands). The lab's strongest
+    //   MR confirmation on indices (buy below the lower band), measured forward, crypto-excluded.
+    pbEntry: +pctB.toFixed(3),
   } : null;
 
   return {
