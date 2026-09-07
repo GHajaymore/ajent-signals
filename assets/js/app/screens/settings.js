@@ -22,11 +22,11 @@ export const DATA_REFRESH_NOTE = 'The strategy re-scans the markets about every 
 // `status`: 'live' (selectable/active/proven) | 'experiment' (selectable, unproven) | 'soon' | 'na'.
 const TRADING_STYLES = [
   { key: 'scalping', name: 'Scalping', icon: 'ph-lightning', hold: 'Seconds–minutes', freq: 'dozens+/day', status: 'na',
-    note: 'Needs tick / sub-minute price bars — and faster scanning alone does not help, because the free feed only serves delayed 15-minute bars (re-scanning the same bar gives the same answer). Possible only with a paid real-time market-data feed.' },
+    note: 'Needs sub-minute tick data — the free 15-minute feed can’t support it. Available only with a paid real-time market-data feed.' },
   { key: 'day', name: 'Day trading', icon: 'ph-sun-horizon', hold: 'Intraday · flat by close', freq: '~2–8/day', status: 'experiment',
-    note: 'Both-directional intraday mean-reversion on 15-minute bars — buys oversold flushes and shorts overbought pops (intraday has no up-drift), always flat by the close, so there is no overnight risk. NOT proven: this cleared the validation gate but on a short backtest window, so it runs as an experiment tracked on its OWN real paper record, kept separate from Swing, with no advertised returns. Select it to watch the live record — it only graduates if that record holds up.' },
+    note: 'Both-directional intraday mean-reversion on 15-minute bars — buys oversold flushes, shorts overbought pops, flat by the close (no overnight risk). An unproven experiment on its own paper record.' },
   { key: 'swing', name: 'Swing', icon: 'ph-calendar-check', hold: '~1–5 days', freq: '~1–5/week', status: 'live',
-    note: 'The validated strategy running now — a long-only daily ensemble: it buys deeply oversold dips in an uptrend (mean reversion) and rides established uptrends (trend-following), holding each until its own setup completes. This is what auto-trades your paper account.' },
+    note: 'The validated daily strategy running now — buys deeply oversold dips in uptrends (mean reversion) and rides established uptrends (trend-following), holding days. Auto-trades your paper account.' },
   { key: 'position', name: 'Position', icon: 'ph-mountains', hold: 'Weeks–months', freq: 'a few/month', status: 'soon',
     note: 'Longer-hold trend/mean-reversion for multi-week moves. Planned — not yet separately validated, so it will also arrive labelled experimental.' },
 ];
