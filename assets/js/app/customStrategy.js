@@ -5,16 +5,17 @@
 // idea against the proven Ajent Pulse. It is explicitly THEIR experiment — unproven,
 // never presented as validated — and it is NOT the Ajent Pulse recipe: the palette is
 // generic public indicators, and Ajent's exact recipe stays server-side and untouched.
-import { rsi, sma, ema, macd, bollingerBands } from './indicators.js';
+import { rsi, sma, ema, macd, bollingerBands, adx } from './indicators.js';
 import { isInWatchlist } from './state.js';
 
 const LS = 'ajent_customstrat_v1';
 
-// Palette of close-based indicators (the client history is daily closes, so OHLC-only
-// indicators like ADX/Supertrend aren't offered here). Each entry declares its tunable
-// params and how it reads bullish/bearish, plus an evaluator returning the directional
-// state at the latest bar. `depth` is 0..1 = how strongly the condition is met (drives
-// the user-derived confidence — never a fixed number).
+// Palette of close-based indicators (the client board history is daily closes). Each
+// entry declares its tunable params and how it reads bullish/bearish, plus an evaluator
+// returning the directional state at the latest bar. `depth` is 0..1 = how strongly the
+// condition is met (drives the user-derived confidence — never a fixed number). OHLC
+// indicators that only need direction+strength (ADX/DMI) run close-as-OHLC (h=l=c), the
+// same close-based reduction the Stochastic here already uses.
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const lastVal = (arr) => { if (!arr) return null; for (let i = arr.length - 1; i >= 0; i--) { const v = arr[i]; if (v != null && !Number.isNaN(v)) return v; } return null; };
 
@@ -96,6 +97,30 @@ export const INDICATORS = {
       const past = closes[closes.length - 1 - p]; if (!(past > 0)) return null;
       const roc = (price / past - 1) * 100, d = clamp01(Math.abs(roc) / 5);
       return { bull: roc > 0, bear: roc < 0, longDepth: roc > 0 ? 0.35 + 0.65 * d : 0, shortDepth: roc < 0 ? 0.35 + 0.65 * d : 0 };
+    },
+  },
+  adx: {
+    label: 'ADX (trend strength)', blurb: 'Trend strength + direction — only trade a strong up/down trend, not chop.',
+    params: [
+      { k: 'period', label: 'Length', min: 5, max: 30, step: 1, def: 14 },
+      { k: 'value', label: 'Strong-trend above', min: 15, max: 40, step: 1, def: 20 },
+    ],
+    long: (c) => `Strong uptrend — ADX(${c.period}) above ${c.value}, +DI leading`,
+    short: (c) => `Strong downtrend — ADX(${c.period}) above ${c.value}, −DI leading`,
+    eval(closes, price, c) {
+      // Board history is closes only, so feed the shared ADX close-as-OHLC (h=l=c): the
+      // same Wilder math, reduced to a close-based trend-strength / DMI. Direction comes
+      // from +DI vs -DI; the ADX level is the "is a real trend present" gate.
+      const candles = closes.map((cl) => ({ h: cl, l: cl, c: cl }));
+      const r = adx(candles, c.period || 14);
+      const a = lastVal(r.adx), pdi = lastVal(r.plusDI), mdi = lastVal(r.minusDI);
+      if (a == null || pdi == null || mdi == null) return null;
+      const thr = c.value ?? 20, strong = a >= thr, d = clamp01((a - thr) / 20 + 0.2);
+      return {
+        bull: strong && pdi > mdi, bear: strong && mdi > pdi,
+        longDepth: (strong && pdi > mdi) ? 0.4 + 0.6 * d : 0,
+        shortDepth: (strong && mdi > pdi) ? 0.4 + 0.6 * d : 0,
+      };
     },
   },
 };
