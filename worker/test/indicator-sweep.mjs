@@ -30,7 +30,29 @@ const SYMS = Object.keys(DATA);
 const IND = {};
 for (const sym of SYMS) {
   const c = DATA[sym];
-  IND[sym] = { atr: atr(c, 14), s50: sma(c.map((x) => x.c), 50), adx: adx(c, 14).adx, superUp: supertrendDir(c, 10, 3), cci: cciSeries(c, 20), kijun: kijunSeries(c, 26) };
+  IND[sym] = { atr: atr(c, 14), s50: sma(c.map((x) => x.c), 50), adx: adx(c, 14).adx, superUp: supertrendDir(c, 10, 3), cci: cciSeries(c, 20), kijun: kijunSeries(c, 26), bpb: bbPctBSeries(c, 20, 2), wr: willRSeries(c, 14) };
+}
+
+// Bollinger %B — where the close sits within the 20/2SD bands (0 = lower band, 1 = upper).
+// < 0 means below the lower band — a stretched mean-reversion dip; a classic "buy the band".
+function bbPctBSeries(c, p = 20, k = 2) {
+  const n = c.length, close = c.map((x) => x.c), o = new Array(n).fill(null);
+  for (let i = p - 1; i < n; i++) {
+    let s = 0; for (let j = i - p + 1; j <= i; j++) s += close[j]; const m = s / p;
+    let v = 0; for (let j = i - p + 1; j <= i; j++) v += (close[j] - m) ** 2; const sd = Math.sqrt(v / p);
+    const lo = m - k * sd, hi = m + k * sd; o[i] = hi === lo ? 0.5 : (close[i] - lo) / (hi - lo);
+  }
+  return o;
+}
+// Williams %R — momentum oscillator, close's position in the 14-bar high/low range.
+// < -90 = deeply oversold (near the period low).
+function willRSeries(c, p = 14) {
+  const n = c.length, o = new Array(n).fill(null);
+  for (let i = p - 1; i < n; i++) {
+    let hh = -Infinity, ll = Infinity; for (let j = i - p + 1; j <= i; j++) { if (c[j].h > hh) hh = c[j].h; if (c[j].l < ll) ll = c[j].l; }
+    o[i] = hh === ll ? -50 : ((hh - c[i].c) / (hh - ll)) * -100;
+  }
+  return o;
 }
 
 // CCI (Commodity Channel Index) — deviation from the typical-price mean; < -100 = deep oversold.
@@ -129,6 +151,10 @@ const GATES = [
   ['CCI < -100 (deep oversold)', (s, i) => G[s].cci[i] != null && G[s].cci[i] < -100],
   ['price > Kijun (Ichimoku)', (s, i) => G[s].kijun[i] != null && DATA[s][i].c > G[s].kijun[i]],
   ['ADX notch: skip 15-20 (ref)', (s, i) => { const a = G[s].adx[i]; return a != null && !(a >= 15 && a < 20); }],
+  ['Bollinger %B < 0.20', (s, i) => G[s].bpb[i] != null && G[s].bpb[i] < 0.20],
+  ['Bollinger %B < 0 (below band)', (s, i) => G[s].bpb[i] != null && G[s].bpb[i] < 0],
+  ['Williams %R < -90 (deep OS)', (s, i) => G[s].wr[i] != null && G[s].wr[i] < -90],
+  ['support 0.5xATR + %B<0.20', (s, i) => nearLevel(DATA[s], i, G[s].atr[i], 0.5) && G[s].bpb[i] != null && G[s].bpb[i] < 0.20],
 ];
 
 const baseline = run(null);
