@@ -7,13 +7,16 @@
 // enough trades. Add new gates here as indicators/data become available.
 //   node test/indicator-sweep.mjs
 //
-// LATEST PASS (2026-09-06): the standout is SUPPORT/RESISTANCE PROXIMITY (0.5xATR) —
-// keep the oversold dip only when price is within 0.5xATR of an established pivot
-// low/high (a bounce at a level, not a knife in mid-air). FULL pf 2.61->3.36, and OOS
-// pf 1.95->4.56 / avgR .17->.29 while making MORE money and keeping 83% of trades — the
-// best gate found, better OOS than the ADX 15-20 notch. Caveats: ETH hurt (small n),
-// 6/10 markets improved. Strong CANDIDATE; pairs with the ADX notch (location vs regime).
-// Supertrend-up and 50SMA don't pass. Re-run each pass and re-check before promoting.
+// FINDINGS (2026-09-06). Consistent pattern across the whole sweep:
+//   WORKS  — LOCATION: support/resistance proximity (0.5xATR of a pivot; 60-bar best,
+//            120-bar also passes). FULL pf 2.61->3.36, OOS pf 1.95->4.56. Pairs with —
+//          — REGIME: the ADX 15-20 dead-zone notch. COMBINED (both) is the winner:
+//            FULL pf ->4.96, OOS ->4.44, 9/10 markets (see combined-filter-probe.mjs).
+//   HURTS  — trend-STRUCTURE gates (above 50SMA, price>Kijun/Ichimoku, Supertrend-up):
+//            they cut good dip-buys (Kijun pf 2.61->2.18). MR wants the dip, not the trend.
+//   WEAK   — CCI<-100: redundant with the RSI-2 entry (already oversold); fails OOS bar.
+// support + ADX-notch are wired as a measured experiment (adaptive.js). Re-run each pass;
+// add new indicators/data below and re-check before promoting anything.
 import { MARKETS } from '../src/markets.js';
 import { computeSignal } from '../src/strategy.js';
 import { processPosition } from '../src/scheduler.js';
@@ -27,7 +30,24 @@ const SYMS = Object.keys(DATA);
 const IND = {};
 for (const sym of SYMS) {
   const c = DATA[sym];
-  IND[sym] = { atr: atr(c, 14), s50: sma(c.map((x) => x.c), 50), adx: adx(c, 14).adx, superUp: supertrendDir(c, 10, 3) };
+  IND[sym] = { atr: atr(c, 14), s50: sma(c.map((x) => x.c), 50), adx: adx(c, 14).adx, superUp: supertrendDir(c, 10, 3), cci: cciSeries(c, 20), kijun: kijunSeries(c, 26) };
+}
+
+// CCI (Commodity Channel Index) — deviation from the typical-price mean; < -100 = deep oversold.
+function cciSeries(c, p = 20) {
+  const n = c.length, tp = c.map((x) => (x.h + x.l + x.c) / 3), o = new Array(n).fill(null);
+  for (let i = p - 1; i < n; i++) {
+    let s = 0; for (let j = i - p + 1; j <= i; j++) s += tp[j]; const m = s / p;
+    let md = 0; for (let j = i - p + 1; j <= i; j++) md += Math.abs(tp[j] - m); md /= p;
+    o[i] = md === 0 ? 0 : (tp[i] - m) / (0.015 * md);
+  }
+  return o;
+}
+// Ichimoku Kijun (base line) — midpoint of the N-bar high/low; price above = trend structure intact.
+function kijunSeries(c, base = 26) {
+  const n = c.length, o = new Array(n).fill(null);
+  for (let i = base - 1; i < n; i++) { let hi = -Infinity, lo = Infinity; for (let j = i - base + 1; j <= i; j++) { if (c[j].h > hi) hi = c[j].h; if (c[j].l < lo) lo = c[j].l; } o[i] = (hi + lo) / 2; }
+  return o;
 }
 
 // --- Supporting-data helpers ------------------------------------------------
@@ -103,8 +123,11 @@ const GATES = [
   ['near support/resist 0.5xATR', (s, i) => nearLevel(DATA[s], i, G[s].atr[i], 0.5)],
   ['near support/resist 1.0xATR', (s, i) => nearLevel(DATA[s], i, G[s].atr[i], 1.0)],
   ['near support/resist 1.5xATR', (s, i) => nearLevel(DATA[s], i, G[s].atr[i], 1.5)],
+  ['near support/resist 120-bar', (s, i) => nearLevel(DATA[s], i, G[s].atr[i], 0.5, 120)],
   ['Supertrend still up', (s, i) => G[s].superUp[i] === 1],
   ['above 50SMA', (s, i) => G[s].s50[i] != null && DATA[s][i].c > G[s].s50[i]],
+  ['CCI < -100 (deep oversold)', (s, i) => G[s].cci[i] != null && G[s].cci[i] < -100],
+  ['price > Kijun (Ichimoku)', (s, i) => G[s].kijun[i] != null && DATA[s][i].c > G[s].kijun[i]],
   ['ADX notch: skip 15-20 (ref)', (s, i) => { const a = G[s].adx[i]; return a != null && !(a >= 15 && a < 20); }],
 ];
 
