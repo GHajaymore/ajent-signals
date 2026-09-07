@@ -8,6 +8,7 @@ import { MARKETS } from './markets.js';
 import { STRATEGY, publicStrategy, publicSignal, publicPosition } from './meta.js';
 import { addSubscription, removeSubscription, pushToAll } from './push.js';
 import { requirePro } from './auth.js';
+import { regimeGateExperiment, bothWaysRangingExperiment } from './adaptive.js';
 import { registerWebhook, listWebhooks, deleteWebhook, deliverEvents, sampleEvent, EDU_DISCLAIMER } from './webhooks.js';
 import { createCheckoutSession, verifyStripeSignature, handleStripeEvent, tokenForSession, refreshToken, validateApple, validateGoogle, startTrial } from './billing.js';
 
@@ -93,6 +94,17 @@ export default {
       let day = null;
       try { day = await runDayTick(env, store); } catch (e) { day = { error: String(e && e.message || e) }; }
       return json({ ok: true, ...r, day });
+    }
+
+    // ADMIN-only readout of the running lab EXPERIMENTS (measurement-only entry gates that
+    // aren't adopted yet) so their forward progress can be watched. Same ADMIN_KEY guard as
+    // /admin/tick, and 404 when unset — the experiment notes reference strategy thresholds,
+    // so this is never public. Read-only (one KV get); no writes.
+    if (url.pathname === '/admin/experiments') {
+      if (!env.ADMIN_KEY || url.searchParams.get('key') !== env.ADMIN_KEY) return json({ error: 'not found' }, 404);
+      const rec = await db(env).get('RECORD', 'ALL');
+      const closed = (rec && rec.closed) || [];
+      return json({ updatedAt: Date.now(), closedTrades: closed.length, equity: regimeGateExperiment(closed), bothWays: bothWaysRangingExperiment(closed) });
     }
 
     // The intraday day-trading EXPERIMENT — its live signals (recipe stripped) and
