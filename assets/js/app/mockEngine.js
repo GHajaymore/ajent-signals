@@ -481,7 +481,7 @@ const MAX_ALERTS = 40;
 const ALERT_DEDUP_MS = 12 * 60 * 60 * 1000;
 // Collapse identical alerts (same title within a few hours) — a held signal can re-enter BUY
 // after a stale→fresh feed cycle and re-fire the same alert. Keeps one row per real event.
-function dedupeAlerts(list) {
+export function dedupeAlerts(list) {
   const kept = [];
   for (const a of list) {
     const ts = a.ts || 0;
