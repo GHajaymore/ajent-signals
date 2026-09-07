@@ -952,6 +952,42 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .data-tag.rt { background: var(--buy-dim); color: var(--buy); }
 .data-tag.dly { background: rgba(245, 179, 90, 0.12); color: #f5b35a; }
 
+/* ── Desktop / laptop (Tier 1): the app is mobile-first, but on wide screens the
+   560px column wastes the width and a bottom tab bar reads wrong. At >=1024px widen
+   the shell, lay it out as a row, and turn the tab bar into a left sidebar. Everything
+   below 1024px is untouched — the phone layout is the default. ── */
+@media (min-width: 1024px) {
+  .app-shell { flex-direction: row; max-width: 1080px; }
+  .tabbar {
+    order: -1;                 /* sidebar sits to the LEFT of the content */
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 4px;
+    width: 212px;
+    border-top: none;
+    border-right: 1px solid var(--hairline);
+    padding: 20px 12px;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .tabbar .tab-btn {
+    flex: none;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 11px 14px;
+    border-radius: 11px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .tabbar .tab-btn .i { font-size: 20px; }
+  .tabbar .tab-btn:hover { color: var(--neutral-300); background: color-mix(in srgb, var(--neutral-500) 12%, transparent); }
+  .tabbar .tab-btn.active { color: var(--accent-200); background: color-mix(in srgb, var(--accent) 15%, transparent); }
+  .tabbar .tab-btn.active .i { transform: none; filter: none; }
+  .app-content { padding: 26px 34px 40px; }
+}
+
 @media (max-width: 380px) {
   .hero-verdict { font-size: 30px; }
   .stat-row, .hero-quad { gap: 7px; }
