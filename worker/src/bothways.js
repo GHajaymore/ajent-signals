@@ -7,7 +7,7 @@
 // and a positive short side. Shipped as EXPERIMENT cells (backtest n is modest ~48–49):
 // tracked live, clearly labelled unproven, graduating to 'live' only once the forward
 // record confirms. Recipe stays server-side (this module never ships to the client).
-import { rsi, sma, atr, roc } from './indicators.js';
+import { rsi, sma, atr, roc, adx } from './indicators.js';
 
 // Per-cell config. FX = symmetric RSI(14) mean-reversion. Commodities = RSI(2) dip/pop
 // gated by the SMA-50 trend side and a same-direction momentum (ROC) confirm.
@@ -59,7 +59,14 @@ export function computeBothMR(candles, live, cellKey) {
     // htfTrend reflects the trade side (a short is a bearish setup) so the client's
     // "Trend" label + long/short handling read correctly.
     htfTrend: dir > 0 ? 'up' : 'down', trendMA: s, atr: a, rsiMR: r,
-    plan: { entry: price, stop: dir > 0 ? price - risk : price + risk, target1: dir > 0 ? price + risk * cfg.rr : price - risk * cfg.rr, risk, maxHoldMin: cfg.maxHoldMin },
+    plan: {
+      entry: price, stop: dir > 0 ? price - risk : price + risk, target1: dir > 0 ? price + risk * cfg.rr : price - risk * cfg.rr, risk, maxHoldMin: cfg.maxHoldMin,
+      // Measurement only (never gates the trade; stripped via POSITION_SECRET). The lab
+      // found the thin both-ways edge lifts materially when filtered to RANGING regimes
+      // (low ADX) — mean-reversion works in ranges, not trends. Distinct field from the
+      // equity `adxEntry` so the two experiments never mix (both-ways records strat='mr').
+      adxRange: (() => { const v = adx(c, 14).adx[n - 1]; return v != null ? +v.toFixed(1) : null; })(),
+    },
   };
 }
 

@@ -56,6 +56,32 @@ export function regimeGateExperiment(closed) {
   };
 }
 
+// EXPERIMENT (measurement only) for the BOTH-WAYS cells (FX/commodities). Unlike the equity
+// dip-buyer, the lab found this symmetric edge lifts when filtered to RANGING regimes (low
+// ADX) — MR works in ranges, not trends. Both-ways entries carry adxRange (distinct from the
+// equity adxEntry), so this measures a ranging gate on the live both-ways record without
+// touching the equity experiment.
+const RANGE_MAX = 25;
+export function bothWaysRangingExperiment(closed) {
+  const bw = (closed || []).filter((c) => typeof c.adxRange === 'number');
+  const agg = (list) => {
+    if (!list.length) return { n: 0, pnl: 0, winRate: 0, pf: 0, avgR: 0 };
+    const wins = list.filter((c) => (c.pnl || 0) > 0), losses = list.filter((c) => (c.pnl || 0) < 0);
+    const gw = wins.reduce((s, c) => s + (c.pnl || 0), 0), gl = Math.abs(losses.reduce((s, c) => s + (c.pnl || 0), 0));
+    const pnl = list.reduce((s, c) => s + (c.pnl || 0), 0);
+    return { n: list.length, pnl: Math.round(pnl), winRate: Math.round((wins.length / list.length) * 100), pf: +(gw / (gl || 1)).toFixed(2), avgR: +(list.reduce((s, c) => s + (c.resultR || 0), 0) / list.length).toFixed(3) };
+  };
+  const full = agg(bw), ranging = agg(bw.filter((c) => c.adxRange < RANGE_MAX));
+  const ready = bw.length >= REGIME_MIN;
+  return {
+    ready, tagged: bw.length,
+    full, ranging,
+    note: ready
+      ? `Both-ways ranging gate (experiment): trading only ADX<${RANGE_MAX} would move PF ${full.pf}→${ranging.pf}, avgR ${full.avgR}→${ranging.avgR} on ${full.n} trades (${ranging.n} kept). Not yet adopted.`
+      : `Both-ways ranging gate (experiment): gathering data — ${bw.length} tagged both-ways trades (need ${REGIME_MIN}).`,
+  };
+}
+
 // Per-ENGINE size weight, learned from each engine's own record (recency-weighted
 // expectancy), bounded and gated on a per-engine sample. So the ensemble leans
 // toward whichever engine is actually working — but can't zero one out or overfit.
@@ -117,7 +143,8 @@ export function computeAdaptive(record, base) {
     sizeMult: +sizeMult.toFixed(2),
     stopMult: +stopMult.toFixed(2),
     engines: perEngineWeights(closed), // per-engine size weights (ensemble)
-    regimeExperiment: regimeGateExperiment(closed), // ADX dead-zone gate — measured, not adopted
+    regimeExperiment: regimeGateExperiment(closed), // equity support+ADX-notch gate — measured, not adopted
+    bothWaysExperiment: bothWaysRangingExperiment(closed), // both-ways ranging gate — measured, not adopted
     exitAbove: baseExit, // exit dial reserved for a future, higher-data pass
     // human note surfaced in the app
     note: learning

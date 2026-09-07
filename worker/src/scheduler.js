@@ -104,7 +104,7 @@ export function processPosition({ symbol, meta, sig, live, open, record, now, ri
     const gross = resultR * (pos.riskDollars || risk);
     const pnl = Math.round(gross - cost); // NET of round-turn cost
     const outcome = pnl > 0 ? 'Win' : pnl < 0 ? 'Loss' : 'Break-even';
-    record.closed.unshift({ symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', strat: pos.strat || 'mr', entry: pos.entry, exit: price, resultR: +resultR.toFixed(3), pnl, cost, riskDollars: pos.riskDollars || risk, outcome, exitReason: exit, openedAt: pos.openedAt, closedAt: now, adxEntry: pos.adxEntry ?? null, nearSupport: pos.nearSupport ?? null });
+    record.closed.unshift({ symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', strat: pos.strat || 'mr', entry: pos.entry, exit: price, resultR: +resultR.toFixed(3), pnl, cost, riskDollars: pos.riskDollars || risk, outcome, exitReason: exit, openedAt: pos.openedAt, closedAt: now, adxEntry: pos.adxEntry ?? null, nearSupport: pos.nearSupport ?? null, adxRange: pos.adxRange ?? null });
     if (record.closed.length > 300) record.closed.length = 300;
     delete record.open[symbol];
     record.lastClose[symbol] = { signalDay: dayKey(now), at: now };
@@ -119,7 +119,7 @@ export function processPosition({ symbol, meta, sig, live, open, record, now, ri
     // Size = base risk × global size dial × this engine's adaptive weight (bounded).
     const engineW = (dials && dials.engines && dials.engines[strat] && dials.engines[strat].weight) || 1;
     const riskDollars = Math.round(risk * ((dials && dials.sizeMult) || 1) * engineW);
-    record.open[symbol] = { symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', strat, entry, stop: short ? entry + r : entry - r, target1: short ? entry - r : entry + r, risk: r, riskDollars, conviction: sig.conviction, maxHoldMin: sig.plan.maxHoldMin, exitRule: strat === 'trend' ? 'trailStop' : 'rsiRecover', exitAbove: sig.plan.exitAbove, peak: entry, openedAt: now, adxEntry: sig.plan.adxEntry ?? null, nearSupport: sig.plan.nearSupport ?? null };
+    record.open[symbol] = { symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', strat, entry, stop: short ? entry + r : entry - r, target1: short ? entry - r : entry + r, risk: r, riskDollars, conviction: sig.conviction, maxHoldMin: sig.plan.maxHoldMin, exitRule: strat === 'trend' ? 'trailStop' : 'rsiRecover', exitAbove: sig.plan.exitAbove, peak: entry, openedAt: now, adxEntry: sig.plan.adxEntry ?? null, nearSupport: sig.plan.nearSupport ?? null, adxRange: sig.plan.adxRange ?? null };
     return 'open';
   }
   return 'none';
