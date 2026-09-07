@@ -84,7 +84,7 @@ function configPanel(cfg) {
       <span class="cs-add-l">Add indicator</span>
       <div class="cs-add-chips">${addable.map((k) => `<button class="cs-add-chip${used.has(k) ? ' dim' : ''}" data-cond-add="${k}">+ ${INDICATORS[k].label}</button>`).join('')}</div>
     </div>
-    <div class="cs-hint"><i class="ph-bold ph-info"></i> All conditions must agree to fire. On <b>Both ways</b>, a long fires when every indicator is bullish, a short when every one is bearish.</div>
+    <div class="cs-hint"><i class="ph-bold ph-info"></i> Fires only when <b>all</b> conditions agree — long when all bullish, short when all bearish.</div>
     <button class="cs-reset" data-cs-reset>Reset to the classic dip-buy</button>
   </div>`;
 }
@@ -145,7 +145,7 @@ function recordPanel() {
   if (!you.trades && !you.open) {
     return `<div class="panel">
       <div class="panel-title">Your strategy's record</div>
-      <div class="text-muted" style="font-size:12.5px;line-height:1.55;padding:4px 0">Your strategy hasn't taken a trade yet — it <b style="color:var(--text)">trades automatically in the background</b> as your rule fires, building a real record to compare against Ajent. Check back as it runs.</div>
+      <div class="text-muted" style="font-size:12.5px;line-height:1.55;padding:4px 0">No trades yet — it <b style="color:var(--text)">trades automatically</b> as your rule fires, building a record to compare against Ajent.</div>
     </div>`;
   }
   const eq = customEquity();
@@ -176,7 +176,7 @@ export function render(container) {
         <div class="panel-title">Your signals vs Ajent · right now</div>
         <div id="cs-board-wrap">${boardHtml(cfg)}</div>
       </div>
-      <div class="text-faint" style="font-size:11px;line-height:1.5;margin-top:12px">These are <b>your</b> rule's signals on real daily data — a live snapshot, not a backtest or a guarantee. The palette is standard public indicators; Ajent Pulse's exact recipe stays proprietary and your settings never change it or the tracked record. Educational only.</div>
+      <div class="text-faint" style="font-size:11px;line-height:1.5;margin-top:12px">Live snapshot on real daily data — not a backtest or a guarantee. Standard public indicators; your settings never touch Ajent Pulse or its record. Educational only.</div>
     </div>`;
     wire();
   };
