@@ -993,6 +993,12 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
   .mkt-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr); gap: 26px; align-items: start; }
   .mkt-detail-col { position: sticky; top: 0; }
   .mkt-row.pane-selected, .closed-row.pane-selected { border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 9%, transparent); }
+
+  /* Paper Tier 2: the P&L headline + equity curve become a sticky left rail while the
+     detailed breakdowns and trade history scroll on the right. Mobile keeps the single
+     column in the same order (summary then detail), so nothing reorders below 1024px. */
+  .paper-split { display: grid; grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr); gap: 26px; align-items: start; }
+  .paper-summary { position: sticky; top: 0; align-self: start; }
 }
 /* The pane is only shown in the desktop split; hidden by default so mobile never renders it. */
 .mkt-detail-col { display: none; }

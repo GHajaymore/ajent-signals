@@ -924,6 +924,8 @@ export function render(container) {
 
   container.innerHTML = `
   <div class="fade-in glow-wrap">
+    <div class="paper-split">
+    <div class="paper-summary">
     ${intro()}
 
     <div class="pf-hero ${up ? 'up' : 'down'}">
@@ -932,6 +934,8 @@ export function render(container) {
       <div class="pf-hero-meta">${scopedPerf ? `<span style="color:var(--buy)">${scopedPerf.winRate}% win</span> · PF ${pfStr} · ${scopedPerf.wins}W / ${scopedPerf.losses}L` : `No ${focusLabel || ''} trades on the record yet — the full breakdown is below.`}</div>
       ${scopedPerf && focused.length >= 2 ? `<div class="pf-hero-chart">${equityChart(scopedPerf.equity)}</div>` : ''}
     </div>
+    </div><!-- /paper-summary -->
+    <div class="paper-detail">
 
     ${honestBanner()}
 
@@ -994,6 +998,8 @@ export function render(container) {
     ${pnlHelp()}
 
     <p class="text-faint" style="text-align:center;font-size:11px;margin-top:14px">Virtual money only · educational · past results don't guarantee future performance.</p>
+    </div><!-- /paper-detail -->
+    </div><!-- /paper-split -->
   </div>`;
 
   wireSelector(container);
