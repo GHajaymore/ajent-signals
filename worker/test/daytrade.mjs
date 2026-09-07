@@ -11,7 +11,7 @@
 import { MARKETS } from '../src/markets.js';
 import { fetchIntradayCandles } from '../src/data.js';
 import { computeDaySignal } from '../src/daytrade.js';
-import { sma, rsi, atr, stdev } from '../src/indicators.js';
+import { sma, rsi, atr, stdev, adx } from '../src/indicators.js';
 
 const START = 25000, RISK = 250, COST = 6;
 const YEAR = 365.25 * 24 * 3600 * 1000;
@@ -52,7 +52,7 @@ for (const sym of Object.keys(DATA)) {
   const c = DATA[sym];
   const closes = c.map((x) => x.c);
   const eos = c.map((_, i) => isSessionEnd(c, i));
-  PRE[sym] = { c, closes, eos, rsi2: rsi(closes, 2), atr14: atr(c, 14) };
+  PRE[sym] = { c, closes, eos, rsi2: rsi(closes, 2), atr14: atr(c, 14), adx: adx(c, 14).adx };
 }
 
 // Mirrors computeDaySignal (BOTH-WAYS): long when RSI2 < entryBelow, short when RSI2 >
@@ -83,7 +83,8 @@ function backtest(params, syms = Object.keys(DATA)) {
         }
       }
       // Entry: both-ways RSI2 extreme. Don't open on a session's last bar (flat at once).
-      if (!pos && !eos && r2 != null && atrN > 0) {
+      // Optional ranging gate (P.rangeMax): skip when intraday ADX says a trend is running.
+      if (!pos && !eos && r2 != null && atrN > 0 && (!P.rangeMax || (p.adx[i] != null && p.adx[i] < P.rangeMax))) {
         let dir = 0;
         if (r2 < P.entryBelow) dir = 1; else if (r2 > upper) dir = -1;
         if (dir !== 0) {
@@ -163,6 +164,13 @@ for (const { p, r } of results.slice(0, 12)) {
 console.log(`\n  ${robust}/${results.length} settings clear PF>=1.3 AND positive P&L.`);
 const posShare = results.length ? Math.round(results.filter((x) => x.r.totalPnl > 0).length / results.length * 100) : 0;
 console.log(`  ${posShare}% of settings are net positive.\n`);
+
+// Does a RANGING (low intraday-ADX) gate rescue the thin both-ways edge, as it did on the
+// DAILY both-ways cell? PROVISIONAL — 60-day sample can't be robustness-gated across cycles.
+console.log('Ranging (intraday ADX) gate — PROVISIONAL (short sample, not robustness-gated):');
+console.log(`  baseline       ${fmt(backtest(DEF, TRADED))}`);
+for (const rangeMax of [30, 25, 20, 15]) console.log(`  ADX<${String(rangeMax).padStart(2)}        ${fmt(backtest({ ...DEF, rangeMax }, TRADED))}`);
+console.log('');
 
 // Honest verdict.
 const def = backtest(DEF);
