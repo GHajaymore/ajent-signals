@@ -2,7 +2,7 @@
 // the HTTP handler serves the Pro-gated /signals and /trades endpoints.
 import { db } from './db.js';
 import { runTick } from './scheduler.js';
-import { scanStocks, summarizeStocks } from './stocks.js';
+import { scanStocks, summarizeStocks, NAME as STOCK_NAME } from './stocks.js';
 import { MARKETS } from './markets.js';
 import { STRATEGY, publicStrategy, publicSignal, publicPosition } from './meta.js';
 import { addSubscription, removeSubscription, pushToAll } from './push.js';
@@ -155,7 +155,9 @@ export default {
       }
       // Strip the recipe reading (rsi2) here too — defence in depth, so even a blob
       // scanned by an older build is served clean (guarded by test/no-recipe-leak).
-      const stocks = ((blob && blob.stocks) || []).map(({ rsi2, ...row }) => row);
+      // Map the display name on read (NAME[symbol]) so real company names show immediately,
+      // even for rows a pre-name-map build stored — no wait for the next daily scan.
+      const stocks = ((blob && blob.stocks) || []).map(({ rsi2, ...row }) => ({ ...row, name: STOCK_NAME[row.symbol] || row.name }));
       // The stocks EXPERIMENT record — its own isolated paper account (RECORD_STOCKS),
       // recipe-stripped like every position payload.
       const rec = await store.get('RECORD_STOCKS', 'ALL');
