@@ -118,36 +118,24 @@ export function dataTag(market) {
 // then layered on from the real feed.
 export function liveTag(market) {
   const dot = (on) => `<span class="live-dot${on ? '' : ' off'}"></span>`;
-  const sess = marketSession(market);
   const age = market.quoteAgeSec;
   const live = market.isLiveFresh;
-  // "delayed" is the free feed's genuine lag during active trading (~15–25 min). A larger
-  // age is off-hours staleness (the feed isn't ticking), not lag — show WHEN the last price
-  // was, never a misleading "delayed ~196m".
-  const FEED_DELAY_MAX = 40 * 60;
-  const delayed = live && age != null && age > 180 && age <= FEED_DELAY_MAX;
-  const stale = live && age != null && age > FEED_DELAY_MAX;
-  const mins = age != null ? Math.max(1, Math.round(age / 60)) : 0;
-  const lastClock = market.quoteTime ? new Date(market.quoteTime * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
-  // The delayed future's near-real-time price is estimated from its tracking ETF.
-  const px = market.proxySource ? ` · ~real-time via ${market.proxySource}` : '';
-  // Index futures keep trading after the CASH exchange closes — say "Futures open" then,
-  // never "Market open", which implies the cash market is trading.
-  const futuresOnly = sess === 'open' && countryOpen(market.country) === false && /Index/.test(market.category || '');
+  const clockOpen = marketSession(market) === 'open';
+  // A quote older than the feed's genuine lag (~15–25 min) — or no quote while the clock
+  // insists the session is open — means the market isn't actually trading: holiday, overnight
+  // or halt. The wall clock is holiday-blind (it treats Labor Day like a normal Monday), so
+  // the DATA's freshness is the truthful signal and overrides the clock.
+  const FEED_DELAY_MAX = 45 * 60;
+  const notTrading = age != null ? age > FEED_DELAY_MAX : !clockOpen;
+  if (notTrading) return `${dot(false)}Market closed`;
+  // Trading now. Index futures keep trading after the CASH exchange closes — say "Futures
+  // open" then, never "Market open" (which implies the cash market is trading).
+  const futuresOnly = countryOpen(market.country) === false && /Index/.test(market.category || '');
   const openLabel = futuresOnly ? 'Futures open' : 'Market open';
-
-  if (sess === 'closed') return `${dot(false)}Market closed`;
-  if (sess === 'open') {
-    if (delayed) return `${dot(false)}${openLabel} · delayed ~${mins}m`;
-    if (stale) return `${dot(false)}${openLabel} · last ${lastClock}`;
-    if (live) return `${dot(true)}${openLabel}${px}`;
-    return `${dot(false)}${openLabel} · connecting…`;
-  }
-  // Untracked exchange (unknown session) — fall back to raw feed freshness.
-  if (delayed) return `${dot(false)}Delayed ~${mins}m`;
-  if (stale) return `${dot(false)}Last price ${lastClock}`;
-  if (live) return `${dot(true)}${market.proxySource ? `~Real-time via ${market.proxySource}` : 'Live'}`;
-  return `${dot(false)}No live data`;
+  const px = market.proxySource ? ` · ~real-time via ${market.proxySource}` : ''; // future's ETF-proxy estimate
+  if (age != null && age > 180) return `${dot(false)}${openLabel} · delayed ~${Math.max(1, Math.round(age / 60))}m`;
+  if (live) return `${dot(true)}${openLabel}${px}`;
+  return `${dot(false)}${openLabel} · connecting…`; // clock says open, no quote yet
 }
 
 export function heroCard(market, verdict) {

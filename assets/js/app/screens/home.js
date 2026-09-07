@@ -437,40 +437,33 @@ function marketRegion(m) {
   if (/Index/.test(m.category || '')) return REGION_NAME[m.country] || (m.country ? `${m.country} market` : m.name);
   return m.name; // commodities/FX etc. — their own name is clearest
 }
-// The free feed runs a bit behind live DURING active trading (~15–25 min). A quote older
-// than this isn't feed lag — it's a quiet/off-hours session where the feed simply isn't
-// ticking, so we show WHEN the last price was rather than a misleading "delayed ~196m".
-const FEED_DELAY_MAX_SEC = 40 * 60;
-const clockOf = (sec) => new Date(sec * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+// The free feed lags a little behind live DURING active trading (~15–25 min). A quote older
+// than this ceiling — or no quote at all while the wall clock insists the session is "open" —
+// means the market is NOT actually trading right now: a holiday (Labor Day, Thanksgiving…),
+// an overnight gap, or a halt. The clock is holiday-blind — it treats Labor Day like a normal
+// Monday — so the freshness of the DATA is the truthful signal, and it overrides the clock.
+const FEED_DELAY_MAX_SEC = 45 * 60;
 function marketStatus(m) {
   if (!m) return { label: 'Loading…', color: 'var(--text-muted)', pulse: false };
-  const sess = marketSession(m);
-  // Index FUTURES (ES/NQ/YM/RTY) trade on CME Globex nearly 24h, so their session is "open"
-  // long after the US CASH market shuts. Saying "US market open" then is misleading — the
-  // cash market is closed; only the futures trade. countryOpen() is the CASH session,
-  // marketSession() is the contract's session. When the contract trades but cash is shut,
-  // call it "US futures", not "US market".
-  const cashOpen = countryOpen(m.country);
-  const futuresOnly = sess === 'open' && cashOpen === false && /Index/.test(m.category || '') && !!m.country;
-  const tag = futuresOnly
-    ? `${(REGION_NAME[m.country] || `${m.country} market`).replace(/ market$/, '')} futures`
-    : marketRegion(m);
-  if (sess === 'closed') return { label: `${tag} · closed`, color: 'var(--text-muted)', pulse: false };
-  const age = m.quoteAgeSec;
-  const delayed = m.isLiveFresh && age != null && age > 180 && age <= FEED_DELAY_MAX_SEC;
-  const stale = m.isLiveFresh && age != null && age > FEED_DELAY_MAX_SEC; // quiet — not feed lag
+  const baseTag = marketRegion(m); // "US market", "Crypto", commodity name…
+  const age = m.quoteAgeSec;       // seconds since the last real quote, or null if none yet
+  const clockOpen = marketSession(m) === 'open';
+
+  // Is the market actually trading? If we have a quote, trust its freshness over the clock
+  // (this is what catches a holiday the clock can't see). If we have no quote yet, we can
+  // only go by the clock.
+  const notTrading = age != null ? age > FEED_DELAY_MAX_SEC : !clockOpen;
+  if (notTrading) return { label: `${baseTag} · closed`, color: 'var(--text-muted)', pulse: false };
+
+  // Trading now. Index FUTURES (ES/NQ/YM/RTY) keep trading after the CASH market shuts, so
+  // when the cash exchange is closed but fresh prices are still flowing, it's the futures —
+  // say "US futures", never "US market" (which implies the cash market is open).
+  const futuresOnly = countryOpen(m.country) === false && /Index/.test(m.category || '') && !!m.country;
+  const tag = futuresOnly ? `${baseTag.replace(/ market$/, '')} futures` : baseTag;
   const px = m.proxySource ? ` · ~RT ${m.proxySource}` : '';
-  if (sess === 'open') {
-    if (delayed) return { label: `${tag} · open · delayed ~${Math.max(1, Math.round(age / 60))}m`, color: '#f5b35a', pulse: false };
-    if (stale) return { label: `${tag} · open · last ${clockOf(m.quoteTime)}`, color: '#f5b35a', pulse: false };
-    if (m.isLiveFresh) return { label: `${tag} · open${px}`, color: 'var(--buy)', pulse: true };
-    return { label: `${tag} · open`, color: 'var(--text-muted)', pulse: false };
-  }
-  // Untracked exchange — fall back to feed freshness.
-  if (delayed) return { label: `${tag} · delayed ~${Math.max(1, Math.round(age / 60))}m`, color: '#f5b35a', pulse: false };
-  if (stale) return { label: `${tag} · last ${clockOf(m.quoteTime)}`, color: '#f5b35a', pulse: false };
-  if (m.isLiveFresh) return { label: `${tag} · ${m.proxySource ? `~RT ${m.proxySource}` : 'live'}`, color: 'var(--buy)', pulse: true };
-  return { label: `${tag} · no data`, color: 'var(--text-muted)', pulse: false };
+  if (age != null && age > 180) return { label: `${tag} · open · delayed ~${Math.max(1, Math.round(age / 60))}m`, color: '#f5b35a', pulse: false };
+  if (m.isLiveFresh) return { label: `${tag} · open${px}`, color: 'var(--buy)', pulse: true };
+  return { label: `${tag} · open`, color: 'var(--text-muted)', pulse: false }; // clock says open, no quote yet
 }
 // The market the header status describes: the user's local/primary market (from
 // their region), which is stable — not the hero's dynamically-featured setup.
