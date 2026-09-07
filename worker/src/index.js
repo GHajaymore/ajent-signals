@@ -2,7 +2,6 @@
 // the HTTP handler serves the Pro-gated /signals and /trades endpoints.
 import { db } from './db.js';
 import { runTick } from './scheduler.js';
-import { runDayTick } from './daytradeScheduler.js';
 import { scanStocks, summarizeStocks } from './stocks.js';
 import { MARKETS } from './markets.js';
 import { STRATEGY, publicStrategy, publicSignal, publicPosition } from './meta.js';
@@ -64,11 +63,8 @@ export default {
       let r;
       try { r = await runTick(env, store); }
       catch (e) { console.error('runTick failed:', e && e.stack || e); return; }
-      // The intraday day-trading EXPERIMENT runs on its own isolated record — a
-      // failure here must never affect the proven Swing loop above, so it's fully
-      // wrapped and its outcome is not allowed to change Swing's push behaviour.
-      try { await runDayTick(env, store); }
-      catch (e) { console.error('runDayTick failed:', e && e.stack || e); }
+      // (The intraday day-trading experiment was retired 2026-09-06 — a thin edge with
+      // heavy drawdowns on data that couldn't be robustly validated. No longer traded.)
       // Ping push subscribers only when a fresh BUY/SELL actually fires. Record
       // WHAT fired so the notification can name the market(s), not just "a setup".
       if (r && r.signalFired) {
@@ -91,9 +87,7 @@ export default {
       if (!env.ADMIN_KEY || url.searchParams.get('key') !== env.ADMIN_KEY) return json({ error: 'not found' }, 404);
       const store = db(env);
       const r = await runTick(env, store);
-      let day = null;
-      try { day = await runDayTick(env, store); } catch (e) { day = { error: String(e && e.message || e) }; }
-      return json({ ok: true, ...r, day });
+      return json({ ok: true, ...r });
     }
 
     // ADMIN-only readout of the running lab EXPERIMENTS (measurement-only entry gates that
@@ -107,27 +101,12 @@ export default {
       return json({ updatedAt: Date.now(), closedTrades: closed.length, equity: regimeGateExperiment(closed), bothWays: bothWaysRangingExperiment(closed) });
     }
 
-    // The intraday day-trading EXPERIMENT — its live signals (recipe stripped) and
-    // its OWN tracked paper record. UNGATED on purpose: an unproven experiment we do
-    // not advertise should be fully transparent, so anyone can see exactly how it is
-    // doing on a real live record. Numbers here are the honest live paper result —
-    // never a backtest headline. The exact stop/exit dials are stripped, same as
-    // /signals, so the proprietary recipe still never leaves the server.
+    // The intraday day-trading experiment was RETIRED 2026-09-06 (a thin edge with heavy
+    // drawdowns on data that couldn't be robustly validated — see worker/test/daytrade.mjs).
+    // Kept as an empty, graceful stub so any lingering cached client renders nothing rather
+    // than erroring; the current app no longer calls it.
     if (url.pathname === '/day') {
-      const store = db(env);
-      const sigBlob = await store.get('SIGNALS_DAY', 'ALL');
-      const recBlob = await store.get('RECORD_DAY', 'ALL');
-      const signals = ((sigBlob && sigBlob.signals) || []).map(publicSignal);
-      const open = recBlob && recBlob.open ? Object.values(recBlob.open).map(publicPosition) : [];
-      const closed = (recBlob && recBlob.closed ? recBlob.closed : []).slice(0, 100).map(publicPosition);
-      return json({
-        updatedAt: (sigBlob && sigBlob.updatedAt) || Date.now(),
-        experiment: true,
-        status: 'EXPERIMENTAL — not proven. Both-directional intraday mean-reversion on 15-minute bars, flat by the close (no overnight risk). Tracked live on this record; results are provisional and are NOT a recommendation.',
-        signals, open, closed,
-        summary: (sigBlob && sigBlob.summary) || summarize(closed),
-        notice: NOTICE,
-      });
+      return json({ updatedAt: Date.now(), experiment: true, retired: true, signals: [], open: [], closed: [], summary: null, notice: NOTICE });
     }
 
     // Real-time crypto quotes, fetched server-side (the browser can't reach Yahoo

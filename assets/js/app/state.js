@@ -82,9 +82,9 @@ const defaultSettings = {
   // away in Settings for users who want the higher-frequency, both-directions run.
   strategyMode: 'daily',
   // Trading style the user has picked (industry-standard, by holding period). Only
-  // 'swing' is validated and live today; 'day'/'position' are in development and
-  // 'scalping' needs a paid sub-minute feed — the Settings picker shows each one's
-  // real status. Non-'swing' values fall back to swing for the actual engine.
+  // 'swing' is validated and live today; 'position' is in development and 'scalping'
+  // needs a paid sub-minute feed — the Settings picker shows each one's real status.
+  // ('day' was retired 2026-09-06.) Non-'swing' values fall back to swing for the engine.
   tradingStyle: 'swing',
   // Display currency for the virtual money (P&L + paper account). 'local' = the user's
   // geo currency (default); 'usd' forces US dollars. Market prices stay native either way.

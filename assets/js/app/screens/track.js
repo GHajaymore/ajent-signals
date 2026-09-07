@@ -5,13 +5,12 @@ import { positionCallPill, updateCallPill, exitProgressText } from '../tradeGuid
 import { getStrategy, getAdaptive } from '../strategyMeta.js';
 import { fmtPrice } from '../format.js';
 import { state, getEnabledPaperMarkets, setPaperMarketEnabled, setAllPaperMarkets, setPaperMarkets, FREE_MARKET_LIMIT } from '../state.js';
-import { isEntitled, fetchDayExperiment } from '../backendApi.js';
+import { isEntitled } from '../backendApi.js';
 import { CATEGORY_ORDER } from '../mockEngine.js';
 import { groupForSymbol, labelForKey, EXPERIMENT_CLASSES, ASSET_GROUPS } from '../assetClass.js';
 import { fmtMoney as fmtMoneyCcy } from '../currency.js';
 import { hoverAttrs, hoverLayerSvg, wireChartHover } from '../chartHover.js';
 import { shareOrCopy } from '../share.js';
-import { dayExperimentPanelHtml, wireDayExperiment } from '../dayExperiment.js';
 
 // Share the honest You-vs-Ajent result — avg R per trade (performance, never the recipe).
 // The link points at the app's start so a recipient can run their own trial, not at the
@@ -324,25 +323,6 @@ function byMarketHtml(closed) {
 const ACLASS_MIN = 5; // don't call a class leading/lagging on a tiny sample
 const ACLASS_ICON = { index: 'ph-chart-line-up', etf: 'ph-squares-four', crypto: 'ph-currency-btc', fx: 'ph-currency-dollar', futures: 'ph-scales' };
 
-// The Day-trading style lives on its OWN record (/day, Index Futures only). We cache it
-// here so the per-asset-class panel can split each class's P&L by trading style — Swing
-// (the board record) vs Day (this record) — so the user sees which style profits.
-let dayRec = null;
-function ensureDayRecord(after) {
-  if (dayRec) return;
-  fetchDayExperiment().then((d) => { if (d) { dayRec = d; after && after(); } }).catch(() => {});
-}
-// Which trading styles a class can show P&L for (mirrors home.js stylesForClass).
-function styleSplitFor(key, classClosed) {
-  const swing = classClosed.reduce((a, c) => a + tradePnl(c), 0);
-  const swingN = classClosed.length;
-  const parts = [{ style: 'Swing', pnl: swing, n: swingN }];
-  if (key === 'index') { // Index Futures also has the Day experiment
-    const dc = (dayRec && dayRec.closed) || [];
-    parts.push({ style: 'Day', pnl: dc.reduce((a, c) => a + (c.pnl || 0), 0), n: dc.length, exp: true });
-  }
-  return parts;
-}
 function byAssetClassStats(closed) {
   const map = new Map();
   for (const c of closed) {
@@ -383,7 +363,6 @@ function strategyStatusHtml(closed) {
   // Cells that run on their OWN isolated record (not the board's shared account), so
   // they're listed here for completeness but their trade counts live on their panels.
   const extraRows = [
-    { label: 'Day-trading (intraday)', dir: 'Both ways' },
     { label: 'Stocks screener', dir: 'Long-only' },
   ].map((e) => `<div class="cell-row">
       <div class="cell-main"><span class="cell-name">${e.label}</span><span class="cell-badge exp">EXPERIMENT</span></div>
@@ -398,8 +377,6 @@ function strategyStatusHtml(closed) {
 function byAssetClassHtml(closed) {
   const rows = byAssetClassStats(closed);
   if (rows.length < 2) return ''; // need at least two classes to compare
-  const closedByClass = new Map();
-  for (const c of closed) { const k = groupForSymbol(c.symbol) || 'other'; (closedByClass.get(k) || closedByClass.set(k, []).get(k)).push(c); }
   // Callouts ignore 'other' (unknown symbol) and require a real sample.
   const eligible = rows.filter((r) => r.key !== 'other' && r.trades >= ACLASS_MIN);
   const powering = eligible.length && eligible[0].pnl > 0 ? eligible[0].key : null;
@@ -416,25 +393,17 @@ function byAssetClassHtml(closed) {
         if (e.key === powering) tag += badge('LEADING', 'color-mix(in srgb, var(--buy) 20%, transparent)', 'var(--buy)');
         else if (e.key === laggard) tag += badge('LAGGING', 'color-mix(in srgb, var(--sell) 22%, transparent)', 'var(--sell)');
         if (EXPERIMENT_CLASSES.has(e.key)) tag += badge('EXPERIMENTAL', 'var(--neutral-800)', 'var(--text-muted)');
-        // Per-style breakdown so the user can see which STYLE profits within this class.
-        const parts = styleSplitFor(e.key, (closedByClass.get(e.key) || []));
-        const styleLine = `<div class="style-split">${parts.map((p) => {
-          if (!p.n) return `<span class="ss-item"><b>${p.style}</b> <span class="ss-await">awaiting</span></span>`;
-          const c = p.pnl >= 0 ? 'var(--buy)' : 'var(--sell)';
-          return `<span class="ss-item"><b>${p.style}</b> <span style="color:${c}">${money(p.pnl)}</span> <span class="ss-n">(${p.n})</span>${p.exp ? ' <span class="ss-exp">exp</span>' : ''}</span>`;
-        }).join('<span class="ss-dot">·</span>')}</div>`;
         return `<div class="closed-row">
           <div class="closed-sym"><i class="ph-fill ${ACLASS_ICON[e.key] || 'ph-stack'}" style="font-size:15px;color:var(--accent-300)"></i></div>
           <div class="closed-body">
             <div class="closed-title">${labelForKey(e.key)}${tag}</div>
             <div class="closed-sub">${e.trades} trade${e.trades === 1 ? '' : 's'} · ${wr}% win</div>
-            ${styleLine}
           </div>
           <div class="closed-result"><div class="r" style="color:${color}">${money(e.pnl)}</div></div>
         </div>`;
       }).join('')}
     </div>
-    <div class="text-faint" style="font-size:10.5px;margin:6px 2px 0">Each class's P&amp;L split by trading style — Swing (board) vs Day (separate experiment record, Indices only). "exp" = unproven experiment.</div>`;
+    <div class="text-faint" style="font-size:10.5px;margin:6px 2px 0">Net P&amp;L per asset class on the live Swing record. "exp" = unproven experiment cell.</div>`;
 }
 
 // Smooth cumulative-P&L equity curve, drawn entirely from real closed trades.
@@ -939,7 +908,6 @@ function focusClosedTrades() {
 }
 
 export function render(container) {
-  ensureDayRecord(() => render(container)); // load the Day record so the style split fills in
   const allPerf = getPerformanceSummary();
   if (!allPerf) { container.innerHTML = emptyState(); wireSelector(container); return; }
 
@@ -1001,10 +969,7 @@ export function render(container) {
 
     ${byMarketHtml(closed)}
 
-    <div class="section-label" style="margin-top:20px">Intraday experiment · separate account</div>
-    ${dayExperimentPanelHtml()}
-
-    <div class="section-label">Recent trades${closed.length ? `<a id="export-csv" style="cursor:pointer"><i class="ph-bold ph-download-simple" style="font-size:12px;vertical-align:-1px"></i> Export CSV</a>` : ''}</div>
+    <div class="section-label" style="margin-top:20px">Recent trades${closed.length ? `<a id="export-csv" style="cursor:pointer"><i class="ph-bold ph-download-simple" style="font-size:12px;vertical-align:-1px"></i> Export CSV</a>` : ''}</div>
     <div class="card" style="padding:2px 12px">
       ${closed.slice(0, 30).map((c) => {
         const pnl = tradePnl(c);
@@ -1033,7 +998,6 @@ export function render(container) {
 
   wireSelector(container);
   wirePnl(container);
-  wireDayExperiment(container); // async — fills the intraday experiment's live record
 
   const exportBtn = container.querySelector('#export-csv');
   if (exportBtn) exportBtn.addEventListener('click', () => {

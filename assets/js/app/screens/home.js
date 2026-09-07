@@ -2,7 +2,7 @@ import { state, saveSettings, setFocusClass } from '../state.js';
 import { heroCard, watchlistRow, patchRow, patchHero, symTile, dataTag, sparklineSvg } from '../components.js';
 import { getPerformanceSummary, getOpenCount, getOpenPositions, getClosedTrades } from '../paperTrading.js';
 import { marketSession } from '../marketHours.js';
-import { backendConfigured, isEntitled, isPaid, isSignedUp, trialDaysLeft, fetchNews, fetchStocks, fetchDayExperiment } from '../backendApi.js';
+import { backendConfigured, isEntitled, isPaid, isSignedUp, trialDaysLeft, fetchNews, fetchStocks } from '../backendApi.js';
 import { groupForSymbol, ASSET_GROUPS, labelForKey } from '../assetClass.js';
 import { fmtMoney as fmtMoneyCcy } from '../currency.js';
 
@@ -10,30 +10,24 @@ import { fmtMoney as fmtMoneyCcy } from '../currency.js';
 // Scope the whole Home dashboard (P&L, signals, positions) to ONE asset class, so a
 // user can watch just Stocks, or just FX, etc. Board classes slice the shared record;
 // Stocks + Day have their own records, fetched and cached here.
-const focusRecords = { stocks: null, day: null };
+const focusRecords = { stocks: null };
 // Asset class (focusClass) and trading style (tradingStyle) are SEPARATE axes. Day is
 // a STYLE, not a class — it exists only for Index Futures, on its own record. When the
 // Day style is active for a class that supports it, the dashboard shows the day record;
 // otherwise it shows the swing slice for the class.
-function dayActive() {
-  return activeStyleKey() === 'day' && stylesForClass(state.focusClass).includes('day');
-}
 function focusClosed() {
-  if (dayActive()) return (focusRecords.day && focusRecords.day.closed) || [];
   const f = state.focusClass;
   if (f === 'all') return getClosedTrades();
   if (f === 'stocks') return (focusRecords.stocks && focusRecords.stocks.closed) || [];
   return getClosedTrades().filter((c) => groupForSymbol(c.symbol) === f);
 }
 function focusOpen() {
-  if (dayActive()) return (focusRecords.day && focusRecords.day.open) || [];
   const f = state.focusClass;
   if (f === 'all') return getOpenPositions();
   if (f === 'stocks') return (focusRecords.stocks && focusRecords.stocks.open) || [];
   return getOpenPositions().filter((p) => groupForSymbol(p.symbol) === f);
 }
 function focusMarketList() {
-  if (dayActive()) return []; // day is an own-record cell — no board markets
   const f = state.focusClass;
   // The region lens composes with the asset-class focus: show only markets in BOTH.
   const inRegion = state.engine.markets.filter(inActiveRegion);
@@ -46,7 +40,6 @@ function focusMarketList() {
 // the greeting reads "· Other".
 function focusClassLabel(k) {
   if (k === 'stocks') return 'Stocks';
-  if (k === 'day') return 'Day-trading';
   return labelForKey(k) || k;
 }
 // Is an asset class actually available in the active region? (Used to reset the focus
@@ -188,23 +181,21 @@ function portfolioCard(perf) {
 // axis from asset class. `order` is the chip-row order (fastest → slowest hold).
 const STYLE_META = {
   scalping: { label: 'Scalping', icon: 'ph-lightning', sub: 'seconds–minutes' },
-  day: { label: 'Day', icon: 'ph-sun-horizon', sub: 'intraday · flat by close' },
   swing: { label: 'Swing', icon: 'ph-calendar-check', sub: 'dips + trends · holds days' },
   position: { label: 'Position', icon: 'ph-mountains', sub: 'weeks–months' },
 };
-const STYLE_ORDER = ['scalping', 'day', 'swing', 'position'];
-// Which styles an asset class actually SUPPORTS (has a live engine + data for). Swing
-// runs on the whole board + stocks. Day exists only for Index Futures (ES/NQ/YM/RTY —
-// the day experiment's universe). Scalping needs a paid sub-minute feed the free data
-// can't provide; Position isn't validated yet — so neither is live for any class.
+const STYLE_ORDER = ['scalping', 'swing', 'position'];
+// Which styles an asset class actually SUPPORTS (has a live engine + data for). Only Swing
+// is live (whole board + stocks). Scalping needs a paid sub-minute feed the free data can't
+// provide; Position isn't validated yet — so neither is live for any class. (The intraday
+// Day experiment was retired 2026-09-06 — see worker/test/daytrade.mjs.)
 export function stylesForClass(cls) {
-  return (cls === 'all' || cls === 'index') ? ['swing', 'day'] : ['swing'];
+  return ['swing'];
 }
 // Honest reason a style is unavailable for the current class (for the disabled tooltip).
 function styleDisabledReason(k, cls) {
   if (k === 'scalping') return 'Scalping needs tick / sub-minute price bars — faster scanning alone is not enough; the free feed only serves delayed 15-minute bars';
   if (k === 'position') return 'In development — not yet separately validated';
-  if (k === 'day') return 'Day-trading is only available for Indices right now';
   return '';
 }
 export function activeStyleKey() {
@@ -232,7 +223,7 @@ function strategyChip() {
   return `<div class="stat-card strat-card">
     <div class="stat-label">Trading style</div>
     <div class="stat-value" style="font-size:14px;display:flex;align-items:center;gap:5px"><i class="ph-fill ${STYLE_META[active].icon}" style="color:var(--accent-300);font-size:14px"></i>${STYLE_META[active].label}</div>
-    <div class="stat-sub">${STYLE_META[active].sub}${active === 'day' ? ' · <span style="color:var(--flat)">experiment</span>' : ''}</div>
+    <div class="stat-sub">${STYLE_META[active].sub}</div>
   </div>`;
 }
 
@@ -672,12 +663,10 @@ export function render(container) {
   ensureFocusRecord(() => render(container));
 }
 
-// Fetch the /stocks or /day record for the current focus (once), then run `after`.
+// Fetch the /stocks record for the current focus (once), then run `after`.
 function ensureFocusRecord(after) {
   if (state.focusClass === 'stocks' && !focusRecords.stocks) {
     fetchStocks().then((d) => { if (d) { focusRecords.stocks = d; after && after(); } }).catch(() => {});
-  } else if (dayActive() && !focusRecords.day) {
-    fetchDayExperiment().then((d) => { if (d) { focusRecords.day = d; after && after(); } }).catch(() => {});
   }
 }
 

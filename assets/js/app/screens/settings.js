@@ -4,7 +4,6 @@ import { resetPaperTrades } from '../paperTrading.js';
 import { wireSignalExport, signalExportHtml } from './signalExport.js';
 import { isPaid, trialDaysLeft, isSignedUp } from '../backendApi.js';
 import { localCurrencyCode, currencySymbol, displayCurrencyCode, usdToDisplay, displayToUsd } from '../currency.js';
-import { dayExperimentPanelHtml, wireDayExperiment } from '../dayExperiment.js';
 import { isStandalone, isIOS, installAvailable, promptInstall } from '../install.js';
 import { pushSupported, pushPermission, enablePush, disablePush } from '../pushClient.js';
 import { isEntitled } from '../backendApi.js';
@@ -14,17 +13,14 @@ import { isEntitled } from '../backendApi.js';
 export const DATA_REFRESH_NOTE = 'The strategy re-scans the markets about every 2 minutes while a market session is open (roughly every 5 minutes on weekends, when only crypto trades). The app refreshes what you see about once a minute. Crypto prices stream in real time (live from Coinbase); index, futures, FX and ETF markets use a free, delayed public feed. Ajent Pro adds a ~12-second live price overlay on those.';
 
 // Trading styles (industry-standard, by holding period). 'swing' is live and
-// validated; 'day' is a SELECTABLE but clearly-labelled EXPERIMENT (intraday, not
-// proven — an earlier intraday version lost money live, so it is tracked on its own
-// real record with no advertised returns); the others are shown honestly with their
-// real status so the picker never implies a capability we don't have. 'scalping'
-// needs sub-minute data the free feed can't provide.
+// validated; the others are shown honestly with their real status so the picker
+// never implies a capability we don't have. 'scalping' needs sub-minute data the
+// free feed can't provide; 'position' isn't validated yet. (The intraday 'day'
+// experiment was retired 2026-09-06 — thin edge, heavy drawdowns; see daytrade.mjs.)
 // `status`: 'live' (selectable/active/proven) | 'experiment' (selectable, unproven) | 'soon' | 'na'.
 const TRADING_STYLES = [
   { key: 'scalping', name: 'Scalping', icon: 'ph-lightning', hold: 'Seconds–minutes', freq: 'dozens+/day', status: 'na',
     note: 'Needs sub-minute tick data — the free 15-minute feed can’t support it. Available only with a paid real-time market-data feed.' },
-  { key: 'day', name: 'Day trading', icon: 'ph-sun-horizon', hold: 'Intraday · flat by close', freq: '~2–8/day', status: 'experiment',
-    note: 'Both-directional intraday mean-reversion on 15-minute bars — buys oversold flushes, shorts overbought pops, flat by the close (no overnight risk). An unproven experiment on its own paper record.' },
   { key: 'swing', name: 'Swing', icon: 'ph-calendar-check', hold: '~1–5 days', freq: '~1–5/week', status: 'live',
     note: 'The validated daily strategy running now — buys deeply oversold dips in uptrends (mean reversion) and rides established uptrends (trend-following), holding days. Auto-trades your paper account.' },
   { key: 'position', name: 'Position', icon: 'ph-mountains', hold: 'Weeks–months', freq: 'a few/month', status: 'soon',
@@ -236,8 +232,6 @@ export function render(container) {
       <div class="style-list">${TRADING_STYLES.map(styleRow).join('')}</div>
       <div class="setting-help" style="margin-top:12px">Only <b style="color:var(--text)">Swing</b> is validated and auto-trades your paper account; the rest are experimental, planned, or need a paid feed. <a href="#/methodology">How it works →</a></div>
     </div>
-
-    ${activeStyle() === 'day' ? dayExperimentPanelHtml() : ''}
 
     ${tradePlanPanel()}
 
@@ -513,6 +507,4 @@ export function render(container) {
   patchRiskCalc();
   // Signal export API (Pro) — async: loads webhooks from the backend when connected.
   wireSignalExport(container);
-  // Day-trading experiment: populate its live record when that style is selected.
-  if (activeStyle() === 'day') wireDayExperiment(container);
 }
