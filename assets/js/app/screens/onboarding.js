@@ -10,7 +10,7 @@ const SLIDES = [
   {
     icon: 'ph-trend-up', color: 'var(--accent-300)',
     title: 'Meet Ajent Pulse',
-    body: 'A proven ensemble of edges — it fades oversold dips and rides established trends, <b>long-only where markets drift up, both ways where they don’t</b> (FX, commodities, intraday) — with the discipline seasoned traders live by, and it keeps learning from its own real record.',
+    body: 'A proven ensemble of edges — it fades oversold dips and rides established trends, <b>long-only where markets drift up, both ways where they don’t</b> (FX, commodities) — with the discipline seasoned traders live by, and it keeps learning from its own real record.',
   },
   {
     icon: 'ph-shield-check', color: 'var(--buy)',
