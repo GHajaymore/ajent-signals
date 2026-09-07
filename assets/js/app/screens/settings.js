@@ -187,6 +187,28 @@ function patchRiskCalc() {
   }
 }
 
+// --- Collapsible categories -------------------------------------------------
+// Settings holds a lot of sections, so we group them into a few categories and
+// let the info-heavy ones start collapsed — the screen opens compact and you
+// expand what you need. Open/closed state is module-level so it survives the
+// full re-renders a few controls trigger (trading-style / currency / stop-mode
+// changes all call render() again).
+const catOpen = { strategy: true, account: true, notif: false, more: false };
+function category(id, icon, title, sub, bodyHtml) {
+  return `
+    <details class="set-cat" data-cat="${id}"${catOpen[id] ? ' open' : ''}>
+      <summary class="set-cat-head">
+        <div class="set-cat-icon"><i class="ph-bold ${icon}"></i></div>
+        <div class="set-cat-titles">
+          <div class="set-cat-title">${title}</div>
+          <div class="set-cat-sub">${sub}</div>
+        </div>
+        <i class="ph-bold ph-caret-down set-cat-caret"></i>
+      </summary>
+      <div class="set-cat-body">${bodyHtml}</div>
+    </details>`;
+}
+
 export function render(container) {
   const { threshold, riskPct, accountBalance, notifications, targetRatio } = state.settings;
   const maxPortPct = maxPortfolioRiskPct();
@@ -207,6 +229,7 @@ export function render(container) {
 
     ${installCardHtml()}
 
+    ${category('strategy', 'ph-target', 'Strategy', 'Trading style, trade plan &amp; signal threshold', `
     <div class="panel setting-block">
       <div class="panel-title" style="margin-bottom:4px">Trading style</div>
       <div class="setting-help" style="margin:0 0 12px">Pick how you like to trade. Only styles we can run honestly on real, validated data are selectable — the rest show why not.</div>
@@ -223,8 +246,9 @@ export function render(container) {
       <input id="threshold-range" class="range" type="range" min="60" max="90" step="1" value="${threshold}">
       <div class="setting-help">Below this, markets show &ldquo;No Trade &mdash; waiting for a high-probability setup&rdquo;.</div>
     </div>
+    `)}
 
-
+    ${category('account', 'ph-wallet', 'Account &amp; risk', 'Balance, position sizing &amp; your risk limits', `
     <div class="panel setting-block">
       <div class="panel-title">Account &amp; risk</div>
       <div class="risk-grid">
@@ -266,6 +290,37 @@ export function render(container) {
       </div>
     </div>
 
+    ${(() => {
+      const localCode = localCurrencyCode();
+      const usd = displayCurrencyCode() === 'usd';
+      return localCode === 'USD' ? '' : `
+      <div class="panel setting-block">
+      <div class="panel-title" style="margin-bottom:4px">Display currency</div>
+      <div class="setting-help" style="margin:0 0 8px">Your paper account, P&amp;L and the account size you set are all shown in your local currency (converted from USD — the simulation's base — at the daily rate). Only market prices stay in each market's own currency.</div>
+      <div class="seg-toggle" id="ccy-toggle">
+        <button class="seg-opt ${usd ? '' : 'on'}" data-ccy="local">${localCode} (${currencySymbol(localCode).trim()})</button>
+        <button class="seg-opt ${usd ? 'on' : ''}" data-ccy="usd">USD ($)</button>
+      </div>
+      </div>`;
+    })()}
+    `)}
+
+    ${category('notif', 'ph-bell', 'Notifications', 'Which alerts reach you', `
+    <div class="setting-block" style="margin-bottom:0">
+      <div class="panel" style="padding:4px 16px">
+        ${NOTIF_ROWS.map((r) => `
+          <div class="notif-row">
+            <div class="notif-icon" style="background:color-mix(in srgb, ${r.color} 18%, transparent);color:${r.color}"><i class="ph-bold ${r.icon}"></i></div>
+            <div class="notif-label">${r.label}</div>
+            <div class="switch ${notifications[r.key] ? 'on' : ''}" data-key="${r.key}"></div>
+          </div>`).join('')}
+      </div>
+    </div>
+    `)}
+
+    ${category('more', 'ph-dots-three-outline', 'More', 'Signal export, paper trading, help &amp; data', `
+    ${signalExportHtml()}
+
     <div class="pro-card" data-nav="#/methodology" style="cursor:pointer">
       <div class="pro-icon" style="background:var(--buy-dim);color:var(--buy)"><i class="ph-fill ph-chart-bar"></i></div>
       <div class="pro-body">
@@ -290,37 +345,18 @@ export function render(container) {
       <button class="btn btn-ghost btn-block" id="reset-paper" style="height:44px;font-size:13px;margin-top:10px;color:var(--sell)">Reset paper-trading history</button>
     </div>
 
-    <div class="setting-block">
-      <div class="eyebrow" style="margin-bottom:8px">Push notifications</div>
-      <div class="panel" style="padding:4px 16px">
-        ${NOTIF_ROWS.map((r) => `
-          <div class="notif-row">
-            <div class="notif-icon" style="background:color-mix(in srgb, ${r.color} 18%, transparent);color:${r.color}"><i class="ph-bold ${r.icon}"></i></div>
-            <div class="notif-label">${r.label}</div>
-            <div class="switch ${notifications[r.key] ? 'on' : ''}" data-key="${r.key}"></div>
-          </div>`).join('')}
-      </div>
-    </div>
-
-    ${signalExportHtml()}
-
-    ${(() => {
-      const localCode = localCurrencyCode();
-      const usd = displayCurrencyCode() === 'usd';
-      return localCode === 'USD' ? '' : `
-      <div class="panel-title" style="margin-top:22px;margin-bottom:4px">Display currency</div>
-      <div class="setting-help" style="margin:0 0 8px">Your paper account, P&amp;L and the account size you set are all shown in your local currency (converted from USD — the simulation's base — at the daily rate). Only market prices stay in each market's own currency.</div>
-      <div class="seg-toggle" id="ccy-toggle">
-        <button class="seg-opt ${usd ? '' : 'on'}" data-ccy="local">${localCode} (${currencySymbol(localCode).trim()})</button>
-        <button class="seg-opt ${usd ? 'on' : ''}" data-ccy="usd">USD ($)</button>
-      </div>`;
-    })()}
-
-    <div class="panel-title" style="margin-top:22px;margin-bottom:4px">Data &amp; refresh</div>
+    <div class="panel-title" style="margin-top:4px;margin-bottom:4px">Data &amp; refresh</div>
     <div class="setting-help" style="margin-top:0">${DATA_REFRESH_NOTE}</div>
+    `)}
 
     <div class="footer-note">Ajent Signals is an educational tool and does not execute trades.<br>Markets tagged REAL compute indicators from a free public price feed (unofficial, best-effort, delayed). Markets without a live feed show no signal and are hidden — never a fabricated one · v1.0.0<br><a href="../privacy/">Privacy</a> · <a href="../terms/">Terms</a> · <a href="#/methodology">How it works</a></div>
   </div>`;
+
+  // Remember which categories the user left open, so the full re-renders that a
+  // few controls trigger don't collapse the section they're working in.
+  container.querySelectorAll('details.set-cat').forEach((d) => {
+    d.addEventListener('toggle', () => { catOpen[d.dataset.cat] = d.open; });
+  });
 
   const pushBtn = container.querySelector('#push-btn');
   if (pushBtn) {
