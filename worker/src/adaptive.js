@@ -20,6 +20,37 @@ export const ADAPT = {
 };
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
+// EXPERIMENT (measurement only — changes nothing that trades): the lab found the MR edge
+// collapses in the ADX 15–20 "dead zone" (avgR ~0.04 vs ~0.3 outside it). Every MR entry
+// now carries its ADX-at-entry, so we can measure — on the real forward record — what a
+// gate that skipped that band WOULD have done, before ever adopting it. This reports the
+// full MR record vs the same record with dead-zone trades removed. `ready` stays false
+// (still "gathering data") until enough tagged MR trades close.
+const DEAD_LO = 15, DEAD_HI = 20, REGIME_MIN = 15;
+export function regimeGateExperiment(closed) {
+  const mr = (closed || []).filter((c) => (c.strat || 'mr') === 'mr' && typeof c.adxEntry === 'number');
+  const inZone = (c) => c.adxEntry >= DEAD_LO && c.adxEntry < DEAD_HI;
+  const agg = (list) => {
+    if (!list.length) return { n: 0, pnl: 0, winRate: 0, pf: 0, avgR: 0 };
+    const wins = list.filter((c) => (c.pnl || 0) > 0), losses = list.filter((c) => (c.pnl || 0) < 0);
+    const gw = wins.reduce((s, c) => s + (c.pnl || 0), 0), gl = Math.abs(losses.reduce((s, c) => s + (c.pnl || 0), 0));
+    const pnl = list.reduce((s, c) => s + (c.pnl || 0), 0);
+    return { n: list.length, pnl: Math.round(pnl), winRate: Math.round((wins.length / list.length) * 100), pf: +(gw / (gl || 1)).toFixed(2), avgR: +(list.reduce((s, c) => s + (c.resultR || 0), 0) / list.length).toFixed(3) };
+  };
+  const full = agg(mr), gated = agg(mr.filter((c) => !inZone(c)));
+  const skipped = mr.filter(inZone);
+  const ready = mr.length >= REGIME_MIN && skipped.length >= 3;
+  return {
+    ready,
+    tagged: mr.length,            // MR trades carrying an ADX reading so far
+    deadZone: skipped.length,     // how many fell in the 15–20 band
+    full, gated,                  // the two records to compare
+    note: ready
+      ? `ADX regime gate (experiment): skipping the ${DEAD_LO}–${DEAD_HI} dead zone would move PF ${full.pf}→${gated.pf}, avgR ${full.avgR}→${gated.avgR} on ${full.n} MR trades (${skipped.length} skipped). Not yet adopted.`
+      : `ADX regime gate (experiment): gathering data — ${mr.length} tagged MR trades, ${skipped.length} in the dead zone.`,
+  };
+}
+
 // Per-ENGINE size weight, learned from each engine's own record (recency-weighted
 // expectancy), bounded and gated on a per-engine sample. So the ensemble leans
 // toward whichever engine is actually working — but can't zero one out or overfit.
@@ -81,6 +112,7 @@ export function computeAdaptive(record, base) {
     sizeMult: +sizeMult.toFixed(2),
     stopMult: +stopMult.toFixed(2),
     engines: perEngineWeights(closed), // per-engine size weights (ensemble)
+    regimeExperiment: regimeGateExperiment(closed), // ADX dead-zone gate — measured, not adopted
     exitAbove: baseExit, // exit dial reserved for a future, higher-data pass
     // human note surfaced in the app
     note: learning

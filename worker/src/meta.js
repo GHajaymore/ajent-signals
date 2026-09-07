@@ -48,7 +48,7 @@ export function publicSignal(s) {
 // Strip recipe-revealing fields from a paper-trade position (open OR closed) before
 // it leaves the server. A blocklist (positions carry many legit display fields —
 // entry, stop, outcome, pnl…); these named fields are the only recipe leaks.
-const POSITION_SECRET = ['exitAbove', 'exitRule', 'maxHoldMin', 'maxHoldBars', 'stopMult', 'sizeMult', 'rsi2', 'pctB', 'trendMA'];
+const POSITION_SECRET = ['exitAbove', 'exitRule', 'maxHoldMin', 'maxHoldBars', 'stopMult', 'sizeMult', 'rsi2', 'pctB', 'trendMA', 'adxEntry'];
 // The exit-reason codes are also a display field, but some internal codes name the
 // recipe ('rsiRecover', 'firstUpClose', 'rsi2Exit'). Collapse everything to a small
 // PUBLIC vocabulary — anything that isn't a generic technique becomes 'exit' (booked

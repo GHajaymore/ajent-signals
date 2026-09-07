@@ -1,7 +1,7 @@
 // Daily Connors mean reversion (ESM). LONG side is the decade-validated "Proven"
 // edge. SHORT side (added 2026-08-30) is PROVISIONAL — the mirror logic, NOT yet
 // backtest-validated; the live record is the judge. Keep in sync with the client.
-import { sma, rsi, atr, stdev } from './indicators.js';
+import { sma, rsi, atr, stdev, adx } from './indicators.js';
 import { STRATEGY } from './meta.js';
 
 // `params` (optional) overrides the STRATEGY dials for the backtest sweep, so the
@@ -74,6 +74,11 @@ export function computeSignal(candles, live, params) {
     risk, riskReward: 1,
     exitRule: 'rsiRecover', exitAbove: STRATEGY.exitAbove,
     maxHoldMin: 5 * 24 * 60, conviction,
+    // Trend-STRENGTH (ADX) at entry — measurement only, never gates the trade. The lab
+    // found MR loses its edge in the ADX 15–20 "dead zone"; tagging entries lets the
+    // adaptive layer measure a would-be regime gate on the live record before we ever
+    // adopt it. Stripped before it leaves the server (POSITION_SECRET). See adaptive.js.
+    adxEntry: (() => { const v = adx(c, 14).adx[n - 1]; return v != null ? +v.toFixed(1) : null; })(),
   } : null;
 
   return {
