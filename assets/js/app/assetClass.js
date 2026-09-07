@@ -36,3 +36,9 @@ export function groupForSymbol(sym) {
 }
 
 export function labelForKey(key) { return (ASSET_BY_KEY[key] && ASSET_BY_KEY[key].label) || 'Other'; }
+
+// Whether Ajent trades a market BOTH ways (long + short). Only symmetric markets — FX and
+// commodities — have no structural up-drift, so the short side is validated there and runs
+// via the 'mrBoth' engine. Indices, ETFs and crypto are long-only (shorting the up-drift
+// backtested as a loss). Mirrors the worker's per-market `engine: 'mrBoth'` set.
+export function isBothWays(sym) { const g = groupForSymbol(sym); return g === 'fx' || g === 'futures'; }

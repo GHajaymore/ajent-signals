@@ -7,6 +7,7 @@ import { getClosedTrades, getPerformanceSummary } from '../paperTrading.js';
 import { userTradeFor, userStats, unrealizedFor, defaultRiskDollars, openUserTrade, closeUserTrade, cancelUserOrder, headToHead, riskLimitsStatus } from '../userBook.js';
 import { ajentAvgR } from '../customBook.js';
 import { evalCustom, getCustomConfig, customTradesMarket } from '../customStrategy.js';
+import { isBothWays } from '../assetClass.js';
 
 // Honest per-market note about the DAILY strategy's backtested edge on this
 // specific market (daily mode only). Never implies an edge the backtest didn't
@@ -130,6 +131,14 @@ const RANGES = {
   'YTD': { interval: '1d', range: 'ytd', label: 'YTD' },
   '1Y': { interval: '1d', range: '1y', label: '1Y' },
 };
+
+// Small badge showing whether Ajent trades this market long-only or both ways, so it's
+// clear WHY an index only ever shows BUY while FX/commodities can also show SELL.
+function directionBadge(sym) {
+  return isBothWays(sym)
+    ? '<span class="dir-badge both" title="Symmetric market — no structural up-drift, so Ajent trades it BOTH ways (long and short)"><i class="ph-bold ph-arrows-vertical"></i>Both ways</span>'
+    : '<span class="dir-badge long" title="Long-only — shorting an index/ETF that drifts up backtested as a loss, so Ajent only goes long here"><i class="ph-bold ph-arrow-up"></i>Long only</span>';
+}
 
 // The range selector as its OWN full-width row — 6 ranges no longer fit beside the label
 // and type toggle on mobile (1Y was getting clipped). Buttons share the width evenly.
@@ -1012,7 +1021,7 @@ export function render(container) {
       <button class="back-btn" data-back aria-label="Go back"><i class="ph-bold ph-arrow-left"></i></button>
       <div class="detail-title-block">
         <div class="detail-title">${market.symbol} · ${market.name}</div>
-        <div class="detail-sub" id="signal-detail-sub">${countryFlag(market.country)} ${market.exchange} · ${market.signal.timeframe} · ${dataTag(market)}</div>
+        <div class="detail-sub" id="signal-detail-sub">${countryFlag(market.country)} ${market.exchange} · ${market.signal.timeframe} · ${dataTag(market)} ${directionBadge(market.symbol)}</div>
       </div>
       <button class="share-btn" id="share-btn" aria-label="Share this signal" title="Share this signal"><i class="ph-bold ph-share-network"></i></button>
       <button class="star-btn" id="fav-btn" title="${isInWatchlist(market.symbol) ? 'In your watchlist' : 'Add to watchlist'}"><i class="${isInWatchlist(market.symbol) ? 'ph-fill' : 'ph'} ph-star"></i></button>
@@ -1104,7 +1113,7 @@ export function refresh(container) {
 
   const subEl = container.querySelector('#signal-detail-sub');
   if (subEl) {
-    const subHtml = `${countryFlag(market.country)} ${market.exchange} · ${market.signal.timeframe} · ${dataTag(market)}`;
+    const subHtml = `${countryFlag(market.country)} ${market.exchange} · ${market.signal.timeframe} · ${dataTag(market)} ${directionBadge(market.symbol)}`;
     if (subEl.innerHTML !== subHtml) subEl.innerHTML = subHtml;
   }
 
