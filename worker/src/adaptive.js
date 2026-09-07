@@ -77,8 +77,8 @@ export function bothWaysRangingExperiment(closed) {
     ready, tagged: bw.length,
     full, ranging,
     note: ready
-      ? `Both-ways ranging gate (experiment): trading only ADX<${RANGE_MAX} would move PF ${full.pf}→${ranging.pf}, avgR ${full.avgR}→${ranging.avgR} on ${full.n} trades (${ranging.n} kept). Not yet adopted.`
-      : `Both-ways ranging gate (experiment): gathering data — ${bw.length} tagged both-ways trades (need ${REGIME_MIN}).`,
+      ? `Both-ways ranging gate ADX<${RANGE_MAX}: LIVE (adopted 2026-09-07). ${full.n} tagged both-ways trades, PF ${full.pf}, avgR ${full.avgR} on the ranging-filtered record.`
+      : `Both-ways ranging gate ADX<${RANGE_MAX}: LIVE (adopted). Gathering forward trades — ${bw.length} so far.`,
   };
 }
 
@@ -144,7 +144,7 @@ export function computeAdaptive(record, base) {
     stopMult: +stopMult.toFixed(2),
     engines: perEngineWeights(closed), // per-engine size weights (ensemble)
     regimeExperiment: regimeGateExperiment(closed), // equity support+ADX-notch gate — measured, not adopted
-    bothWaysExperiment: bothWaysRangingExperiment(closed), // both-ways ranging gate — measured, not adopted
+    bothWaysExperiment: bothWaysRangingExperiment(closed), // both-ways ranging gate — LIVE (adopted 2026-09-07)
     exitAbove: baseExit, // exit dial reserved for a future, higher-data pass
     // human note surfaced in the app
     note: learning

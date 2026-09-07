@@ -12,8 +12,8 @@ import { rsi, sma, atr, roc, adx } from './indicators.js';
 // Per-cell config. FX = symmetric RSI(14) mean-reversion. Commodities = RSI(2) dip/pop
 // gated by the SMA-50 trend side and a same-direction momentum (ROC) confirm.
 export const BOTH_CELLS = {
-  fx: { rsiP: 14, lower: 30, smaP: 50, exitMid: 50, stopAtr: 2.5, maxHoldMin: 60 * 24 * 10, rr: 1, useTrend: false, useRoc: false },
-  commodity: { rsiP: 2, lower: 15, smaP: 50, rocP: 12, exitMid: 50, stopAtr: 2.5, maxHoldMin: 60 * 24 * 10, rr: 1, useTrend: true, useRoc: true },
+  fx: { rsiP: 14, lower: 30, smaP: 50, exitMid: 50, stopAtr: 2.5, maxHoldMin: 60 * 24 * 10, rr: 1, useTrend: false, useRoc: false, rangeMax: 25 },
+  commodity: { rsiP: 2, lower: 15, smaP: 50, rocP: 12, exitMid: 50, stopAtr: 2.5, maxHoldMin: 60 * 24 * 10, rr: 1, useTrend: true, useRoc: true, rangeMax: 25 },
 };
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
@@ -44,6 +44,15 @@ export function computeBothMR(candles, live, cellKey) {
   let dir = 0;
   if (r < cfg.lower && longFilt) dir = 1;
   else if (r > upper && shortFilt) dir = -1;
+
+  // RANGING regime gate (adopted 2026-09-07, robustness-validated: symmetric on both legs,
+  // a smooth ADX-threshold plateau, 3/4 walk-forward — see test/bothways-improve-probe.mjs).
+  // Both-ways mean-reversion only has an edge in RANGING markets (FX/commodities have no
+  // drift), so stand aside when a real trend is running. Cleanly experimental, like the cell.
+  if (dir !== 0 && cfg.rangeMax) {
+    const adxN = adx(c, 14).adx[n - 1];
+    if (adxN != null && adxN >= cfg.rangeMax) dir = 0;
+  }
 
   if (dir === 0) {
     // Proximity toward the nearer trigger, for the "watching" state on the board.
