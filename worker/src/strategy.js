@@ -4,6 +4,22 @@
 import { sma, rsi, atr, stdev, adx } from './indicators.js';
 import { STRATEGY } from './meta.js';
 
+// Is the entry within kAtr of an ESTABLISHED pivot low/high (a real support/resistance
+// level)? Pivots are taken from a window ending a few bars back, so we compare to prior
+// structure, not the bar being traded. Measurement only — tags MR entries so the adaptive
+// layer can measure a support-proximity gate on the live record (see computeSignal / adaptive.js).
+function nearSupportLevel(c, i, atrVal, kAtr = 0.5, lookback = 60, L = 3) {
+  if (!(atrVal > 0)) return false;
+  const price = c[i].c; let best = Infinity;
+  for (let j = i - L; j >= Math.max(L, i - lookback); j--) {
+    let lowP = true, highP = true;
+    for (let k = j - L; k <= j + L; k++) { if (k === j || !c[k]) continue; if (c[k].l < c[j].l) lowP = false; if (c[k].h > c[j].h) highP = false; }
+    if (lowP) best = Math.min(best, Math.abs(price - c[j].l));
+    if (highP) best = Math.min(best, Math.abs(price - c[j].h));
+  }
+  return best !== Infinity && best <= kAtr * atrVal;
+}
+
 // `params` (optional) overrides the STRATEGY dials for the backtest sweep, so the
 // robustness lab tests the EXACT production logic at different settings — never a
 // re-implementation that could drift from what actually trades.
@@ -74,11 +90,14 @@ export function computeSignal(candles, live, params) {
     risk, riskReward: 1,
     exitRule: 'rsiRecover', exitAbove: STRATEGY.exitAbove,
     maxHoldMin: 5 * 24 * 60, conviction,
-    // Trend-STRENGTH (ADX) at entry — measurement only, never gates the trade. The lab
-    // found MR loses its edge in the ADX 15–20 "dead zone"; tagging entries lets the
-    // adaptive layer measure a would-be regime gate on the live record before we ever
-    // adopt it. Stripped before it leaves the server (POSITION_SECRET). See adaptive.js.
+    // Measurement-only tags (never gate the trade; stripped before leaving the server via
+    // POSITION_SECRET). The lab found two orthogonal MR filters, best when combined:
+    //   adxEntry   — trend strength; MR has no edge in the ADX 15–20 "dead zone".
+    //   nearSupport — is the dip AT a real pivot level (a bounce) vs in mid-air (a knife)?
+    // Tagging entries lets adaptive.regimeGateExperiment measure the would-be gate on the
+    // live record before we ever adopt it. See adaptive.js.
     adxEntry: (() => { const v = adx(c, 14).adx[n - 1]; return v != null ? +v.toFixed(1) : null; })(),
+    nearSupport: (() => { try { return nearSupportLevel(c, n - 1, atrN); } catch (e) { return null; } })(),
   } : null;
 
   return {

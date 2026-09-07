@@ -22,18 +22,21 @@ for (const sym of SYMS) {
   for (const t of record.closed) closed.push(t);
 }
 
-const tagged = closed.filter((t) => typeof t.adxEntry === 'number');
-console.log(`\nADX EXPERIMENT WIRING CHECK — ${SYMS.length} markets`);
-console.log(`closed MR trades: ${closed.length}, tagged with adxEntry: ${tagged.length} (should be ~all)`);
-const sample = tagged.slice(0, 3).map((t) => ({ sym: t.symbol, adxEntry: t.adxEntry, pnl: t.pnl }));
+const adxTagged = closed.filter((t) => typeof t.adxEntry === 'number');
+const supTagged = closed.filter((t) => typeof t.nearSupport === 'boolean');
+console.log(`\nENTRY-GATE EXPERIMENT WIRING CHECK — ${SYMS.length} markets`);
+console.log(`closed MR trades: ${closed.length}, adxEntry-tagged: ${adxTagged.length}, nearSupport-tagged: ${supTagged.length} (both should be ~all)`);
+const sample = adxTagged.slice(0, 3).map((t) => ({ sym: t.symbol, adxEntry: t.adxEntry, nearSupport: t.nearSupport, pnl: t.pnl }));
 console.log('sample tagged trades:', JSON.stringify(sample));
 
 const exp = regimeGateExperiment(closed);
 console.log('\nregimeGateExperiment():');
-console.log(`  ready=${exp.ready} tagged=${exp.tagged} deadZone=${exp.deadZone}`);
-console.log(`  FULL  n=${exp.full.n} pf=${exp.full.pf} avgR=${exp.full.avgR} net=$${exp.full.pnl}`);
-console.log(`  GATED n=${exp.gated.n} pf=${exp.gated.pf} avgR=${exp.gated.avgR} net=$${exp.gated.pnl}`);
+console.log(`  ready=${exp.ready} tagged=${exp.tagged} withSupport=${exp.withSupport}`);
+console.log(`  FULL    n=${exp.full.n} pf=${exp.full.pf} avgR=${exp.full.avgR} net=$${exp.full.pnl}`);
+console.log(`  NOTCH   n=${exp.notch.n} pf=${exp.notch.pf} avgR=${exp.notch.avgR} net=$${exp.notch.pnl}`);
+console.log(`  SUPPORT n=${exp.support.n} pf=${exp.support.pf} avgR=${exp.support.avgR} net=$${exp.support.pnl}`);
+console.log(`  BOTH    n=${exp.both.n} pf=${exp.both.pf} avgR=${exp.both.avgR} net=$${exp.both.pnl}`);
 console.log(`  note: ${exp.note}`);
 
-const ok = tagged.length >= closed.length * 0.9 && exp.gated.pf >= exp.full.pf && exp.gated.avgR >= exp.full.avgR;
-console.log(`\n${ok ? 'PASS' : 'CHECK'} — tagging covers the record and the gate improves pf & avgR (as the probe found).\n`);
+const ok = adxTagged.length >= closed.length * 0.9 && supTagged.length >= closed.length * 0.9 && exp.both.pf >= exp.full.pf && exp.both.avgR >= exp.full.avgR;
+console.log(`\n${ok ? 'PASS' : 'CHECK'} — both tags cover the record and the combined gate improves pf & avgR (as the probe found).\n`);

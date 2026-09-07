@@ -20,16 +20,18 @@ export const ADAPT = {
 };
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
-// EXPERIMENT (measurement only — changes nothing that trades): the lab found the MR edge
-// collapses in the ADX 15–20 "dead zone" (avgR ~0.04 vs ~0.3 outside it). Every MR entry
-// now carries its ADX-at-entry, so we can measure — on the real forward record — what a
-// gate that skipped that band WOULD have done, before ever adopting it. This reports the
-// full MR record vs the same record with dead-zone trades removed. `ready` stays false
-// (still "gathering data") until enough tagged MR trades close.
+// EXPERIMENT (measurement only — changes nothing that trades): the lab found two orthogonal
+// MR entry filters, strongest COMBINED — skip the ADX 15–20 "dead zone" (regime) AND require
+// the dip to be near a real support/resistance level (location, not a falling knife). Every
+// MR entry now carries adxEntry + nearSupport, so we can measure on the real forward record
+// what each gate — and the combination — WOULD have done, before ever adopting it. `ready`
+// stays false (still "gathering data") until enough tagged MR trades close.
 const DEAD_LO = 15, DEAD_HI = 20, REGIME_MIN = 15;
 export function regimeGateExperiment(closed) {
   const mr = (closed || []).filter((c) => (c.strat || 'mr') === 'mr' && typeof c.adxEntry === 'number');
-  const inZone = (c) => c.adxEntry >= DEAD_LO && c.adxEntry < DEAD_HI;
+  const outZone = (c) => !(c.adxEntry >= DEAD_LO && c.adxEntry < DEAD_HI);
+  const nearLvl = (c) => c.nearSupport === true;
+  const hasBoth = mr.filter((c) => typeof c.nearSupport === 'boolean'); // trades tagged since the support deploy
   const agg = (list) => {
     if (!list.length) return { n: 0, pnl: 0, winRate: 0, pf: 0, avgR: 0 };
     const wins = list.filter((c) => (c.pnl || 0) > 0), losses = list.filter((c) => (c.pnl || 0) < 0);
@@ -37,17 +39,20 @@ export function regimeGateExperiment(closed) {
     const pnl = list.reduce((s, c) => s + (c.pnl || 0), 0);
     return { n: list.length, pnl: Math.round(pnl), winRate: Math.round((wins.length / list.length) * 100), pf: +(gw / (gl || 1)).toFixed(2), avgR: +(list.reduce((s, c) => s + (c.resultR || 0), 0) / list.length).toFixed(3) };
   };
-  const full = agg(mr), gated = agg(mr.filter((c) => !inZone(c)));
-  const skipped = mr.filter(inZone);
-  const ready = mr.length >= REGIME_MIN && skipped.length >= 3;
+  const full = agg(mr);
+  const notch = agg(mr.filter(outZone));
+  const support = agg(hasBoth.filter(nearLvl));
+  const both = agg(hasBoth.filter((c) => outZone(c) && nearLvl(c)));
+  const ready = hasBoth.length >= REGIME_MIN;
   return {
     ready,
-    tagged: mr.length,            // MR trades carrying an ADX reading so far
-    deadZone: skipped.length,     // how many fell in the 15–20 band
-    full, gated,                  // the two records to compare
+    tagged: mr.length,          // MR trades carrying an ADX reading
+    withSupport: hasBoth.length, // MR trades also carrying the support flag (since its deploy)
+    full,                       // the untouched record
+    notch, support, both,       // the three would-be gates to compare
     note: ready
-      ? `ADX regime gate (experiment): skipping the ${DEAD_LO}–${DEAD_HI} dead zone would move PF ${full.pf}→${gated.pf}, avgR ${full.avgR}→${gated.avgR} on ${full.n} MR trades (${skipped.length} skipped). Not yet adopted.`
-      : `ADX regime gate (experiment): gathering data — ${mr.length} tagged MR trades, ${skipped.length} in the dead zone.`,
+      ? `MR entry-gate experiment (${both.n}/${hasBoth.length} kept by the combined gate): PF full ${full.pf} → notch ${notch.pf} → support ${support.pf} → BOTH ${both.pf}; avgR ${full.avgR} → ${both.avgR}. Best combined. Not yet adopted.`
+      : `MR entry-gate experiment: gathering data — ${mr.length} ADX-tagged trades, ${hasBoth.length} also support-tagged (need ${REGIME_MIN}).`,
   };
 }
 
