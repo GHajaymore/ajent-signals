@@ -1,7 +1,7 @@
 import { state, saveSettings, setFocusClass } from '../state.js';
 import { heroCard, watchlistRow, patchRow, patchHero, symTile, dataTag, sparklineSvg } from '../components.js';
 import { getPerformanceSummary, getOpenCount, getOpenPositions, getClosedTrades } from '../paperTrading.js';
-import { marketSession } from '../marketHours.js';
+import { marketSession, countryOpen } from '../marketHours.js';
 import { backendConfigured, isEntitled, isPaid, isSignedUp, trialDaysLeft, fetchNews, fetchStocks } from '../backendApi.js';
 import { groupForSymbol, ASSET_GROUPS, labelForKey } from '../assetClass.js';
 import { fmtMoney as fmtMoneyCcy } from '../currency.js';
@@ -437,22 +437,38 @@ function marketRegion(m) {
   if (/Index/.test(m.category || '')) return REGION_NAME[m.country] || (m.country ? `${m.country} market` : m.name);
   return m.name; // commodities/FX etc. — their own name is clearest
 }
+// The free feed runs a bit behind live DURING active trading (~15–25 min). A quote older
+// than this isn't feed lag — it's a quiet/off-hours session where the feed simply isn't
+// ticking, so we show WHEN the last price was rather than a misleading "delayed ~196m".
+const FEED_DELAY_MAX_SEC = 40 * 60;
+const clockOf = (sec) => new Date(sec * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 function marketStatus(m) {
   if (!m) return { label: 'Loading…', color: 'var(--text-muted)', pulse: false };
-  const tag = marketRegion(m); // the user's market by country; hero shows the instrument
   const sess = marketSession(m);
+  // Index FUTURES (ES/NQ/YM/RTY) trade on CME Globex nearly 24h, so their session is "open"
+  // long after the US CASH market shuts. Saying "US market open" then is misleading — the
+  // cash market is closed; only the futures trade. countryOpen() is the CASH session,
+  // marketSession() is the contract's session. When the contract trades but cash is shut,
+  // call it "US futures", not "US market".
+  const cashOpen = countryOpen(m.country);
+  const futuresOnly = sess === 'open' && cashOpen === false && /Index/.test(m.category || '') && !!m.country;
+  const tag = futuresOnly
+    ? `${(REGION_NAME[m.country] || `${m.country} market`).replace(/ market$/, '')} futures`
+    : marketRegion(m);
   if (sess === 'closed') return { label: `${tag} · closed`, color: 'var(--text-muted)', pulse: false };
   const age = m.quoteAgeSec;
-  const delayed = m.isLiveFresh && age != null && age > 180;
-  // When the fresh price is an ETF-proxy estimate (e.g. SPY for delayed ES), say so.
+  const delayed = m.isLiveFresh && age != null && age > 180 && age <= FEED_DELAY_MAX_SEC;
+  const stale = m.isLiveFresh && age != null && age > FEED_DELAY_MAX_SEC; // quiet — not feed lag
   const px = m.proxySource ? ` · ~RT ${m.proxySource}` : '';
   if (sess === 'open') {
-    if (delayed) return { label: `${tag} open · delayed ~${Math.max(1, Math.round(age / 60))}m`, color: '#f5b35a', pulse: false };
+    if (delayed) return { label: `${tag} · open · delayed ~${Math.max(1, Math.round(age / 60))}m`, color: '#f5b35a', pulse: false };
+    if (stale) return { label: `${tag} · open · last ${clockOf(m.quoteTime)}`, color: '#f5b35a', pulse: false };
     if (m.isLiveFresh) return { label: `${tag} · open${px}`, color: 'var(--buy)', pulse: true };
     return { label: `${tag} · open`, color: 'var(--text-muted)', pulse: false };
   }
   // Untracked exchange — fall back to feed freshness.
   if (delayed) return { label: `${tag} · delayed ~${Math.max(1, Math.round(age / 60))}m`, color: '#f5b35a', pulse: false };
+  if (stale) return { label: `${tag} · last ${clockOf(m.quoteTime)}`, color: '#f5b35a', pulse: false };
   if (m.isLiveFresh) return { label: `${tag} · ${m.proxySource ? `~RT ${m.proxySource}` : 'live'}`, color: 'var(--buy)', pulse: true };
   return { label: `${tag} · no data`, color: 'var(--text-muted)', pulse: false };
 }

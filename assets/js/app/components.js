@@ -1,6 +1,6 @@
 import { fmtPrice, fmtPct, verdictColorVar, verdictChipClass, stateColorVar, countryFlag } from './format.js';
 import { isInWatchlist } from './state.js';
-import { marketSession } from './marketHours.js';
+import { marketSession, countryOpen } from './marketHours.js';
 import { getOpenPositions } from './paperTrading.js';
 
 // Star toggle for a market row — filled when the market is in the watchlist.
@@ -121,19 +121,31 @@ export function liveTag(market) {
   const sess = marketSession(market);
   const age = market.quoteAgeSec;
   const live = market.isLiveFresh;
-  const delayed = live && age != null && age > 180;
+  // "delayed" is the free feed's genuine lag during active trading (~15–25 min). A larger
+  // age is off-hours staleness (the feed isn't ticking), not lag — show WHEN the last price
+  // was, never a misleading "delayed ~196m".
+  const FEED_DELAY_MAX = 40 * 60;
+  const delayed = live && age != null && age > 180 && age <= FEED_DELAY_MAX;
+  const stale = live && age != null && age > FEED_DELAY_MAX;
   const mins = age != null ? Math.max(1, Math.round(age / 60)) : 0;
+  const lastClock = market.quoteTime ? new Date(market.quoteTime * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
   // The delayed future's near-real-time price is estimated from its tracking ETF.
   const px = market.proxySource ? ` · ~real-time via ${market.proxySource}` : '';
+  // Index futures keep trading after the CASH exchange closes — say "Futures open" then,
+  // never "Market open", which implies the cash market is trading.
+  const futuresOnly = sess === 'open' && countryOpen(market.country) === false && /Index/.test(market.category || '');
+  const openLabel = futuresOnly ? 'Futures open' : 'Market open';
 
   if (sess === 'closed') return `${dot(false)}Market closed`;
   if (sess === 'open') {
-    if (delayed) return `${dot(false)}Market open · delayed ~${mins}m`;
-    if (live) return `${dot(true)}Market open${px}`;
-    return `${dot(false)}Market open · connecting…`;
+    if (delayed) return `${dot(false)}${openLabel} · delayed ~${mins}m`;
+    if (stale) return `${dot(false)}${openLabel} · last ${lastClock}`;
+    if (live) return `${dot(true)}${openLabel}${px}`;
+    return `${dot(false)}${openLabel} · connecting…`;
   }
   // Untracked exchange (unknown session) — fall back to raw feed freshness.
   if (delayed) return `${dot(false)}Delayed ~${mins}m`;
+  if (stale) return `${dot(false)}Last price ${lastClock}`;
   if (live) return `${dot(true)}${market.proxySource ? `~Real-time via ${market.proxySource}` : 'Live'}`;
   return `${dot(false)}No live data`;
 }
