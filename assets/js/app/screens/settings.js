@@ -215,7 +215,7 @@ export function render(container) {
   const { contracts, riskPerContract } = computeRisk(market, accountBalance, riskPct);
 
   container.innerHTML = `
-  <div class="fade-in glow-wrap">
+  <div class="fade-in glow-wrap detail-screen">
     <div class="dash-glow"></div>
     <h1 class="h-title" style="margin-bottom:18px">Settings</h1>
 

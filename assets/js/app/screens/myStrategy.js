@@ -166,7 +166,7 @@ export function render(container) {
   const draw = () => {
     const cfg = getCustomConfig();
     container.innerHTML = `
-    <div class="fade-in glow-wrap">
+    <div class="fade-in glow-wrap detail-screen">
       <div class="dash-glow"></div>
       <h1 class="h-title">Your strategy</h1>
       <p class="text-muted" style="font-size:13px;margin:4px 0 14px;line-height:1.5">Build your own rule and see how it does against <b style="color:var(--text)">Ajent Pulse</b> — your experiment, not a validated edge.</p>
