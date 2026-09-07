@@ -550,6 +550,10 @@ function homeTickerHtml(engine, threshold) {
 }
 
 export function render(container) {
+  // Stocks isn't a dashboard filter — it's a dedicated screener screen. Never let it be the
+  // home focus (a persisted 'stocks' from before, or any stray set), which left the dashboard
+  // empty; normalise it back to 'all' so Home always shows the board.
+  if (state.focusClass === 'stocks') setFocusClass('all');
   const { engine, threshold, openSignals, avgConf, riskOn, upToday, trendCount, featured, featuredVerdict, nextEvent } = computeDerived();
   const perf = getPerformanceSummary(focusClosed());
   const focusOpenN = focusOpen().length;
@@ -664,7 +668,13 @@ export function render(container) {
   const focusWrap = container.querySelector('#focus-wrap');
   if (focusWrap) focusWrap.addEventListener('click', (e) => {
     const c = e.target.closest('.focus-chip');
-    if (!c || c.dataset.focus === state.focusClass) return;
+    if (!c) return;
+    // Stocks is a dedicated screener SCREEN (the shared board carries no single names, so
+    // filtering the dashboard to "stocks" left it empty — no board signals, a non-stock
+    // watchlist, and no way to reach the screener). Route to it, exactly like the Markets
+    // screen already does, instead of setting a dead focus filter.
+    if (c.dataset.focus === 'stocks') { location.hash = '#/stocks'; return; }
+    if (c.dataset.focus === state.focusClass) return;
     setFocusClass(c.dataset.focus);
     // Trading style is a SEPARATE axis, but keep it valid: if the newly-selected class
     // doesn't support the stored style, fall back to that class's default (Swing).
