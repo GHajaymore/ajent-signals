@@ -44,10 +44,13 @@ export function regionChipsHtml(engine) {
   const stat = (pred) => { const ms = real.filter(pred); return { n: ms.length, up: ms.filter((m) => (m.changePct || 0) > 0).length, open: ms.some((m) => marketSession(m) === 'open') }; };
   const chip = (key, label, s, on) => {
     if (!s.n) return '';
-    const lead = s.up >= s.n - s.up;
-    return `<button class="rgn-chip${on ? ' on' : ''}" data-region="${key}" title="${label}: ${s.up} of ${s.n} up · ${s.open ? 'open' : 'closed'}">
+    const down = s.n - s.up;
+    const lead = s.up >= down;          // majority up (ties count as up)
+    const shown = lead ? s.up : down;   // count markets moving the SAME way as the arrow,
+                                        // so a red ▼ never sits next to the green up-count
+    return `<button class="rgn-chip${on ? ' on' : ''}" data-region="${key}" title="${label}: ${s.up} up · ${down} down of ${s.n} · ${s.open ? 'open' : 'closed'}">
       <span class="rgn-dot${s.open ? ' open' : ''}"></span><span class="rgn-lab">${label}</span>
-      <span class="rgn-brd" style="color:${lead ? 'var(--buy)' : 'var(--sell)'}">${lead ? '▲' : '▼'}${s.up}/${s.n}</span>
+      <span class="rgn-brd" style="color:${lead ? 'var(--buy)' : 'var(--sell)'}">${lead ? '▲' : '▼'}${shown}/${s.n}</span>
     </button>`;
   };
   // One region at a time — no 'All' view. Global markets (crypto/FX/commodities) appear
