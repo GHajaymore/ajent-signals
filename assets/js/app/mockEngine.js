@@ -478,8 +478,20 @@ const CALENDAR_SEED = [
 // vanished on any reload (and the anti-stale-dump guards kept it empty afterwards).
 const ALERTS_LS = 'ajent_alerts_v1';
 const MAX_ALERTS = 40;
+const ALERT_DEDUP_MS = 12 * 60 * 60 * 1000;
+// Collapse identical alerts (same title within a few hours) — a held signal can re-enter BUY
+// after a stale→fresh feed cycle and re-fire the same alert. Keeps one row per real event.
+function dedupeAlerts(list) {
+  const kept = [];
+  for (const a of list) {
+    const ts = a.ts || 0;
+    if (a.title && kept.some((k) => k.title === a.title && Math.abs((k.ts || 0) - ts) < ALERT_DEDUP_MS)) continue;
+    kept.push(a);
+  }
+  return kept;
+}
 function loadAlerts() {
-  try { const a = JSON.parse(localStorage.getItem(ALERTS_LS)); if (Array.isArray(a)) return a.slice(0, MAX_ALERTS).map(withId); } catch (e) { /* ignore */ }
+  try { const a = JSON.parse(localStorage.getItem(ALERTS_LS)); if (Array.isArray(a)) return dedupeAlerts(a.slice(0, MAX_ALERTS).map(withId)); } catch (e) { /* ignore */ }
   return [];
 }
 function saveAlerts(alerts) {
@@ -493,6 +505,10 @@ export function createEngine() {
   const alerts = loadAlerts();
 
   function addAlert(alert) {
+    // De-dupe incoming alerts the same way (see dedupeAlerts): skip one whose title already
+    // appeared within the last few hours, so a re-firing held signal adds one row, not a burst.
+    const ts = alert.ts || Date.now();
+    if (alert.title && alerts.some((a) => a.title === alert.title && ts - (a.ts || 0) < ALERT_DEDUP_MS)) return null;
     withId(alert);
     alerts.unshift(alert);
     if (alerts.length > MAX_ALERTS) alerts.length = MAX_ALERTS;
