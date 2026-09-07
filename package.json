@@ -4,6 +4,7 @@
   "private": true,
   "description": "Capacitor native wrapper around the Ajent Signals web app for iOS/Android app store distribution.",
   "scripts": {
+    "test": "node --test \"test/*.test.mjs\"",
     "build:www": "node scripts/build-mobile-www.js",
     "sync:ios": "npm run build:www && npx cap sync ios",
     "sync:android": "npm run build:www && npx cap sync android"
