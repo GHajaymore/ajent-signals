@@ -69,7 +69,7 @@ function tradePlanPanel() {
   const sv = Math.min(r.max, Math.max(r.min, cfg.stopValue));
   return `<div class="panel setting-block">
     <div class="panel-title" style="margin-bottom:4px">Trade-plan profile <span style="font-weight:400;color:var(--text-muted);font-size:12px">· ${activeStyleLabel()}</span></div>
-    <div class="setting-help" style="margin:0 0 12px">Your preferred stop and reward:risk for the plan shown on a signal. The app's own "book profit / stop now" call is driven by the strategy's indicators; this just frames the levels you'd trade. The 24/7 tracked record uses the strategy's own validated stop and exit.</div>
+    <div class="setting-help" style="margin:0 0 12px">Your preferred stop and reward:risk for the plan shown on a signal. The 24/7 tracked record always uses the strategy's own validated stop and exit.</div>
     <div class="eyebrow" style="margin-bottom:6px">Stop loss</div>
     <div class="seg-toggle" id="stop-mode">
       <button class="seg-opt ${cfg.stopMode === 'atr' ? 'on' : ''}" data-stopmode="atr">Volatility</button>
@@ -80,11 +80,11 @@ function tradePlanPanel() {
     <div class="eyebrow" style="margin:16px 0 6px">Reward : risk (gain : loss)</div>
     <div class="setting-row-top"><span class="t">Reference target vs the stop</span><span class="v" id="rr-val">${cfg.rr}:1</span></div>
     <input id="rr-range" class="range" type="range" min="0.5" max="3" step="0.25" value="${cfg.rr}">
-    <div class="setting-help" style="margin-top:8px">Lower = smaller targets hit more often; higher = bigger targets, hit less often. The 1:1 mark is a reference — the strategy's real exit is the mean-reversion, not a fixed target. Position size is set by your risk-per-trade below.</div>
+    <div class="setting-help" style="margin-top:8px">Lower = smaller targets hit more often; higher = bigger, hit less often. It's a reference — the strategy's real exit is mean-reversion, not a fixed target.</div>
     <div class="eyebrow" style="margin:18px 0 6px">Max risk per contract <span style="font-weight:400;color:var(--text-muted);font-size:11px;text-transform:none;letter-spacing:0">· futures</span></div>
     <div class="setting-row-top"><span class="t">Cap one contract's dollar risk</span><span class="v" id="maxstop-val">${maxStopUsd() ? '$' + maxStopUsd().toLocaleString('en-US') : 'Off'}</span></div>
     <input id="maxstop-range" class="range" type="range" min="0" max="12000" step="500" value="${maxStopUsd()}">
-    <div class="setting-help" style="margin-top:8px"><b>Off</b> = use the signal's full volatility stop. Set a cap and any wider stop is tightened so one contract risks no more than this — the reference target moves in with it. A tighter-than-volatility stop can get hit more often, and the 24/7 tracked record still runs the strategy's own validated stop.</div>
+    <div class="setting-help" style="margin-top:8px"><b>Off</b> = the signal's full volatility stop. A cap tightens any wider stop so one contract risks no more than this (the target moves in too). The tracked record still uses the validated stop.</div>
   </div>`;
 }
 
@@ -211,7 +211,7 @@ export function render(container) {
       <div class="panel-title" style="margin-bottom:4px">Trading style</div>
       <div class="setting-help" style="margin:0 0 12px">Pick how you like to trade. Only styles we can run honestly on real, validated data are selectable — the rest show why not.</div>
       <div class="style-list">${TRADING_STYLES.map(styleRow).join('')}</div>
-      <div class="setting-help" style="margin-top:12px"><b style="color:var(--text)">Swing</b> is the only decade-validated style (long-only daily mean-reversion) — it auto-trades your paper account. <b style="color:var(--text)">Day trading</b> is a selectable but unproven <b style="color:var(--accent-200)">experiment</b>, tracked on its own separate record with no advertised returns. Position is planned; Scalping needs a paid sub-minute feed. <a href="#/methodology">How it works →</a></div>
+      <div class="setting-help" style="margin-top:12px">Only <b style="color:var(--text)">Swing</b> is validated and auto-trades your paper account; the rest are experimental, planned, or need a paid feed. <a href="#/methodology">How it works →</a></div>
     </div>
 
     ${activeStyle() === 'day' ? dayExperimentPanelHtml() : ''}
