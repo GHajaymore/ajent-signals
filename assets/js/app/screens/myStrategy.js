@@ -49,6 +49,7 @@ function configPanel(cfg) {
       <span class="cs-l">Direction</span>
       <div class="cs-seg">${DIRS.map(([k, l]) => `<button class="cs-seg-b${cfg.direction === k ? ' on' : ''}" data-cs-dir="${k}">${l}</button>`).join('')}</div>
     </div>
+    ${cfg.direction !== 'long' ? `<div class="cs-hint"><i class="ph-bold ph-arrows-down-up"></i> Your strategy can go <b style="color:var(--text)">short on any market</b> — including indices and crypto, where Ajent itself stays long-only (shorting those backtested as a net loss over full market cycles). This is your experiment; the live paper record is the judge.</div>` : ''}
     <div class="cs-dir-row">
       <span class="cs-l">How it runs</span>
       <div class="cs-seg">
