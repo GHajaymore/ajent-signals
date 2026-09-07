@@ -25,6 +25,41 @@ export function stdev(a, p) {
   for (let i = p - 1; i < a.length; i++) { let m = 0; for (let k = 0; k < p; k++) m += a[i - k]; m /= p; let v = 0; for (let k = 0; k < p; k++) { const d = a[i - k] - m; v += d * d; } o[i] = Math.sqrt(v / p); }
   return o;
 }
+// Wilder's ADX with directional indicators → {adx, plusDI, minusDI}, aligned to candle
+// index. A trend-STRENGTH gauge (0-100): low ADX = ranging/choppy, high ADX = a strong
+// trend (up if +DI leads -DI, down if -DI leads). OHLC-based, like atr. Lab / regime use
+// — this is the trend-strength measure the recipe lacked; NOT in the client builder.
+export function adx(c, p = 14) {
+  const n = c.length;
+  const plusDI = Array(n).fill(null), minusDI = Array(n).fill(null), adxArr = Array(n).fill(null);
+  if (n < 2) return { adx: adxArr, plusDI, minusDI };
+  const tr = Array(n).fill(0), pDM = Array(n).fill(0), mDM = Array(n).fill(0);
+  for (let i = 1; i < n; i++) {
+    const up = c[i].h - c[i - 1].h, dn = c[i - 1].l - c[i].l;
+    pDM[i] = (up > dn && up > 0) ? up : 0;
+    mDM[i] = (dn > up && dn > 0) ? dn : 0;
+    tr[i] = Math.max(c[i].h - c[i].l, Math.abs(c[i].h - c[i - 1].c), Math.abs(c[i].l - c[i - 1].c));
+  }
+  // Wilder-smooth TR/+DM/-DM (seed = sum of first p, then s = s - s/p + x), then DX.
+  let sTR = 0, sP = 0, sM = 0;
+  const dx = Array(n).fill(null);
+  for (let i = 1; i < n; i++) {
+    if (i <= p) { sTR += tr[i]; sP += pDM[i]; sM += mDM[i]; if (i < p) continue; }
+    else { sTR = sTR - sTR / p + tr[i]; sP = sP - sP / p + pDM[i]; sM = sM - sM / p + mDM[i]; }
+    const pdi = sTR > 0 ? 100 * sP / sTR : 0, mdi = sTR > 0 ? 100 * sM / sTR : 0;
+    plusDI[i] = pdi; minusDI[i] = mdi;
+    const sum = pdi + mdi;
+    dx[i] = sum > 0 ? 100 * Math.abs(pdi - mdi) / sum : 0;
+  }
+  // ADX = Wilder-smoothed DX over p (first value = mean of the first p DX readings).
+  let adxVal = null, cnt = 0, dxSum = 0;
+  for (let i = p; i < n; i++) {
+    if (dx[i] == null) continue;
+    if (adxVal == null) { dxSum += dx[i]; if (++cnt === p) { adxVal = dxSum / p; adxArr[i] = adxVal; } }
+    else { adxVal = (adxVal * (p - 1) + dx[i]) / p; adxArr[i] = adxVal; }
+  }
+  return { adx: adxArr, plusDI, minusDI };
+}
 
 // --- The user-facing Strategy-Builder palette, mirrored server-side so the lab can
 // test the SAME indicator combinations users can build (assets/js/app/customStrategy.js).
