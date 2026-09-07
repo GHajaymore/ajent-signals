@@ -52,7 +52,7 @@ function manageStock(record, sym, sig, price, now, risk, cost) {
       const r = pos.risk || Math.abs(pos.entry - pos.stop) || 1e-9;
       const resultR = (price - pos.entry) / r;
       const pnl = Math.round(resultR * (pos.riskDollars || risk) - cost);
-      record.closed.unshift({ symbol: sym, name: sym, side: 'LONG', entry: pos.entry, exit: price, resultR: +resultR.toFixed(3), pnl, cost, riskDollars: pos.riskDollars || risk, outcome: pnl > 0 ? 'Win' : pnl < 0 ? 'Loss' : 'Break-even', exitReason: exit, openedAt: pos.openedAt, closedAt: now, experiment: true });
+      record.closed.unshift({ symbol: sym, name: NAME[sym] || sym, side: 'LONG', entry: pos.entry, exit: price, resultR: +resultR.toFixed(3), pnl, cost, riskDollars: pos.riskDollars || risk, outcome: pnl > 0 ? 'Win' : pnl < 0 ? 'Loss' : 'Break-even', exitReason: exit, openedAt: pos.openedAt, closedAt: now, experiment: true });
       if (record.closed.length > 300) record.closed.length = 300;
       delete record.open[sym];
       record.lastClose[sym] = { signalDay: dayKey(now) };
@@ -62,7 +62,7 @@ function manageStock(record, sym, sig, price, now, risk, cost) {
     const last = record.lastClose[sym];
     if (last && last.signalDay === dayKey(now)) return; // one entry per name per day
     const r = sig.plan.risk || Math.abs(sig.plan.entry - sig.plan.stop) || 1e-9;
-    record.open[sym] = { symbol: sym, name: sym, side: 'LONG', entry: price, stop: price - r, target1: price + r, risk: r, riskDollars: risk, conviction: sig.plan.conviction, openedAt: now, experiment: true };
+    record.open[sym] = { symbol: sym, name: NAME[sym] || sym, side: 'LONG', entry: price, stop: price - r, target1: price + r, risk: r, riskDollars: risk, conviction: sig.plan.conviction, openedAt: now, experiment: true };
   }
 }
 
@@ -95,6 +95,16 @@ export const SECTOR = {
   CAT: 'Industrials', GE: 'Industrials', BA: 'Industrials', HON: 'Industrials', XOM: 'Energy', CVX: 'Energy',
 };
 
+// Display name per ticker, so the screener can show "Eli Lilly", not just "LLY".
+export const NAME = {
+  AAPL: 'Apple', MSFT: 'Microsoft', NVDA: 'Nvidia', AVGO: 'Broadcom', AMD: 'AMD', ORCL: 'Oracle', CRM: 'Salesforce', ADBE: 'Adobe', QCOM: 'Qualcomm', MU: 'Micron', AMAT: 'Applied Materials',
+  GOOGL: 'Alphabet', META: 'Meta', NFLX: 'Netflix', DIS: 'Disney', T: 'AT&T',
+  AMZN: 'Amazon', TSLA: 'Tesla', WMT: 'Walmart', COST: 'Costco', HD: 'Home Depot', PG: 'Procter & Gamble', KO: 'Coca-Cola', MCD: "McDonald's", NKE: 'Nike',
+  JPM: 'JPMorgan Chase', BAC: 'Bank of America', WFC: 'Wells Fargo', GS: 'Goldman Sachs', V: 'Visa', MA: 'Mastercard', AXP: 'American Express',
+  UNH: 'UnitedHealth', LLY: 'Eli Lilly', JNJ: 'Johnson & Johnson', ABBV: 'AbbVie', MRK: 'Merck', PFE: 'Pfizer', TMO: 'Thermo Fisher',
+  CAT: 'Caterpillar', GE: 'GE Aerospace', BA: 'Boeing', HON: 'Honeywell', XOM: 'Exxon Mobil', CVX: 'Chevron',
+};
+
 // Scan the universe: compute the production swing signal for each name on its daily
 // candles. Returns a compact row per name (recipe-free levels only). When `store` is
 // passed, it ALSO auto-paper-trades those signals into an isolated RECORD_STOCKS blob
@@ -120,7 +130,7 @@ export async function scanStocks(env, store) {
         if (record) manageStock(record, sym, sig, price, now, risk, cost); // paper-trade it
         const rm = riskMetrics(candles); // generic risk metrics for the risk screener
         return {
-          symbol: sym, name: sym, verdict: sig.verdict, confidence: sig.confidence,
+          symbol: sym, name: NAME[sym] || sym, verdict: sig.verdict, confidence: sig.confidence,
           // proximity + a coarse conviction flag are display-safe; the raw RSI reading
           // (rsi2) is the recipe and is NEVER sent (guarded by test/no-recipe-leak).
           proximity: sig.proximity, htfTrend: sig.htfTrend, price,

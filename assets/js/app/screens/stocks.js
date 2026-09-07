@@ -136,6 +136,7 @@ function stockDetailHtml(s) {
   const sign = (n) => `${n >= 0 ? '+' : ''}${n}%`;
   const met = (k, v, c) => `<div class="skd-met"><span class="skd-k">${k}</span><span class="skd-v mono"${c ? ` style="color:${c}"` : ''}>${v}</span></div>`;
   return `<div class="stk-detail">
+    ${s.name && s.name !== s.symbol ? `<div class="skd-name">${s.name}</div>` : ''}
     <div class="skd-head"><span class="skd-px mono">${fmtPrice(s.price, 2)}</span>${head}</div>
     ${plan}
     <div class="skd-grid">
