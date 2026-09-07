@@ -317,11 +317,11 @@ function byMarketHtml(closed) {
 }
 
 // Group real closed trades by ASSET CLASS → net P&L, win rate, count. Flags which
-// class is POWERING the record (best, in profit) and which is LAGGING (worst, in the
-// red) — but only once the sample is big enough to be honest — and always marks an
-// unproven class (crypto) as EXPERIMENTAL. The overall record above is unchanged;
-// this just shows where the money is actually coming from.
-const ACLASS_MIN = 5; // don't call a class powering/lagging on a tiny sample
+// class is LEADING the record (best, in profit) and which is LAGGING (worst, in the
+// red) — a natural antonym pair — but only once the sample is big enough to be honest,
+// and always marks an unproven class (crypto) as EXPERIMENTAL. The overall record above
+// is unchanged; this just shows where the money is actually coming from.
+const ACLASS_MIN = 5; // don't call a class leading/lagging on a tiny sample
 const ACLASS_ICON = { index: 'ph-chart-line-up', etf: 'ph-squares-four', crypto: 'ph-currency-btc', fx: 'ph-currency-dollar', futures: 'ph-scales' };
 
 // The Day-trading style lives on its OWN record (/day, Index Futures only). We cache it
@@ -413,7 +413,7 @@ function byAssetClassHtml(closed) {
         const wr = decisive ? Math.round((e.wins / decisive) * 100) : 0;
         const color = e.pnl >= 0 ? 'var(--buy)' : 'var(--sell)';
         let tag = '';
-        if (e.key === powering) tag += badge('POWERING', 'color-mix(in srgb, var(--buy) 20%, transparent)', 'var(--buy)');
+        if (e.key === powering) tag += badge('LEADING', 'color-mix(in srgb, var(--buy) 20%, transparent)', 'var(--buy)');
         else if (e.key === laggard) tag += badge('LAGGING', 'color-mix(in srgb, var(--sell) 22%, transparent)', 'var(--sell)');
         if (EXPERIMENT_CLASSES.has(e.key)) tag += badge('EXPERIMENTAL', 'var(--neutral-800)', 'var(--text-muted)');
         // Per-style breakdown so the user can see which STYLE profits within this class.
