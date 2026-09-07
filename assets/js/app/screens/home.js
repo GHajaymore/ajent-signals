@@ -1,7 +1,7 @@
 import { state, saveSettings, setFocusClass } from '../state.js';
 import { heroCard, watchlistRow, patchRow, patchHero, symTile, dataTag, sparklineSvg } from '../components.js';
 import { getPerformanceSummary, getOpenCount, getOpenPositions, getClosedTrades } from '../paperTrading.js';
-import { marketSession, countryOpen } from '../marketHours.js';
+import { marketSession, countryOpen, marketHolidayToday } from '../marketHours.js';
 import { backendConfigured, isEntitled, isPaid, isSignedUp, trialDaysLeft, fetchNews, fetchStocks } from '../backendApi.js';
 import { groupForSymbol, ASSET_GROUPS, labelForKey } from '../assetClass.js';
 import { fmtMoney as fmtMoneyCcy } from '../currency.js';
@@ -453,7 +453,12 @@ function marketStatus(m) {
   // (this is what catches a holiday the clock can't see). If we have no quote yet, we can
   // only go by the clock.
   const notTrading = age != null ? age > FEED_DELAY_MAX_SEC : !clockOpen;
-  if (notTrading) return { label: `${baseTag} · closed`, color: 'var(--text-muted)', pulse: false };
+  if (notTrading) {
+    // Name the reason when it's a known market holiday — "US market · closed · Labor Day"
+    // reads as a deliberate state, not a broken/stale app.
+    const hol = marketHolidayToday(m.country);
+    return { label: `${baseTag} · closed${hol ? ` · ${hol}` : ''}`, color: 'var(--text-muted)', pulse: false };
+  }
 
   // Trading now. Index FUTURES (ES/NQ/YM/RTY) keep trading after the CASH market shuts, so
   // when the cash exchange is closed but fresh prices are still flowing, it's the futures —

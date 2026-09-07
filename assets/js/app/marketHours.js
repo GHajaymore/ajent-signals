@@ -2,6 +2,7 @@
 // reliable — derived from the current time in the exchange's own timezone (DST is
 // handled by the IANA zone), NOT from a fetched quote's marketState (which lags
 // behind the proxy and can't tell us anything until a quote arrives).
+import { usMarketHoliday } from './marketHolidays.js';
 
 const TZ = {
   US: 'America/New_York', CA: 'America/Toronto', IN: 'Asia/Kolkata', GB: 'Europe/London',
@@ -42,6 +43,27 @@ function localNow(tz) {
   }
 }
 
+// The calendar date { year, month, day } (month 1-12) in a given IANA timezone.
+function localDate(tz) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(new Date());
+    const get = (t) => parseInt(parts.find((p) => p.type === t)?.value, 10);
+    return { year: get('year'), month: get('month'), day: get('day') };
+  } catch (e) {
+    return null;
+  }
+}
+
+// The market holiday closing a country's CASH exchange today — name, or null. US-only for
+// now (the app's only cash-equity country); other countries have no calendar yet, so null.
+export function marketHolidayToday(country) {
+  if (country !== 'US') return null;
+  const d = localDate(TZ.US);
+  return d ? usMarketHoliday(d) : null;
+}
+
 // Categories sourced from real =F futures (CL=F, SI=F, ZN=F…) — these trade
 // nearly 24h on CME Globex/NYMEX/COMEX, unlike the index markets which we source
 // from cash indices (only live during the cash session).
@@ -72,6 +94,7 @@ export function marketSession(market) {
   if (!tz || !sess) return 'unknown';
   const n = localNow(tz); if (!n) return 'unknown';
   if (n.day === 0 || n.day === 6) return 'closed';          // weekend
+  if (marketHolidayToday(market.country)) return 'closed';  // market holiday (US cash)
   return (n.min >= sess[0] && n.min < sess[1]) ? 'open' : 'closed';
 }
 
@@ -85,6 +108,7 @@ export function countryOpen(country) {
   if (!tz || !sess) return null;
   const n = localNow(tz); if (!n) return null;
   if (n.day === 0 || n.day === 6) return false;
+  if (marketHolidayToday(country)) return false;            // market holiday (US cash)
   return n.min >= sess[0] && n.min < sess[1];
 }
 
