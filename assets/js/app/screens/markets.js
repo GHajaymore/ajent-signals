@@ -9,7 +9,7 @@ import { ASSET_GROUPS, ASSET_BY_KEY } from '../assetClass.js';
 // no fabricated data, ever.
 export function isRealMarket(m) { return !!(m && (m.hasServerSignal || m.signalIsReal)); }
 import { marketRow, patchRow, symTile, sparklineSvg } from '../components.js';
-import { escapeHtml, fmtPct } from '../format.js';
+import { escapeHtml, fmtPct, fmtPrice, verdictColorVar, countryFlag } from '../format.js';
 import { marketSession } from '../marketHours.js';
 
 // Markets nearest a setup (by the server proximity score), ranked — used by the
@@ -278,6 +278,67 @@ function listHtml() {
 // screens, so a global focus on those falls back to showing the whole board here).
 const BOARD_CLASSES = new Set(['index', 'etf', 'fx', 'futures', 'crypto']);
 
+// --- Master-detail signal pane (desktop only, ≥1024px) -----------------------
+// The right-hand pane shows the selected market's live signal — verdict, confidence and
+// the trade-plan levels — beside the list, so scanning and reading happen without leaving
+// the screen. A "Full detail →" link opens the tabbed signal page for charts/breakdown.
+let paneSymbol = null;
+function paneMarket() {
+  const cur = paneSymbol && state.engine.get(paneSymbol);
+  if (cur && inBoard(cur)) return cur;
+  const visible = state.engine.markets.filter(inBoard);
+  const firing = visible.find((m) => { const v = m.verdict(state.settings.threshold); return v === 'BUY' || v === 'SELL'; });
+  return firing || visible[0] || null;
+}
+const priceDp = (v) => (Number.isInteger(v) ? 0 : (Math.abs(v) < 10 ? 4 : 2));
+function signalPaneHtml(market) {
+  if (!market) return `<div class="mkt-pane"><div class="mkt-pane-empty">No market selected yet — real signals appear here as the board loads.</div></div>`;
+  const s = market.signal || {};
+  const verdict = market.verdict(state.settings.threshold);
+  const pv = verdictColorVar(verdict);
+  const conf = Math.round(s.confidence || 0);
+  const plan = s.plan, firing = (verdict === 'BUY' || verdict === 'SELL') && plan;
+  const vlabel = verdict === 'BUY' ? '↗ BUY' : verdict === 'SELL' ? '↘ SELL' : '— NO TRADE';
+  const note = verdict === 'BUY' ? (s.strat === 'trend' ? 'Riding an established uptrend — let it run until the trend breaks.' : 'A deep oversold dip within an uptrend — fading the stretch.')
+    : verdict === 'SELL' ? 'An overbought pop in a market with no up-drift — fading the stretch the other way.'
+    : `Standing aside — nothing stretched far enough for a high-probability setup yet${s.proximity ? ` (${s.proximity}% of the way there)` : ''}.`;
+  const quad = firing ? `
+    <div class="mkt-pane-quad">
+      <div class="mkt-pane-cell"><div class="k">Entry</div><div class="v">${fmtPrice(plan.entry, priceDp(plan.entry))}</div></div>
+      <div class="mkt-pane-cell"><div class="k">Stop</div><div class="v" style="color:var(--sell)">${fmtPrice(plan.stop, priceDp(plan.stop))}</div></div>
+      <div class="mkt-pane-cell"><div class="k">Target</div><div class="v" style="color:var(--buy)">${fmtPrice(plan.target1, priceDp(plan.target1))}</div></div>
+      <div class="mkt-pane-cell"><div class="k">R : R</div><div class="v" style="color:var(--accent-200)">${plan.riskReward || 1} : 1</div></div>
+    </div>` : '';
+  return `
+  <div class="mkt-pane" style="--pv:${pv}">
+    <div class="mkt-pane-head">
+      ${symTile(market.symbol, 38)}
+      <div style="min-width:0">
+        <div class="mkt-pane-title">${escapeHtml(market.name)}</div>
+        <div class="mkt-pane-sub">${countryFlag(market.country)} ${escapeHtml(market.exchange)} · ${s.timeframe || '1D'}</div>
+      </div>
+      <a class="mkt-pane-full" href="#/signal/${market.symbol}">Full detail →</a>
+    </div>
+    <div class="mkt-pane-verdict">
+      <div class="mkt-pane-vbig">${vlabel}</div>
+      <div class="mkt-pane-conf">
+        <div class="mkt-pane-conf-top"><span>Confidence</span><span style="color:var(--pv);font-weight:700">${conf}%</span></div>
+        <div class="mkt-pane-conf-track"><div class="mkt-pane-conf-fill" style="width:${conf}%"></div></div>
+      </div>
+    </div>
+    <div class="mkt-pane-note">${note}</div>
+    ${quad}
+  </div>`;
+}
+// Repaint the pane for the current paneSymbol and highlight the matching row.
+function updatePane(container) {
+  const el = container.querySelector('#mkt-detail-pane');
+  if (el) el.innerHTML = signalPaneHtml(paneMarket());
+  const active = (paneMarket() || {}).symbol;
+  container.querySelectorAll('.mkt-row, .closed-row').forEach((r) => r.classList.toggle('pane-selected', r.dataset.sym === active));
+}
+const isDesktopSplit = () => typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(min-width: 1024px)').matches;
+
 export function render(container) {
   const engine = state.engine;
   // Sync the board filter with the app-wide focus class (set on Home or here), so the
@@ -306,13 +367,35 @@ export function render(container) {
       <div id="mkt-filters-wrap"${view === 'heat' ? ' hidden' : ''}>${filterChips()}</div>
     </div>
 
-    <div id="market-list-wrap">${contentHtml()}</div>
+    <div class="mkt-split">
+      <div id="market-list-wrap">${contentHtml()}</div>
+      <div class="mkt-detail-col"><div id="mkt-detail-pane">${signalPaneHtml(paneMarket())}</div></div>
+    </div>
   </div>`;
 
   const listWrap = document.getElementById('market-list-wrap');
   wireStars(listWrap);
+  updatePane(container);
 
-  const rebuild = () => { listWrap.innerHTML = contentHtml(); wireStars(listWrap); };
+  // Desktop master-detail: a capturing click on the list intercepts a row tap BEFORE the
+  // global nav handler runs, updating the signal pane in place instead of navigating away.
+  // Below 1024px (no pane) it does nothing, so rows navigate to the full detail as before.
+  // The star button keeps its own behaviour (we ignore clicks inside it).
+  if (!listWrap.dataset.paneWired) {
+    listWrap.dataset.paneWired = '1';
+    listWrap.addEventListener('click', (e) => {
+      if (!isDesktopSplit()) return;
+      if (e.target.closest('.mkt-star')) return; // let the star toggle work
+      const row = e.target.closest('[data-sym]');
+      if (!row || !row.dataset.sym) return;
+      e.preventDefault();
+      e.stopPropagation();
+      paneSymbol = row.dataset.sym;
+      updatePane(container);
+    }, true);
+  }
+
+  const rebuild = () => { listWrap.innerHTML = contentHtml(); wireStars(listWrap); updatePane(container); };
 
   const input = document.getElementById('mkt-search');
   input.addEventListener('input', () => { query = input.value; rebuild(); });
@@ -376,6 +459,9 @@ export function refresh(container) {
   // Subtitle: patch the live-data count once signals have synced.
   const sub = container.querySelector('#mkt-subtitle');
   if (sub) { const t = subtitleText(); if (sub.innerHTML !== t) sub.innerHTML = t; }
+
+  // Keep the desktop signal pane live (verdict/confidence/plan) and its row highlight.
+  updatePane(container);
 
   // Region open/closed: when an exchange flips, repaint the region chips (their dots)
   // and the "open now" caption so both track the live session state.
