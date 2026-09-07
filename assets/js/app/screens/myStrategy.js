@@ -49,7 +49,7 @@ function configPanel(cfg) {
       <span class="cs-l">Direction</span>
       <div class="cs-seg">${DIRS.map(([k, l]) => `<button class="cs-seg-b${cfg.direction === k ? ' on' : ''}" data-cs-dir="${k}">${l}</button>`).join('')}</div>
     </div>
-    ${cfg.direction !== 'long' ? `<div class="cs-hint"><i class="ph-bold ph-arrows-down-up"></i> Your strategy can go <b style="color:var(--text)">short on any market</b> — including indices and crypto, where Ajent itself stays long-only (shorting those backtested as a net loss over full market cycles). This is your experiment; the live paper record is the judge.</div>` : ''}
+    ${cfg.direction !== 'long' ? `<div class="cs-hint"><i class="ph-bold ph-arrows-down-up"></i> Shorts <b style="color:var(--text)">any market</b> — even indices/crypto, where Ajent stays long-only. Your experiment; the paper record is the judge.</div>` : ''}
     <div class="cs-dir-row">
       <span class="cs-l">How it runs</span>
       <div class="cs-seg">
@@ -58,10 +58,10 @@ function configPanel(cfg) {
       </div>
     </div>
     <div class="cs-hint">${manual
-      ? '<i class="ph-bold ph-bell"></i> Ajent <b>alerts</b> you when your rule fires — you add each trade your own way (your own exit), tracked in your risk-limited book.'
-      : '<i class="ph-bold ph-robot"></i> <b>Trades automatically</b> as your rule fires, building an unbiased record to compare against Ajent.'}</div>
+      ? '<i class="ph-bold ph-bell"></i> <b>Alerts you</b> when your rule fires; you add each trade your own way.'
+      : '<i class="ph-bold ph-robot"></i> <b>Trades automatically</b>, building a record to compare against Ajent.'}</div>
     ${!manual ? `<div class="cs-notify-row">
-      <div style="flex:1"><div class="cs-l" style="font-size:12.5px">Notify me when it fires</div><div class="setting-help" style="margin-top:2px">An FYI alert each time your rule auto-trades — just a heads-up; the record stays automatic and there&rsquo;s nothing to add.</div></div>
+      <div style="flex:1"><div class="cs-l" style="font-size:12.5px">Notify me when it fires</div><div class="setting-help" style="margin-top:2px">An FYI alert each time it auto-trades — heads-up only.</div></div>
       <div class="switch ${cfg.notify ? 'on' : ''}" data-cs-notify></div>
     </div>` : ''}
     <div class="cs-dir-row">
@@ -73,9 +73,9 @@ function configPanel(cfg) {
     </div>
     <div class="cs-hint">${mine
       ? (watched.length
-        ? `<i class="ph-bold ph-star"></i> Runs on your <b>${watched.length} starred market${watched.length === 1 ? '' : 's'}</b> — ${watched.slice(0, 8).join(', ')}${watched.length > 8 ? '…' : ''}. Star markets on the <b>Markets</b> tab to change this set.`
-        : '<i class="ph-bold ph-star"></i> You haven&rsquo;t starred any markets yet — star them on the <b>Markets</b> tab, or switch to <b>All markets</b>.')
-      : '<i class="ph-bold ph-globe-hemisphere-west"></i> Runs on <b>every</b> market with live data.'}</div>
+        ? `<i class="ph-bold ph-star"></i> Your <b>${watched.length} starred market${watched.length === 1 ? '' : 's'}</b> — change them on the Markets tab.`
+        : '<i class="ph-bold ph-star"></i> No starred markets yet — star some on the Markets tab, or pick All markets.')
+      : '<i class="ph-bold ph-globe-hemisphere-west"></i> Every market with live data.'}</div>
     <div class="cs-cond-list">
       ${cfg.conditions.length ? cfg.conditions.map((c, i) => condCard(c, i, cfg.direction)).join('')
         : '<div class="text-muted" style="font-size:12.5px;padding:8px 2px">No indicators yet — add one below. Your rule fires only when <b>all</b> your indicators agree.</div>'}
@@ -169,7 +169,7 @@ export function render(container) {
     <div class="fade-in glow-wrap">
       <div class="dash-glow"></div>
       <h1 class="h-title">Your strategy</h1>
-      <p class="text-muted" style="font-size:13px;margin:4px 0 14px;line-height:1.5">Build your own rule from the indicator palette and see your signals across the board — scored against the proven <b style="color:var(--text)">Ajent Pulse</b>. This is <b style="color:var(--text)">your experiment</b>, not a validated edge.</p>
+      <p class="text-muted" style="font-size:13px;margin:4px 0 14px;line-height:1.5">Build your own rule and see how it does against <b style="color:var(--text)">Ajent Pulse</b> — your experiment, not a validated edge.</p>
       ${configPanel(cfg)}
       ${recordPanel()}
       <div class="panel">
