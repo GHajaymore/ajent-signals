@@ -34,6 +34,19 @@ export function defaultsFor(countryCode) {
 }
 
 async function detectCountry() {
+  // First-party first: our own Cloudflare Worker returns the edge-detected country
+  // (request.cf.country) — so in the normal case the user's IP never goes to a third-party
+  // geolocation service. Only if the worker is unreachable do we fall back to public IP APIs.
+  const base = (typeof window !== 'undefined' && window.__AJENT_API) || '';
+  if (base) {
+    try {
+      const res = await fetch(`${base}/geo`);
+      if (res.ok) {
+        const code = (await res.json())?.country;
+        if (code) return code;
+      }
+    } catch (e) { /* fall back to public APIs below */ }
+  }
   for (const api of GEO_APIS) {
     try {
       const res = await fetch(api.url);

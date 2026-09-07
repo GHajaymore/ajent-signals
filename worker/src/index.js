@@ -79,6 +79,15 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === '/health') return json({ ok: true });
 
+    // First-party geo: Cloudflare hands every edge request the caller's country for free
+    // (request.cf.country), so the app can personalise its default market without sending
+    // the user's IP to a third-party IP-geolocation service. The client uses this first and
+    // only falls back to public IP APIs if the worker is unreachable.
+    if (url.pathname === '/geo') {
+      const cf = request.cf || {};
+      return json({ country: cf.country || null, region: cf.region || null, timezone: cf.timezone || null });
+    }
+
     // Force one run of the 24/7 loop on demand (e.g. right after a deploy) instead
     // of waiting for the next 15-min cron. Guarded by its own ADMIN_KEY secret —
     // separate from the Pro gate, so it never affects free access. No-op (404) when
