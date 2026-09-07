@@ -112,6 +112,56 @@ export function countryOpen(country) {
   return n.min >= sess[0] && n.min < sess[1];
 }
 
+const DOW_NAME = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+// Short, friendly timezone label per exchange for the "reopens …" note.
+const TZ_ABBR = {
+  US: 'ET', CA: 'ET', IN: 'IST', GB: 'UK', DE: 'CET', EU: 'CET', FR: 'CET',
+  JP: 'JST', HK: 'HKT', CN: 'CST', KR: 'KST', AU: 'AEST', BR: 'BRT', SG: 'SGT',
+};
+function fmtClock(min) {
+  let h = Math.floor(min / 60); const mm = min % 60;
+  const ap = h < 12 ? 'AM' : 'PM';
+  h %= 12; if (h === 0) h = 12;
+  return `${h}:${String(mm).padStart(2, '0')} ${ap}`;
+}
+
+// Pure core (testable): the next cash-open label given the exchange-local date + minute now.
+// Walks forward day by day, skipping weekends and — for the US — market holidays.
+export function nextCashOpenFrom(country, today, nowMin) {
+  const sess = SESSION[country]; if (!sess || !today) return null;
+  const openMin = sess[0];
+  const isHol = (y, m, d) => (country === 'US' ? !!usMarketHoliday({ year: y, month: m, day: d }) : false);
+  for (let off = 0; off <= 9; off++) {
+    const dt = new Date(Date.UTC(today.year, today.month - 1, today.day + off));
+    const y = dt.getUTCFullYear(), m = dt.getUTCMonth() + 1, d = dt.getUTCDate(), dow = dt.getUTCDay();
+    if (dow === 0 || dow === 6) continue;         // weekend
+    if (isHol(y, m, d)) continue;                 // market holiday (US)
+    if (off === 0 && nowMin >= openMin) continue; // today's open already passed
+    const when = off === 0 ? '' : off === 1 ? 'tomorrow ' : `${DOW_NAME[dow]} `;
+    return `${when}${fmtClock(openMin)}${TZ_ABBR[country] ? ` ${TZ_ABBR[country]}` : ''}`;
+  }
+  return null;
+}
+// The next time a country's CASH exchange opens, as a short label ("tomorrow 9:30 AM ET").
+export function nextCashOpen(country) {
+  const tz = TZ[country]; if (!tz || !SESSION[country]) return null;
+  const today = localDate(tz), n = localNow(tz);
+  return today && n ? nextCashOpenFrom(country, today, n.min) : null;
+}
+
+// A note for when a country's CASH market is closed for a NON-obvious reason (weekend or
+// holiday) — with when it reopens. null during normal hours and routine weekday overnight
+// (those are obvious, no note needed). US holidays are known by name; other countries fall
+// back to weekend detection only.
+export function cashClosureNote(country) {
+  const tz = TZ[country]; if (!tz || !SESSION[country]) return null;
+  const n = localNow(tz); if (!n) return null;
+  const hol = country === 'US' ? usMarketHoliday(localDate(tz)) : null;
+  const weekend = n.day === 0 || n.day === 6;
+  if (!hol && !weekend) return null;
+  return { reason: hol ? 'holiday' : 'weekend', name: hol || null, reopen: nextCashOpen(country) };
+}
+
 // The major world exchanges, west→east, with their live open/closed state — for the
 // "markets open now" strip at the top of the board. Local exchange clocks, real DST.
 const MAJOR_SESSIONS = [

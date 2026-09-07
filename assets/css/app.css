@@ -691,6 +691,13 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 /* Greeting relocated below the header — a small, muted welcome line, low in the
    hierarchy so the logo + brand name read as the header on their own. */
 .home-greeting { font-size: 13px; color: var(--text-muted); letter-spacing: 0.02em; margin: 6px 2px 16px; }
+.home-market-note {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12.5px; color: var(--text-muted);
+  background: var(--surface-2, rgba(255,255,255,.03)); border: 1px solid var(--neutral-800);
+  border-radius: 10px; padding: 7px 11px; margin: -8px 2px 16px;
+}
+.home-market-note i { font-size: 15px; color: var(--accent-200); opacity: .85; }
 
 .pf-card { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 20px; border-radius: 20px; cursor: pointer; overflow: hidden; border: 1px solid var(--hairline); background: linear-gradient(140deg, color-mix(in srgb, var(--buy) 11%, var(--surface)), var(--surface) 68%); box-shadow: 0 14px 34px -22px rgba(0,0,0,0.8); }
 .pf-card.down { background: linear-gradient(140deg, color-mix(in srgb, var(--sell) 11%, var(--surface)), var(--surface) 68%); }

@@ -1,7 +1,7 @@
 import { state, saveSettings, setFocusClass } from '../state.js';
 import { heroCard, watchlistRow, patchRow, patchHero, symTile, dataTag, sparklineSvg } from '../components.js';
 import { getPerformanceSummary, getOpenCount, getOpenPositions, getClosedTrades } from '../paperTrading.js';
-import { marketSession, countryOpen, marketHolidayToday } from '../marketHours.js';
+import { marketSession, countryOpen, marketHolidayToday, cashClosureNote } from '../marketHours.js';
 import { backendConfigured, isEntitled, isPaid, isSignedUp, trialDaysLeft, fetchNews, fetchStocks } from '../backendApi.js';
 import { groupForSymbol, ASSET_GROUPS, labelForKey } from '../assetClass.js';
 import { fmtMoney as fmtMoneyCcy } from '../currency.js';
@@ -470,6 +470,19 @@ function marketStatus(m) {
   if (m.isLiveFresh) return { label: `${tag} · open${px}`, color: 'var(--buy)', pulse: true };
   return { label: `${tag} · open`, color: 'var(--text-muted)', pulse: false }; // clock says open, no quote yet
 }
+// A small note under the greeting when the user's market is closed for a non-obvious reason
+// (a holiday or the weekend), telling them when signals resume. Silent during normal trading
+// and routine overnight — and for 24/7 crypto — so it only speaks when it adds something.
+function marketContextHtml(engine) {
+  const m = statusMarket(engine);
+  if (!m || !m.country || m.category === 'Crypto') return '';
+  const note = cashClosureNote(m.country);
+  if (!note) return '';
+  const region = marketRegion(m);
+  const label = note.reason === 'holiday' ? `closed for ${note.name}` : 'closed for the weekend';
+  const reopen = note.reopen ? ` · reopens ${note.reopen}` : '';
+  return `<div class="home-market-note"><i class="ph ph-moon-stars"></i>${region} ${label}${reopen}</div>`;
+}
 // The market the header status describes: the user's local/primary market (from
 // their region), which is stable — not the hero's dynamically-featured setup.
 function statusMarket(engine) {
@@ -563,6 +576,7 @@ export function render(container) {
     ${regionBarHtml(engine)}
 
     <div class="home-greeting">${greeting()}${state.focusClass !== 'all' ? ` · <span style="color:var(--accent-200);font-size:13px;font-weight:600">${focusClassLabel(state.focusClass)}</span>` : ''}</div>
+    ${marketContextHtml(engine)}
     ${trialNudgeHtml()}
 
     <div class="axis-label">Asset class</div>
