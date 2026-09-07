@@ -65,7 +65,7 @@ function riskScreenerHtml(data) {
   const rows = ranked.map((s, i) => {
     const [tier, tc] = volTier(s.vol);
     const buy = s.verdict === 'BUY';
-    return `<div class="risk-row" data-nav="#/signal/${s.symbol}">
+    return `<div class="risk-row" data-stk="${s.symbol}">
       <span class="risk-rank">${i + 1}</span>
       <div class="risk-body"><span class="risk-sym">${s.symbol}</span><span class="risk-sec">${s.sector || ''}</span></div>
       <span class="risk-metric">${prof.metric(s)}</span>
@@ -114,10 +114,38 @@ function buyCard(s) {
 
 function watchRow(s) {
   const prox = Math.max(0, Math.min(100, s.proximity || 0));
-  return `<div class="stk-watch" data-nav="#/signal/${s.symbol}" style="cursor:pointer">
+  return `<div class="stk-watch" data-stk="${s.symbol}" style="cursor:pointer">
     <span class="stk-sym">${s.symbol}</span>
     <span class="stk-w-meta">${prox}% of the way to a setup</span>
     <div class="stk-prox"><div class="stk-prox-bar"><i style="width:${Math.max(2, prox)}%"></i></div><span>${prox}%</span></div>
+  </div>`;
+}
+
+// Tapping a screener row expands its full picture inline — the trade plan when it's firing,
+// plus the momentum / volatility / drawdown behind its ranking. Individual stocks aren't in
+// the live engine (no candles/history), so they have no standalone signal-detail page; this
+// keeps everything the screener knows about a name in one place instead of a dead link.
+function stockDetailHtml(s) {
+  const prox = Math.max(0, Math.min(100, s.proximity || 0));
+  const head = s.verdict === 'BUY'
+    ? `<span class="skd-fire buy">↗ BUY${s.conviction === 'high' ? ' · DEEP' : ''}${s.confidence ? ` · ${s.confidence}% conf` : ''}</span>`
+    : `<span class="skd-fire">No trade · ${prox}% to a setup</span>`;
+  const plan = s.plan
+    ? `<div class="stk-plan" style="margin-top:8px"><span>Entry <b>${fmtPrice(s.plan.entry, 2)}</b></span><span>Stop <b style="color:var(--sell)">${fmtPrice(s.plan.stop, 2)}</b></span><span>Target <b style="color:var(--buy)">${fmtPrice(s.plan.target1, 2)}</b></span></div>`
+    : '';
+  const sign = (n) => `${n >= 0 ? '+' : ''}${n}%`;
+  const met = (k, v, c) => `<div class="skd-met"><span class="skd-k">${k}</span><span class="skd-v mono"${c ? ` style="color:${c}"` : ''}>${v}</span></div>`;
+  return `<div class="stk-detail">
+    <div class="skd-head"><span class="skd-px mono">${fmtPrice(s.price, 2)}</span>${head}</div>
+    ${plan}
+    <div class="skd-grid">
+      ${met('3-month', sign(s.mom3), s.mom3 >= 0 ? 'var(--buy)' : 'var(--sell)')}
+      ${met('6-month', sign(s.mom6), s.mom6 >= 0 ? 'var(--buy)' : 'var(--sell)')}
+      ${met('Volatility', `${s.vol}%`)}
+      ${met('Max drop', `↓${s.maxDD}%`)}
+      ${met('Trend', s.trendUp ? 'Up' : 'Down', s.trendUp ? 'var(--buy)' : 'var(--sell)')}
+      ${met('Sector', s.sector || '—')}
+    </div>
   </div>`;
 }
 
@@ -159,9 +187,21 @@ export function render(container) {
   // the async content swap).
   if (wrap) wrap.addEventListener('click', (e) => {
     const c = e.target.closest('.risk-chip');
-    if (!c || !cache) return;
-    setRiskProfile(c.dataset.risk);
-    wrap.innerHTML = content(cache);
+    if (c) { if (cache) { setRiskProfile(c.dataset.risk); wrap.innerHTML = content(cache); } return; }
+    // Row tap → expand/collapse the stock's detail inline (one open at a time).
+    const row = e.target.closest('[data-stk]');
+    if (!row || !cache) return;
+    const next = row.nextElementSibling;
+    if (next && next.classList.contains('stk-detail-wrap')) { next.remove(); row.classList.remove('open'); return; }
+    wrap.querySelectorAll('.stk-detail-wrap').forEach((d) => d.remove());
+    wrap.querySelectorAll('[data-stk].open').forEach((r) => r.classList.remove('open'));
+    const s = (cache.stocks || []).find((x) => x.symbol === row.getAttribute('data-stk'));
+    if (!s) return;
+    const div = document.createElement('div');
+    div.className = 'stk-detail-wrap';
+    div.innerHTML = stockDetailHtml(s);
+    row.after(div);
+    row.classList.add('open');
   });
 
   fetchStocks().then((d) => {

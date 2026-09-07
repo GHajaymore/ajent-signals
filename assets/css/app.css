@@ -194,6 +194,17 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .stk-prox { display: flex; align-items: center; gap: 7px; }
 .stk-prox-bar { flex: 1; height: 5px; border-radius: 4px; background: var(--neutral-900); overflow: hidden; }
 .stk-prox-bar i { display: block; height: 100%; border-radius: 4px; background: var(--flat); }
+/* Inline expand of a screener row (tap a name → its plan + metrics). */
+.risk-row.open, .stk-watch.open { background: rgba(255,255,255,.02); }
+.stk-detail { background: var(--surface-2, rgba(255,255,255,.03)); border: 1px solid var(--hairline); border-radius: 10px; padding: 10px 12px; margin: 2px 0 9px; }
+.skd-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.skd-px { font-size: 15px; font-weight: 700; }
+.skd-fire { font-size: 12px; color: var(--text-muted); }
+.skd-fire.buy { color: var(--buy); font-weight: 700; }
+.skd-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px 12px; margin-top: 10px; }
+.skd-met { display: flex; flex-direction: column; gap: 2px; }
+.skd-k { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); }
+.skd-v { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .stk-prox span { font: 600 10.5px var(--font-mono); color: var(--text-muted); width: 30px; text-align: right; }
 
 /* Paywall "beat us" challenge */
