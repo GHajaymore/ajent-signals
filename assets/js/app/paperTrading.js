@@ -54,13 +54,11 @@ const FACTOR_GROUP = {
   'News Sentiment': 'catalyst',
 };
 
-// Quality gate for auto-trading. Intraday ("Active", 15m) is deliberately
-// ungated and BOTH directions — buy oversold dips and short overbought pops in
-// any condition — so any fired BUY/SELL qualifies. Daily is long-only and
-// trend-aligned, so it still requires the uptrend behind a BUY.
+// Quality gate for the client-side auto-trade fallback (the real record runs
+// server-side). Daily long-only: a BUY still requires the uptrend behind it.
+// (The intraday "Active" 15m mode was retired 2026-09-06.)
 export function isHighConviction(signal, verdict) {
   if (verdict === 'NO_TRADE') return false;
-  if (signal.timeframe === '15m') return true; // intraday: both ways, no trend gate
   if (verdict === 'BUY') return signal.htfTrend === 'up';
   return false; // daily is long-only
 }

@@ -173,12 +173,10 @@ function portfolioCard(perf) {
   </div>`;
 }
 
-// The two SELECTABLE styles (mirrors settings.js). Swing = the proven board; Day = the
-// intraday both-ways EXPERIMENT on its own record. The chip is a live switcher so the
-// user can change style from Home, not only from Settings — and picking one actually
-// rescopes Home (Swing → the board, Day → the day-trading record) via the focus mode.
-// All four industry-standard styles (mirrors settings.js). Trading style is a SEPARATE
-// axis from asset class. `order` is the chip-row order (fastest → slowest hold).
+// Only Swing is SELECTABLE (the proven board); Scalping/Position show disabled with an
+// honest reason. (The intraday Day style was retired 2026-09-06.) The chip row mirrors
+// settings.js. Trading style is a SEPARATE axis from asset class. `order` is the chip-row
+// order (fastest → slowest hold).
 const STYLE_META = {
   scalping: { label: 'Scalping', icon: 'ph-lightning', sub: 'seconds–minutes' },
   swing: { label: 'Swing', icon: 'ph-calendar-check', sub: 'dips + trends · holds days' },
