@@ -434,7 +434,7 @@ function byAssetClassHtml(closed) {
         </div>`;
       }).join('')}
     </div>
-    <div class="text-faint" style="font-size:10.5px;margin:6px 2px 0">Each class's P&amp;L split by trading style — Swing (board) vs Day (separate experiment record, Index Futures only). "exp" = unproven experiment.</div>`;
+    <div class="text-faint" style="font-size:10.5px;margin:6px 2px 0">Each class's P&amp;L split by trading style — Swing (board) vs Day (separate experiment record, Indices only). "exp" = unproven experiment.</div>`;
 }
 
 // Smooth cumulative-P&L equity curve, drawn entirely from real closed trades.
