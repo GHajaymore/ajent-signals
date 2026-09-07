@@ -38,7 +38,7 @@ export function render(container) {
   const catchNote = 'A high win rate is <b>not</b> the same as profit — a real edge needs both, and this one is validated across a decade and every walk-forward window. That edge is drawn from the past; it is never a promise. The Paper Trading tab tracks the real, live profit factor and expectancy so you always see the truth, not a backtest.';
 
   container.innerHTML = `
-  <div class="fade-in glow-wrap">
+  <div class="fade-in glow-wrap detail-screen">
     <div class="dash-glow"></div>
     <div class="detail-head" style="margin-bottom:14px">
       <button class="icon-btn" data-back aria-label="Go back"><i class="ph-bold ph-arrow-left"></i></button>

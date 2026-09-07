@@ -38,7 +38,7 @@ const FAQ = [
 
 export function render(container) {
   container.innerHTML = `
-  <div class="fade-in">
+  <div class="fade-in detail-screen">
     <div class="detail-header">
       <button class="back-btn" data-back aria-label="Go back"><i class="ph-bold ph-arrow-left"></i></button>
       <div class="detail-title-block">
