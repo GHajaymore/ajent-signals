@@ -42,53 +42,53 @@ function isSessionEnd(c, i) {
   return nyDay(c[i + 1].t) !== nyDay(c[i].t);        // next bar is a new day
 }
 
-// Precompute indicator arrays ONCE per market (the intraday sample is ~4600 bars,
-// so recomputing them per bar per param would be O(n^2)). Only trendSma varies
-// among the indicator inputs, so precompute the three we sweep; thresholds are
-// applied to these arrays in the fast backtester below. This mirrors the exact
-// entry/stop/exit logic in daytrade.js — asserted against it before the sweep.
+// Precompute indicator arrays ONCE per market (the intraday sample is ~4600 bars, so
+// recomputing per bar per param would be O(n^2)). The both-ways engine keys off RSI2 and
+// ATR only (the 30-SMA is a display label, NOT a gate), so those are all we need. The fast
+// backtester below reproduces daytrade.js's EXACT both-ways entry/exit — asserted by the
+// fidelity check before the sweep.
 const PRE = {};
 for (const sym of Object.keys(DATA)) {
   const c = DATA[sym];
   const closes = c.map((x) => x.c);
   const eos = c.map((_, i) => isSessionEnd(c, i));
-  PRE[sym] = {
-    c, closes, eos,
-    rsi2: rsi(closes, 2), atr14: atr(c, 14), sma20: sma(closes, 20), sd20: stdev(closes, 20),
-    sma: { 30: sma(closes, 30), 50: sma(closes, 50), 100: sma(closes, 100) },
-  };
+  PRE[sym] = { c, closes, eos, rsi2: rsi(closes, 2), atr14: atr(c, 14) };
 }
 
+// Mirrors computeDaySignal (BOTH-WAYS): long when RSI2 < entryBelow, short when RSI2 >
+// (100 - entryBelow); NO trend gate, NO prior-low flush. Exit: dir-aware ATR stop, RSI2
+// reverting through the mid (exitMid), the bar time cap, or flat-by-close.
 function backtest(params, syms = Object.keys(DATA)) {
+  const P = { ...DEF, ...params };
+  const upper = 100 - P.entryBelow;
   const closed = [];
   let tMin = Infinity, tMax = -Infinity;
   for (const sym of syms) {
     const p = PRE[sym], c = p.c, closes = p.closes;
-    const trend = p.sma[params.trendSma];
     let pos = null, openIdx = -1;
     for (let i = 60; i < c.length; i++) {
-      const price = closes[i], t = c[i].t, eos = p.eos[i], r2 = p.rsi2[i];
+      const price = closes[i], t = c[i].t, eos = p.eos[i], r2 = p.rsi2[i], atrN = p.atr14[i];
       if (pos) {
-        const barsHeld = i - openIdx;
+        const barsHeld = i - openIdx, short = pos.side === 'SHORT';
         let exit = null;
-        if (price <= pos.stop) exit = 'stop';
-        else if (r2 != null && r2 > params.exitAbove) exit = 'rsiRecover';
-        else if (barsHeld >= params.maxHoldBars) exit = 'timeStop';
+        if (short ? price >= pos.stop : price <= pos.stop) exit = 'stop';
+        else if (r2 != null && (short ? r2 < P.exitMid : r2 > P.exitMid)) exit = 'rsiRecover';
+        else if (barsHeld >= P.maxHoldBars) exit = 'timeStop';
         else if (eos) exit = 'flatByClose';   // never carry overnight
         if (exit) {
           const rr = Math.abs(pos.entry - pos.stop) || 1e-9;
-          const resultR = (price - pos.entry) / rr;
+          const resultR = (short ? (pos.entry - price) : (price - pos.entry)) / rr;
           closed.push({ pnl: Math.round(resultR * RISK - COST), openedAt: pos.t, closedAt: t, exit });
           pos = null;
         }
       }
-      // Entry: LONG-ONLY oversold flush below the prior bar's low, in an intraday
-      // uptrend. Don't open on the last bar of a session (would be flat immediately).
-      if (!pos && !eos) {
-        const tr = trend[i], atrN = p.atr14[i];
-        if (tr != null && atrN > 0 && r2 != null && price > tr && r2 < params.entryBelow && price < c[i - 1].l) {
-          const risk = Math.max(atrN * params.stopAtrMult, price * 0.0025);
-          pos = { entry: price, stop: price - risk, t };
+      // Entry: both-ways RSI2 extreme. Don't open on a session's last bar (flat at once).
+      if (!pos && !eos && r2 != null && atrN > 0) {
+        let dir = 0;
+        if (r2 < P.entryBelow) dir = 1; else if (r2 > upper) dir = -1;
+        if (dir !== 0) {
+          const risk = Math.max(atrN * P.stopAtrMult, price * 0.0025);
+          pos = { entry: price, stop: dir > 0 ? price - risk : price + risk, side: dir > 0 ? 'LONG' : 'SHORT', t };
           openIdx = i;
         }
       }
@@ -112,28 +112,30 @@ function backtest(params, syms = Object.keys(DATA)) {
   };
 }
 
-console.log(`\nINTRADAY day-trading lab — ${Object.keys(DATA).length} markets, 15m bars, ~${(DATA[Object.keys(DATA)[0]] || []).length} bars each (~60 days). LONG-ONLY, FLAT BY CLOSE.\n`);
+console.log(`\nINTRADAY day-trading lab — ${Object.keys(DATA).length} markets, 15m bars, ~${(DATA[Object.keys(DATA)[0]] || []).length} bars each (~60 days). BOTH-WAYS, FLAT BY CLOSE.\n`);
 
-// Defaults (what daytrade.js ships with).
-const DEF = { indicatorPeriod: 2, entryBelow: 10, exitAbove: 60, deepBelow: 3, trendSma: 30, stopAtrMult: 1.5, maxHoldBars: 26 };
+// Defaults — the dials daytrade.js actually ships with (DAYTRADE): both-ways RSI2, exit at
+// the RSI mid, ATR stop, bar time cap. No trend gate, no prior-low flush (those were an old
+// long-only version the fast backtester used to mirror — now fixed to match the engine).
+const DEF = { indicatorPeriod: 2, entryBelow: 10, exitMid: 50, stopAtrMult: 1.5, maxHoldBars: 26 };
 // The markets the experiment actually trades live — RTY is excluded (net loser).
 const TRADED = ['ES', 'NQ', 'YM'].filter((s) => DATA[s]);
 
-// FIDELITY CHECK: the fast backtester must reproduce the production engine's BUY
-// bars exactly, else the sweep is testing something other than what ships. Compare
-// on the first market over a bounded window (the engine is O(n^2), so sample it).
+// FIDELITY CHECK: the fast backtester must reproduce the production engine's ENTRY bars
+// (BUY and SELL) exactly, else the sweep is testing something other than what ships.
+// Compare on the first market over a bounded window (the engine is O(n^2), so sample it).
 {
-  const sym = Object.keys(DATA)[0], c = DATA[sym], p = PRE[sym], trend = p.sma[DEF.trendSma];
+  const sym = Object.keys(DATA)[0], c = DATA[sym], p = PRE[sym], upper = 100 - DEF.entryBelow;
   let engineFires = 0, fastFires = 0, mism = 0;
   for (let i = 200; i < Math.min(c.length, 900); i++) {
     const price = c[i].c;
     const sig = computeDaySignal(c.slice(0, i + 1), price, DEF);
-    const eF = sig.verdict === 'BUY';
-    const tr = trend[i], atrN = p.atr14[i], r2 = p.rsi2[i];
-    const fF = tr != null && atrN > 0 && r2 != null && price > tr && r2 < DEF.entryBelow && price < c[i - 1].l;
+    const eF = sig.verdict === 'BUY' ? 1 : sig.verdict === 'SELL' ? -1 : 0;
+    const r2 = p.rsi2[i], atrN = p.atr14[i];
+    const fF = (r2 != null && atrN > 0) ? (r2 < DEF.entryBelow ? 1 : r2 > upper ? -1 : 0) : 0;
     if (eF) engineFires++; if (fF) fastFires++; if (eF !== fF) mism++;
   }
-  console.log(`Fidelity (${sym}, 700 bars): engine BUYs=${engineFires} fast BUYs=${fastFires} mismatches=${mism}${mism ? '  <-- WARNING: fast path diverges from engine' : '  OK'}\n`);
+  console.log(`Fidelity (${sym}, 700 bars): engine fires=${engineFires} fast fires=${fastFires} mismatches=${mism}${mism ? '  <-- WARNING: fast path diverges from engine' : '  OK'}\n`);
 }
 console.log('Default recipe (pooled, all 4):');
 console.log('  ' + fmt(backtest(DEF)));
@@ -148,15 +150,15 @@ for (const sym of Object.keys(DATA)) console.log(`  ${sym.padEnd(5)} ${fmt(backt
 console.log('\nRobustness sweep (pooled, sorted by PF):');
 const grid = [];
 for (const entryBelow of [5, 10, 15])
-  for (const exitAbove of [50, 60, 70])
-    for (const trendSma of [30, 50, 100])
-      for (const stopAtrMult of [1, 1.5, 2])
-        grid.push({ ...DEF, entryBelow, exitAbove, trendSma, stopAtrMult });
+  for (const exitMid of [45, 50, 55])
+    for (const stopAtrMult of [1, 1.5, 2])
+      for (const maxHoldBars of [13, 26, 39])
+        grid.push({ ...DEF, entryBelow, exitMid, stopAtrMult, maxHoldBars });
 const results = grid.map((p) => ({ p, r: backtest(p) })).filter((x) => x.r.trades >= 10);
 results.sort((a, b) => b.r.pf - a.r.pf);
 const robust = results.filter((x) => x.r.pf >= 1.3 && x.r.totalPnl > 0).length;
 for (const { p, r } of results.slice(0, 12)) {
-  console.log(`  entry<${String(p.entryBelow).padStart(2)} exit>${p.exitAbove} sma${String(p.trendSma).padStart(3)} stop${p.stopAtrMult}x  ${fmt(r)}`);
+  console.log(`  entry<${String(p.entryBelow).padStart(2)} exitMid${p.exitMid} stop${p.stopAtrMult}x hold${String(p.maxHoldBars).padStart(2)}  ${fmt(r)}`);
 }
 console.log(`\n  ${robust}/${results.length} settings clear PF>=1.3 AND positive P&L.`);
 const posShare = results.length ? Math.round(results.filter((x) => x.r.totalPnl > 0).length / results.length * 100) : 0;
