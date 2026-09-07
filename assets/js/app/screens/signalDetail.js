@@ -615,7 +615,13 @@ function actionSuggestion(market, s, verdict) {
   if (verdict === 'BUY') {
     return { icon: 'ph-arrow-up-right', tone: 'var(--buy)', title: 'Buy the flush', text: 'Deeply oversold in an uptrend — the dip the strategy buys. It takes profit as the move reverts to the mean, and stops out at the risk level below.' };
   }
-  return { icon: 'ph-hourglass-medium', tone: 'var(--flat)', title: 'No setup — waiting', text: 'Not stretched enough to buy — the strategy waits for a deeper oversold flush in an uptrend. Watching.' };
+  if (verdict === 'SELL') {
+    return { icon: 'ph-arrow-down-right', tone: 'var(--sell)', title: 'Fade the pop', text: 'Overbought and stretched in a downtrend — the pop the strategy shorts (this is a symmetric market with no up-drift). It covers as the move reverts to the mean, with a stop above.' };
+  }
+  // Waiting: on a both-ways market the setup can come from either side, so say so.
+  return { icon: 'ph-hourglass-medium', tone: 'var(--flat)', title: 'No setup — waiting', text: isBothWays(market.symbol)
+    ? 'Not stretched enough yet — the strategy waits for a deep oversold flush in an uptrend (to buy) or an overbought pop in a downtrend (to short). Watching.'
+    : 'Not stretched enough to buy — the strategy waits for a deeper oversold flush in an uptrend. Watching.' };
 }
 
 // The user's OWN custom strategy, if it fired here in manual mode (else null).
