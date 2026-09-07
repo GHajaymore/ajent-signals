@@ -999,6 +999,10 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
      column in the same order (summary then detail), so nothing reorders below 1024px. */
   .paper-split { display: grid; grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr); gap: 26px; align-items: start; }
   .paper-summary { position: sticky; top: 0; align-self: start; }
+
+  /* The tabbed signal detail is a reading view, not a dashboard — cap it to a comfortable
+     column so the verdict and trade plan don't stretch sparsely across the wide shell. */
+  .detail-screen { max-width: 780px; margin-left: auto; margin-right: auto; }
 }
 /* The pane is only shown in the desktop split; hidden by default so mobile never renders it. */
 .mkt-detail-col { display: none; }

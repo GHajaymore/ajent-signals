@@ -1021,7 +1021,7 @@ export function render(container) {
   const tab = state.detailTab;
 
   container.innerHTML = `
-  <div class="fade-in glow-wrap">
+  <div class="fade-in glow-wrap detail-screen">
     <div class="dash-glow"></div>
     <div class="detail-header">
       <button class="back-btn" data-back aria-label="Go back"><i class="ph-bold ph-arrow-left"></i></button>
