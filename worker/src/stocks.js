@@ -97,7 +97,7 @@ export const SECTOR = {
 
 // Display name per ticker, so the screener can show "Eli Lilly", not just "LLY".
 export const NAME = {
-  AAPL: 'Apple', MSFT: 'Microsoft', NVDA: 'Nvidia', AVGO: 'Broadcom', AMD: 'AMD', ORCL: 'Oracle', CRM: 'Salesforce', ADBE: 'Adobe', QCOM: 'Qualcomm', MU: 'Micron', AMAT: 'Applied Materials',
+  AAPL: 'Apple', MSFT: 'Microsoft', NVDA: 'Nvidia', AVGO: 'Broadcom', AMD: 'Advanced Micro Devices', ORCL: 'Oracle', CRM: 'Salesforce', ADBE: 'Adobe', QCOM: 'Qualcomm', MU: 'Micron', AMAT: 'Applied Materials',
   GOOGL: 'Alphabet', META: 'Meta', NFLX: 'Netflix', DIS: 'Disney', T: 'AT&T',
   AMZN: 'Amazon', TSLA: 'Tesla', WMT: 'Walmart', COST: 'Costco', HD: 'Home Depot', PG: 'Procter & Gamble', KO: 'Coca-Cola', MCD: "McDonald's", NKE: 'Nike',
   JPM: 'JPMorgan Chase', BAC: 'Bank of America', WFC: 'Wells Fargo', GS: 'Goldman Sachs', V: 'Visa', MA: 'Mastercard', AXP: 'American Express',
