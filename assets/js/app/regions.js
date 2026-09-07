@@ -3,7 +3,7 @@
 // it just scopes what the user sees. Crypto is 24/7 and global, so it shows in
 // every region view. Defaults to the user's geo region.
 import { state } from './state.js';
-import { marketSession } from './marketHours.js';
+import { marketSession, openSessions } from './marketHours.js';
 
 const isReal = (m) => !!(m && (m.hasServerSignal || m.signalIsReal)); // inlined to avoid a cycle
 
@@ -58,9 +58,26 @@ export function regionChipsHtml(engine) {
   return REGIONS.map((r) => chip(r.key, r.short, stat((m) => regionOfMarket(m) === r.key), active === r.key)).join('');
 }
 
-// Standard wrapper + delegated click wiring, reused by both screens. `onChange` is
-// called after the region setting is updated so the caller can re-render.
+// Which of the ACTIVE region's cash exchanges are trading right now — the detail the
+// old standalone country session strip carried, folded under the region filter so all
+// geography lives in one place. Global markets (crypto 24/7, FX 24/5) trade regardless,
+// so when the region's cash sessions are shut we say the board is still live rather than
+// implying nothing trades. Returns '' when the region has no timed cash exchanges.
+export function regionOpenCaptionHtml() {
+  const r = activeRegion();
+  const sess = openSessions().filter((s) => REGION_OF_COUNTRY[s.c] === r);
+  if (!sess.length) return '';
+  const open = sess.filter((s) => s.open).map((s) => s.c);
+  const closed = sess.filter((s) => !s.open).map((s) => s.c);
+  const inner = open.length
+    ? `<span class="rgn-open-dot"></span><b>Open now</b> · ${open.join(' · ')}${closed.length ? ` <span class="rgn-open-off">· ${closed.join(', ')} closed</span>` : ''}`
+    : `<span class="rgn-open-off">Cash exchanges closed · crypto &amp; FX still live</span>`;
+  return `<div class="rgn-open-cap" id="rgn-open-cap" data-sig="${open.join(',')}|${closed.join(',')}">${inner}</div>`;
+}
+
+// Standard wrapper + delegated click wiring, reused by both screens. The region chips
+// carry their own open/closed dot + breadth; the caption below names the open exchanges.
 export function regionBarHtml(engine) {
   const chips = regionChipsHtml(engine);
-  return `<div class="region-bar${chips ? '' : ' empty'}" id="region-bar">${chips}</div>`;
+  return `<div class="region-bar${chips ? '' : ' empty'}" id="region-bar">${chips}</div><div id="rgn-cap-wrap">${chips ? regionOpenCaptionHtml() : ''}</div>`;
 }
