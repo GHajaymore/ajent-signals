@@ -97,7 +97,8 @@ export default {
       const cached = await store.get('FX', 'RATES');
       if (cached && cached.at && Date.now() - cached.at < 20 * 3600000) return json({ rates: cached.rates, at: cached.at });
       try {
-        const d = await fetch('https://open.er-api.com/v6/latest/USD', { cache: 'no-store' }).then((r) => r.json());
+        // Note: Workers' fetch has no `cache` option (browser-only) — it throws if passed.
+        const d = await fetch('https://open.er-api.com/v6/latest/USD', { headers: { 'User-Agent': 'ajent-signals-worker/1.0' } }).then((r) => r.json());
         if (d && d.result === 'success' && d.rates && d.rates.EUR) {
           const at = Date.now();
           try { await store.put({ pk: 'FX', sk: 'RATES', rates: d.rates, at }); } catch (e) { /* non-fatal */ }
