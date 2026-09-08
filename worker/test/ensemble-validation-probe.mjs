@@ -75,4 +75,14 @@ console.log('\n  Does the adaptive per-engine down-weighting (floor 0.5x) fix th
 for (const w of [1.0, 0.5, 0.3]) { const m = metrics(tradesFor('ensemble', w)); console.log(`  ensemble, trend x${w.toFixed(1)}  ${fmt(m)}`); }
 console.log(`\n  Live ensemble return/DD ${en.retDD} vs MR-only ${mr.retDD}. Trend starves MR (${en.byLeg.mr} MR trades in ensemble vs ${mr.n} standalone).`);
 console.log('  → down-weighting trend helps but does not reach MR-only; the drag is structural (occupied markets), not just sizing.');
+
+// CONCURRENT SLOTS (the recommended fix): MR and trend hold INDEPENDENT per-market positions
+// = MR-only trades ∪ trend-only trades on one account. This is the true two-engine
+// diversification the app claims; the current ensemble fails to deliver it (trend blocks MR).
+const combined = [...tradesFor('mr'), ...tradesFor('trend')].sort((a, b) => a.closedAt - b.closedAt);
+console.log('\n  CONCURRENT SLOTS (recommended fix — MR + trend as independent per-market positions):');
+console.log('  concurrent   ', fmt(metrics(combined)), `  [${tradesFor('mr').length}MR+${tradesFor('trend').length}tr]`);
+const cm = metrics(combined);
+console.log(`  → net $${cm.net} (vs live ensemble $${en.net}, MR-only $${mr.net}), return/DD ${cm.retDD} (vs ensemble ${en.retDD}).`);
+console.log(`  → keeps ALL ${tradesFor('trend').length} trend signals (board activity) AND all ${tradesFor('mr').length} MR trades (the edge); DD ${cm.maxDD < mr.maxDD + metrics(tradesFor('trend')).maxDD ? 'benefits from diversification (curves draw down at different times)' : 'does not diversify'}.`);
 console.log('');
