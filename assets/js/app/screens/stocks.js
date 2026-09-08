@@ -175,6 +175,16 @@ function content(data) {
   `;
 }
 
+// Skeleton shown while the first screener fetch is in flight — mirrors the ranked list's
+// shape (risk chips + rows) so the layout doesn't jump when the data lands.
+function stkSkeleton() {
+  const row = '<div class="stk-sk-row"><span class="skeleton" style="width:20px;height:18px"></span><span class="skeleton" style="width:56px;height:14px"></span><span class="skeleton" style="width:50px;height:16px;border-radius:12px"></span><span class="skeleton" style="width:84px;height:14px;margin-left:auto"></span><span class="skeleton" style="width:34px;height:13px"></span></div>';
+  const chip = '<span class="skeleton" style="width:104px;height:32px;border-radius:20px"></span>';
+  return `<div class="section-label">Screen by risk profile</div>
+    <div class="risk-chips">${chip + chip + chip}</div>
+    <div class="panel" style="padding:4px 12px">${Array(7).fill(row).join('')}</div>`;
+}
+
 export function render(container) {
   container.innerHTML = `
   <div class="fade-in glow-wrap">
@@ -182,7 +192,7 @@ export function render(container) {
     <h1 class="h-title">Stocks</h1>
     <p class="text-muted" style="font-size:13px;margin:4px 0 6px;line-height:1.55">The proven <b style="color:var(--text)">Ajent Pulse</b> swing strategy, scanned daily across a diversified large-cap universe — and <b style="color:var(--text)">auto-paper-traded on its own experiment record</b>, separate from the Swing account.</p>
     <div class="stk-note"><b>Why a screener?</b> The edge is validated across stocks <b>in aggregate</b>, but any single name can gap on earnings — so trade a diversified handful of what's firing, never one name on conviction. Educational, not advice.</div>
-    <div id="stk-wrap">${cache ? content(cache) : '<div class="panel"><div class="text-muted" style="text-align:center;padding:24px 0;font-size:13px">Loading the screener…</div></div>'}</div>
+    <div id="stk-wrap">${cache ? content(cache) : stkSkeleton()}</div>
   </div>`;
 
   const wrap = container.querySelector('#stk-wrap');

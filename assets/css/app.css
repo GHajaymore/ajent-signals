@@ -202,6 +202,13 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .risk-row:active, .stk-watch:active { background: rgba(255,255,255,.035); }
 @media (prefers-reduced-motion: no-preference) { .stk-detail { animation: skdIn 0.18s ease; } }
 @keyframes skdIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+/* Skeleton loading placeholder (shimmer) — perceived performance on data-fetch screens. */
+.skeleton { position: relative; overflow: hidden; background: var(--surface-2, rgba(255,255,255,.05)); border-radius: 6px; display: inline-block; }
+.skeleton::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,.07), transparent); animation: skShimmer 1.3s infinite; }
+@keyframes skShimmer { 100% { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .skeleton::after { animation: none; opacity: 0.5; } }
+.stk-sk-row { display: flex; align-items: center; gap: 12px; padding: 11px 2px; border-top: 1px solid var(--hairline); }
+.stk-sk-row:first-child { border-top: none; }
 .stk-detail { background: var(--surface-2, rgba(255,255,255,.03)); border: 1px solid var(--hairline); border-radius: 10px; padding: 10px 12px; margin: 2px 0 9px; }
 .skd-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 7px; letter-spacing: -0.01em; }
 .skd-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
