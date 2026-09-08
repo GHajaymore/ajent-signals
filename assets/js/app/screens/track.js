@@ -297,8 +297,9 @@ function byMarketHtml(closed) {
   const rows = byMarketStats(closed);
   if (rows.length < 2) return '';
   return `
-    <div class="section-label">Performance by market</div>
-    <div class="card" style="padding:2px 12px">
+    <details class="panel" style="padding:12px 16px;margin-top:12px">
+      <summary style="cursor:pointer;font:600 13.5px var(--font-heading);display:flex;align-items:center;justify-content:space-between;gap:10px"><span>Performance by market</span><i class="ph ph-caret-down" style="color:var(--text-muted);flex:none"></i></summary>
+      <div style="margin-top:6px">
       ${rows.map((m) => {
         const decisive = m.wins + m.losses;
         const wr = decisive ? Math.round((m.wins / decisive) * 100) : 0;
@@ -312,7 +313,8 @@ function byMarketHtml(closed) {
           <div class="closed-result"><div class="r" style="color:${color}">${money(m.pnl)}</div></div>
         </div>`;
       }).join('')}
-    </div>`;
+      </div>
+    </details>`;
 }
 
 // Group real closed trades by ASSET CLASS → net P&L, win rate, count. Flags which
@@ -1111,8 +1113,10 @@ export function render(container) {
 
     ${isInternal() ? labPanel() : ''}
 
-    <div class="section-label" style="margin-top:20px">Recent trades${closed.length ? `<a id="export-csv" style="cursor:pointer"><i class="ph-bold ph-download-simple" style="font-size:12px;vertical-align:-1px"></i> Export CSV</a>` : ''}</div>
-    <div class="card" style="padding:2px 12px">
+    <details class="panel" style="padding:12px 16px;margin-top:20px">
+      <summary style="cursor:pointer;font:600 13.5px var(--font-heading);display:flex;align-items:center;justify-content:space-between;gap:10px"><span>Recent trades</span><i class="ph ph-caret-down" style="color:var(--text-muted);flex:none"></i></summary>
+      ${closed.length ? `<div style="text-align:right;margin-top:8px"><a id="export-csv" style="cursor:pointer;font-size:12px"><i class="ph-bold ph-download-simple" style="font-size:12px;vertical-align:-1px"></i> Export CSV</a></div>` : ''}
+      <div style="margin-top:4px">
       ${closed.slice(0, 30).map((c) => {
         const pnl = tradePnl(c);
         const color = pnl >= 0 ? 'var(--buy)' : 'var(--sell)';
@@ -1129,7 +1133,8 @@ export function render(container) {
           </div>
         </div>`;
       }).join('')}
-    </div>
+      </div>
+    </details>
 
     <div class="section-label" style="margin-top:20px">Setup</div>
     ${marketSelector()}
