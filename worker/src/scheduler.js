@@ -11,6 +11,15 @@ import { computeBothMR, bothMRShouldExit } from './bothways.js';
 
 const dayKey = (ms) => new Date(ms).toISOString().slice(0, 10);
 
+// ADOPTED 2026-09-07: Bollinger %B mean-reversion confirmation on the equity dip-buyer. The
+// lab found (indicator-sweep + bollinger-robustness + pb-adopt-check) that requiring the entry
+// close to sit low in the bands (%B < 0.30) lifts the indices profit factor from ~2.6 to ~3.6
+// with a smooth parameter plateau (0.15–0.40 all improve, so 0.30 is a robust ridge value, not
+// a fitted spike). Applied to indices/ETFs only — the edge REVERSES on crypto, which is
+// excluded. It gates the MR dip-buy leg only; the trend-follow leg is untouched. TRADE-OFF: it
+// is selective, so it makes fewer trades (higher quality/lower drawdown, lower raw total).
+const PB_ADOPT_MAX = 0.30;
+
 // FREE-TIER SCAN BUDGET. Each market is one subrequest and Cloudflare's free tier caps
 // an invocation at 50 subrequests. Two things keep us safely under it while letting the
 // universe grow and the ACTIVE markets stay fresh:
@@ -237,6 +246,12 @@ export async function runTick(env, store) {
         trendSig = { verdict: 'NO_TRADE' };
       } else {
         mrSig = computeSignal(candles, live);
+        // %B gate (adopted, see PB_ADOPT_MAX): the dip-buy fires only near/below the lower band
+        // on indices/ETFs. Crypto keeps the full recipe (the edge reverses there). The
+        // trend-follow leg below is unaffected — this only vetoes the MR BUY.
+        if (!meta.crypto && mrSig.verdict === 'BUY' && typeof mrSig.pctB === 'number' && mrSig.pctB >= PB_ADOPT_MAX) {
+          mrSig = { ...mrSig, verdict: 'NO_TRADE', direction: 0, plan: null };
+        }
         // Express the evolved dials in the MR plan (stop scaled by the global dial).
         if (mrSig.plan && dials && dials.stopMult) {
           const scale = dials.stopMult / STRATEGY.stopAtrMult;

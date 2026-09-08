@@ -88,7 +88,7 @@ export function bothWaysRangingExperiment(closed) {
 // OOS pf 2.98; %B<0 → 3.88) — but it HURTS crypto, so the would-be gate is measured
 // crypto-EXCLUDED. Every MR entry carries pbEntry (its %B at entry); this compares the untouched
 // record to the %B-gated one on the live forward trades. NOT adopted — recipe-lock stands.
-const PB_MAX = 0.20, PB_STRICT = 0;
+const PB_MAX = 0.30; // adopted threshold — see scheduler.js PB_ADOPT_MAX
 const PB_CRYPTO = new Set(['BTC', 'ETH']); // the MR crypto names the finding excludes
 export function bollingerBandExperiment(closed) {
   const mr = (closed || []).filter((c) => (c.strat || 'mr') === 'mr' && typeof c.pbEntry === 'number');
@@ -101,29 +101,19 @@ export function bollingerBandExperiment(closed) {
     const pnl = list.reduce((s, c) => s + (c.pnl || 0), 0);
     return { n: list.length, pnl: Math.round(pnl), winRate: Math.round((wins.length / list.length) * 100), pf: +(gw / (gl || 1)).toFixed(2), avgR: +(list.reduce((s, c) => s + (c.resultR || 0), 0) / list.length).toFixed(3) };
   };
-  const full = agg(equity);
-  const gate = agg(equity.filter((c) => c.pbEntry < PB_MAX));
-  const strict = agg(equity.filter((c) => c.pbEntry < PB_STRICT));
-  const cryptoFull = agg(crypto), cryptoGate = agg(crypto.filter((c) => c.pbEntry < PB_MAX));
+  const full = agg(equity), cryptoFull = agg(crypto);
+  // ADOPTED 2026-09-07: %B<0.20 now gates the equity dip-buy in scheduler.js, so this is a LIVE
+  // change, no longer a counterfactual — every index MR entry that fires already sits below the
+  // threshold. `record` is the live post-adoption index MR record; crypto runs the full recipe.
   const ready = equity.length >= REGIME_MIN;
-  // Clear adoption signal: once enough forward index trades have closed AND the %B-gated
-  // slice beats the full recipe on BOTH pf and avgR (with a real kept-count), the backtest
-  // edge is confirmed live and it's safe to adopt %B<0.20 on indices. Otherwise keep waiting.
-  const confirmed = ready && gate.n >= 10 && gate.pf > full.pf && gate.avgR > full.avgR;
-  const verdict = !ready
-    ? `GATHERING — ${equity.length}/${REGIME_MIN} forward index trades tagged; decide once ready`
-    : confirmed
-      ? `CONFIRMED FORWARD — %B<${PB_MAX} lifts PF ${full.pf}→${gate.pf} and avgR ${full.avgR}→${gate.avgR} on the LIVE indices record (${gate.n}/${equity.length} kept). Safe to adopt on indices.`
-      : `NOT CONFIRMED YET — %B has not beaten the full recipe forward (PF ${full.pf} vs ${gate.pf}, avgR ${full.avgR} vs ${gate.avgR}); keep gathering, do not adopt.`;
   return {
-    ready, confirmed, verdict,
-    tagged: mr.length,          // all MR trades carrying a %B reading
-    equityTagged: equity.length, // the indices subset the gate is measured on (crypto excluded)
-    full, gate, strict,          // untouched vs %B<0.20 vs %B<0, on indices
-    cryptoFull, cryptoGate,      // crypto shown separately (excluded by design — the finding hurt it)
-    note: ready
-      ? `Bollinger %B gate (indices, crypto-excluded), keep %B<${PB_MAX}: PF full ${full.pf} → gated ${gate.pf} (${gate.n}/${equity.length} kept); %B<0 → ${strict.pf}; avgR ${full.avgR} → ${gate.avgR}. Crypto measured apart (${cryptoFull.n} trades, excluded by design). Not adopted.`
-      : `Bollinger %B gate: gathering data — ${equity.length} %B-tagged indices trades (need ${REGIME_MIN}); ${crypto.length} crypto (excluded).`,
+    ready, adopted: true,
+    tagged: mr.length,            // all MR trades carrying a %B reading
+    equityTagged: equity.length,  // the indices/ETF subset the gate applies to (crypto excluded)
+    record: full,                 // live index MR record — now %B<PB_MAX-gated by design
+    cryptoRecord: cryptoFull,     // crypto, which keeps the full recipe (gate reverses on it)
+    verdict: `LIVE — %B<${PB_MAX} adopted on the equity dip-buyer (indices/ETFs, crypto excluded) 2026-09-07.`,
+    note: `Bollinger %B gate ADOPTED (LIVE): the dip-buy fires only near/below the lower band on indices/ETFs. Post-adoption index MR record: ${full.n} trades, PF ${full.pf}, avgR ${full.avgR}. Crypto (${cryptoFull.n}) runs the full recipe.`,
   };
 }
 
@@ -190,7 +180,7 @@ export function computeAdaptive(record, base) {
     engines: perEngineWeights(closed), // per-engine size weights (ensemble)
     regimeExperiment: regimeGateExperiment(closed), // equity support+ADX-notch gate — measured, not adopted
     bothWaysExperiment: bothWaysRangingExperiment(closed), // both-ways ranging gate — LIVE (adopted 2026-09-07)
-    bollingerExperiment: bollingerBandExperiment(closed), // equity Bollinger %B gate — measured, crypto-excluded, not adopted
+    bollingerExperiment: bollingerBandExperiment(closed), // equity Bollinger %B gate — ADOPTED (LIVE) 2026-09-07, crypto-excluded
     exitAbove: baseExit, // exit dial reserved for a future, higher-data pass
     // human note surfaced in the app
     note: learning
