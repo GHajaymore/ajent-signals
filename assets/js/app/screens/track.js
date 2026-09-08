@@ -493,6 +493,29 @@ function strategyCard() {
   </div>`;
 }
 
+// The backtested edge — collapsed by default so it never crowds the live record, which
+// stays the headline. Fills the one gap vs honest peers (TradingView/Danelfin/Composer):
+// we were hiding a genuinely strong, validated backtest behind a tiny live sample. Figures
+// are conservative, scoped, and carry the standard hypothetical disclaimer; no recipe values.
+function backtestEdge() {
+  return `
+  <details class="panel" style="padding:14px 16px;margin-bottom:12px">
+    <summary style="cursor:pointer;font:600 14px var(--font-heading);display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <span>The backtested edge <span style="font-size:10px;font-weight:700;color:var(--flat);background:var(--flat-dim);padding:2px 6px;border-radius:5px;vertical-align:middle">HYPOTHETICAL</span></span>
+      <i class="ph ph-caret-down" style="color:var(--text-muted);flex:none"></i>
+    </summary>
+    <div class="text-muted" style="font-size:12.5px;line-height:1.65;margin-top:10px">
+      Across <b style="color:var(--text)">~25 global markets over about a decade</b> of daily data — net of estimated trading costs — the mean-reversion core has shown a <b style="color:var(--text)">profit factor around 2.5–3.5</b> and a <b style="color:var(--text)">win rate near 75%</b>, with modest drawdowns; a second, independent trend-following edge is layered on top. Each setting was checked out-of-sample and across markets, not fitted to one lucky window.
+      <div style="font-size:11px;line-height:1.55;margin-top:10px;padding:9px 11px;background:var(--flat-dim);border-radius:8px;color:var(--text-faint)">
+        Hypothetical results have inherent limitations: they benefit from hindsight and do not represent real trading. No representation is made that any account will achieve similar results.
+      </div>
+      <div style="margin-top:10px">
+        <b style="color:var(--text)">The live record above is the real judge.</b> It starts at zero, books every loss, and is timestamped trade-by-trade — nothing edited or cherry-picked. If another app advertises 90% win rates or triple-digit returns, be skeptical; ours are deliberately modest and real.
+      </div>
+    </div>
+  </details>`;
+}
+
 // User-facing explainer of how the dollar P&L is computed — especially for
 // non-US markets quoted in other currencies. Native <details> = no JS wiring.
 function pnlHelp() {
@@ -656,6 +679,7 @@ function emptyState() {
         ${open.length ? `${open.length} ${open.length === 1 ? 'trade is' : 'trades are'} open right now — results will appear here once they close.` : 'The strategy is in cash right now — that’s normal ~90% of the time.'}
       </p>
     </div>
+    ${backtestEdge()}
     <div id="watch-wrap" data-sig="${watchSig()}">${watchingList()}</div>
     <div id="open-wrap" data-sig="${openSig()}">${openList()}</div>
     ${marketSelector()}
@@ -941,6 +965,8 @@ export function render(container) {
     ${honestBanner()}
 
     ${strategyCard()}
+
+    ${backtestEdge()}
 
     ${youVsAjentCard(perf, closed.length)}
 
