@@ -8,6 +8,7 @@ import { computeAdaptive } from './adaptive.js';
 import { highImpactToday } from './calendar.js';
 import { computeTrend, trendShouldExit } from './trend.js';
 import { computeBothMR, bothMRShouldExit } from './bothways.js';
+import { labStep } from './lab.js';
 
 const dayKey = (ms) => new Date(ms).toISOString().slice(0, 10);
 
@@ -235,6 +236,13 @@ export async function runTick(env, store) {
   const histBlob = (await store.get('HISTORY', 'ALL')) || {};
   const hist = histBlob.hist || {};
   let histChanged = false;
+  // Isolated live strategy lab (its OWN blob — NEVER touches the record above). Loaded once,
+  // written once at the end, and every step below is try/caught so a lab bug can't affect live
+  // trading. Reuses the candles the loop already fetches. See lab.js.
+  const labStored = await store.get('RECORD_LAB', 'ALL');
+  const lab = { startedAt: (labStored && labStored.startedAt) || nowMs, cand: (labStored && labStored.cand) || {} };
+  const labSig = (l) => JSON.stringify(Object.entries(l.cand).map(([k, r]) => [k, (r.closed || []).length, Object.keys(r.open || {}).length, Object.keys(r.openTrend || {}).length]));
+  const labSigBefore = labSig(lab);
   // One-time self-heal of stored timeline events: (1) trend BUYs once logged the mislabel
   // "oversold dip (RSI2 undefined)"; (2) older events leaked recipe details — RSI2
   // readings, the "< 5" threshold, and the "flush below the prior day's low" entry
@@ -339,8 +347,12 @@ export async function runTick(env, store) {
           openPos.call = (rsiNow != null && exit != null && (long ? rsiNow >= exit : rsiNow <= (100 - exit))) ? 'profit' : 'hold';
         }
       }
+      // Feed the isolated lab the SAME candles (best-effort; a lab bug never blocks live trading).
+      if (!bothWays) { try { labStep(lab, symbol, candles, live, meta, now, risk, cost); } catch (e) { /* lab is best-effort */ } }
     } catch (e) { /* skip this market this tick — its last-known signal is carried forward */ }
   }
+  // Persist the lab blob (isolated, best-effort — its failure never affects the live record below).
+  try { if (labSig(lab) !== labSigBefore) await store.put({ pk: 'RECORD_LAB', sk: 'ALL', updatedAt: Date.now(), startedAt: lab.startedAt, cand: lab.cand }); } catch (e) { /* lab persist best-effort */ }
   // Persist each blob independently so one failure (e.g. a KV quota blip) can't
   // stop the others. RECORD first — the paper trades are the most important thing
   // to save; a batched blob each (no KV list, fits the free tier).

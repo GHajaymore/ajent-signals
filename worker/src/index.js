@@ -8,6 +8,7 @@ import { STRATEGY, publicStrategy, publicSignal, publicPosition } from './meta.j
 import { addSubscription, removeSubscription, pushToAll } from './push.js';
 import { requirePro } from './auth.js';
 import { regimeGateExperiment, bothWaysRangingExperiment, bollingerBandExperiment } from './adaptive.js';
+import { labSummary } from './lab.js';
 import { registerWebhook, listWebhooks, deleteWebhook, deliverEvents, sampleEvent, EDU_DISCLAIMER } from './webhooks.js';
 import { createCheckoutSession, verifyStripeSignature, handleStripeEvent, tokenForSession, refreshToken, validateApple, validateGoogle, startTrial } from './billing.js';
 
@@ -405,6 +406,14 @@ export default {
       // trend-MA value, and the plan's hidden dials so the recipe never leaves here.
       const signals = ((blob && blob.signals) || []).map(publicSignal);
       return json({ updatedAt: (blob && blob.updatedAt) || Date.now(), signals, strategy, notice: NOTICE });
+    }
+    // Live strategy lab — forward-test scoreboard for the candidate strategies (recipe-free
+    // outcomes only). Ungated: it's the honest "we test in the open" surface.
+    if (url.pathname === '/lab') {
+      try {
+        const l = await store.get('RECORD_LAB', 'ALL');
+        return json({ ...labSummary({ startedAt: l && l.startedAt, cand: (l && l.cand) || {} }), notice: NOTICE });
+      } catch (e) { return json({ error: 'lab: ' + String((e && e.message) || e).slice(0, 150) }, 500); }
     }
     if (url.pathname === '/trades') {
       try {
