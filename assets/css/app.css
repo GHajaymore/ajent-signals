@@ -503,6 +503,9 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 /* Fixed-width so the widest chip ("NO TRADE") doesn't shove the spark/change
    columns sideways — keeps every row's columns vertically aligned. */
 .wl-verdict { flex: none; width: 82px; display: flex; justify-content: flex-end; }
+/* Compact one-line row chips so "NO TRADE" fits the 82px column without wrapping,
+   keeping every row the same height and the columns cleanly aligned. */
+.wl-verdict .chip { padding: 4px 9px; font-size: 11px; letter-spacing: 0; }
 
 /* Calendar banner */
 .calendar-banner {
@@ -514,6 +517,11 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .calendar-banner .t { font: 600 13px var(--font-heading); }
 .calendar-banner .s { font-size: 11.5px; color: var(--accent-300); margin-top: 1px; }
 .calendar-banner .arrow { margin-left: auto; color: var(--accent-300); }
+/* News reuses the events banner for a consistent look; clamp the (longer) headline to 2 lines. */
+.news-banner { margin-top: 6px; text-decoration: none; align-items: flex-start; }
+.news-banner .t { font: 600 13px var(--font-heading); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.news-banner .s { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.news-banner .arrow { margin-left: auto; margin-top: 2px; }
 
 /* Detail header */
 .detail-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }

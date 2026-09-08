@@ -142,6 +142,7 @@ button { cursor: pointer; }
   border-radius: var(--radius-pill);
   font: 700 12px var(--font-heading);
   letter-spacing: 0.01em;
+  white-space: nowrap; /* keep multi-word chips like "NO TRADE" on one line */
 }
 .chip-buy { background: var(--buy-dim); color: var(--buy); }
 .chip-sell { background: var(--sell-dim); color: var(--sell); }

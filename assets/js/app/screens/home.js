@@ -81,44 +81,57 @@ function esc(t) { return String(t).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>'
 // Collapsible header for the news section (persisted in settings). Kept distinct
 // from the "Market-moving events" banner above it — events are scheduled and
 // forward-looking; news is published headlines about what already happened.
-function newsHeader() {
-  const collapsed = !!state.settings.newsCollapsed;
-  return `<div class="section-label news-head" id="news-head" role="button" tabindex="0" aria-expanded="${!collapsed}">
-      <span>Market news</span>
-      <i class="ph-bold ph-caret-${collapsed ? 'down' : 'up'}" id="news-caret" style="font-size:14px;color:var(--text-muted)"></i>
-    </div>`;
+// Header for the news section — mirrors "Market-moving events": a section label with the
+// extra headlines behind a toggle on the right (the top headline always shows below).
+function newsHeader(restCount, collapsed) {
+  const toggle = restCount > 0
+    ? `<a id="news-toggle" role="button" tabindex="0" aria-expanded="${!collapsed}" style="cursor:pointer">${collapsed ? `${restCount} more` : 'Less'} <i class="ph-bold ph-caret-${collapsed ? 'down' : 'up'}" style="font-size:12px;vertical-align:middle"></i></a>`
+    : '';
+  return `<div class="section-label">Market news${toggle}</div>`;
 }
+function newsRow(n) {
+  return `<a href="${esc(n.link)}" target="_blank" rel="noopener noreferrer" class="news-row" style="display:block;padding:10px 2px;border-bottom:1px solid var(--hairline);text-decoration:none;color:inherit">
+      <div style="font:600 13px var(--font-heading);line-height:1.35">${esc(n.title)}</div>
+      <div class="text-muted" style="font-size:11px;margin-top:3px">${esc(n.publisher || 'News')} · ${newsRelTime(n.time)}</div>
+    </a>`;
+}
+// News now matches the events banner: the TOP headline is always shown as a prominent
+// banner; the rest collapse behind the header toggle.
 function newsCardHtml() {
   if (!backendConfigured()) return '';
-  const collapsed = !!state.settings.newsCollapsed;
-  if (collapsed) return newsHeader();
-  const hint = `<div class="sub-hint">Latest published headlines — what already happened.</div>`;
   if (!isEntitled()) {
-    return `${newsHeader()}${hint}
-      <div class="card" data-nav="#/paywall" style="padding:16px;display:flex;align-items:center;gap:12px;cursor:pointer">
-        <i class="ph-fill ph-newspaper" style="font-size:22px;color:var(--accent-300)"></i>
-        <div style="flex:1"><div style="font:600 13.5px var(--font-heading)">Real-time market news</div><div class="text-muted" style="font-size:12px">Live headlines from the wire — <span style="color:var(--accent-200)">Pro</span></div></div>
-        <span class="chip-upgrade">Go Pro</span>
+    return `<div class="section-label">Market news</div>
+      <div class="calendar-banner news-banner" data-nav="#/paywall" style="cursor:pointer">
+        <i class="ph-fill ph-newspaper"></i>
+        <div><div class="t">Real-time market news</div><div class="s">Live headlines from the wire — Pro</div></div>
+        <span class="chip-upgrade" style="margin-left:auto">Go Pro</span>
       </div>`;
   }
   const loaded = newsCache && newsCache.news ? newsCache.news : null;
-  // Only recent headlines. The public feed sometimes returns weeks-old articles, and a stale
-  // "74d ago" item makes the section look broken — drop anything older than a few days.
-  const MAX_NEWS_AGE = 5 * 86400000;
+  const MAX_NEWS_AGE = 5 * 86400000; // drop stale headlines so the section never looks broken
   const items = loaded ? loaded.filter((n) => n.time && (Date.now() - n.time) < MAX_NEWS_AGE) : null;
-  // Once loaded, if there are no fresh headlines, hide the whole section — a calmer home than
-  // an empty "no headlines" block. It reappears on its own when fresh news arrives.
-  if (loaded && !items.length) return '';
-  const body = !loaded ? `<div class="text-muted" style="font-size:12.5px;padding:14px 4px"><i class="ph ph-hourglass-medium" style="margin-right:6px"></i>Loading headlines…</div>`
-    : items.slice(0, 6).map((n) => `<a href="${esc(n.link)}" target="_blank" rel="noopener noreferrer" class="news-row" style="display:block;padding:10px 2px;border-bottom:1px solid var(--hairline);text-decoration:none;color:inherit">
-        <div style="font:600 13px var(--font-heading);line-height:1.35">${esc(n.title)}</div>
-        <div class="text-muted" style="font-size:11px;margin-top:3px">${esc(n.publisher || 'News')} · ${newsRelTime(n.time)}</div>
-      </a>`).join('') + `<div class="text-faint" style="font-size:10.5px;padding:9px 2px 4px">Headlines via Yahoo Finance — tap to read at the source. Delayed, informational only.</div>`;
-  return `${newsHeader()}${hint}<div class="card" style="padding:2px 12px" id="news-card">${body}</div>`;
+  if (loaded && !items.length) return ''; // no fresh news → hide (a calmer home)
+  if (!loaded) {
+    return `<div class="section-label">Market news</div>
+      <div class="calendar-banner news-banner" style="cursor:default"><i class="ph ph-hourglass-medium"></i><div><div class="t">Loading headlines…</div></div></div>`;
+  }
+  const collapsed = !!state.settings.newsCollapsed;
+  const top = items[0], rest = items.slice(1, 6);
+  const attribution = `Headlines via Yahoo Finance — tap to read at the source. Delayed, informational only.`;
+  const restHtml = (!collapsed && rest.length)
+    ? `<div class="card" style="padding:2px 12px;margin-top:8px" id="news-card">${rest.map(newsRow).join('')}<div class="text-faint" style="font-size:10.5px;padding:9px 2px 4px">${attribution}</div></div>`
+    : `<div class="text-faint" style="font-size:10px;padding:6px 2px 0">Headlines via Yahoo Finance · delayed, informational only.</div>`;
+  return `${newsHeader(rest.length, collapsed)}
+    <a href="${esc(top.link)}" target="_blank" rel="noopener noreferrer" class="calendar-banner news-banner">
+      <i class="ph-fill ph-newspaper"></i>
+      <div style="min-width:0"><div class="t">${esc(top.title)}</div><div class="s">${esc(top.publisher || 'News')} · ${newsRelTime(top.time)}</div></div>
+      <i class="ph-bold ph-arrow-up-right arrow"></i>
+    </a>
+    ${restHtml}`;
 }
 // Toggle + persist the news collapse state; re-render just the news section.
 function wireNews(scope) {
-  const head = scope.querySelector('#news-head');
+  const head = scope.querySelector('#news-toggle');
   if (!head || head.dataset.wired) return;
   head.dataset.wired = '1';
   const toggle = () => {
