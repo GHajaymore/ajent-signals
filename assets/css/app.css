@@ -506,6 +506,14 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 /* Compact one-line row chips so "NO TRADE" fits the 82px column without wrapping,
    keeping every row the same height and the columns cleanly aligned. */
 .wl-verdict .chip { padding: 4px 9px; font-size: 11px; letter-spacing: 0; }
+/* On phones the fixed spark/change/chip columns crush the market name to a couple of
+   letters ("E…"), so you can't tell markets apart. Drop the sparkline (decorative — the
+   % change already shows direction) and trim the numeric columns to give the name room. */
+@media (max-width: 500px) {
+  .wl-spark { display: none; }
+  .wl-chg { width: 52px; }
+  .wl-verdict { width: 72px; }
+}
 
 /* Calendar banner */
 .calendar-banner {
