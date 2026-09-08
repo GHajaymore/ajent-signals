@@ -106,8 +106,17 @@ export function bollingerBandExperiment(closed) {
   const strict = agg(equity.filter((c) => c.pbEntry < PB_STRICT));
   const cryptoFull = agg(crypto), cryptoGate = agg(crypto.filter((c) => c.pbEntry < PB_MAX));
   const ready = equity.length >= REGIME_MIN;
+  // Clear adoption signal: once enough forward index trades have closed AND the %B-gated
+  // slice beats the full recipe on BOTH pf and avgR (with a real kept-count), the backtest
+  // edge is confirmed live and it's safe to adopt %B<0.20 on indices. Otherwise keep waiting.
+  const confirmed = ready && gate.n >= 10 && gate.pf > full.pf && gate.avgR > full.avgR;
+  const verdict = !ready
+    ? `GATHERING — ${equity.length}/${REGIME_MIN} forward index trades tagged; decide once ready`
+    : confirmed
+      ? `CONFIRMED FORWARD — %B<${PB_MAX} lifts PF ${full.pf}→${gate.pf} and avgR ${full.avgR}→${gate.avgR} on the LIVE indices record (${gate.n}/${equity.length} kept). Safe to adopt on indices.`
+      : `NOT CONFIRMED YET — %B has not beaten the full recipe forward (PF ${full.pf} vs ${gate.pf}, avgR ${full.avgR} vs ${gate.avgR}); keep gathering, do not adopt.`;
   return {
-    ready,
+    ready, confirmed, verdict,
     tagged: mr.length,          // all MR trades carrying a %B reading
     equityTagged: equity.length, // the indices subset the gate is measured on (crypto excluded)
     full, gate, strict,          // untouched vs %B<0.20 vs %B<0, on indices
