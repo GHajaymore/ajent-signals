@@ -511,21 +511,39 @@ async function wireLab(container) {
   if (!body) return;
   const lab = await fetchLab();
   if (!lab || !Array.isArray(lab.candidates)) { const p = container.querySelector('#lab-panel'); if (p) p.style.display = 'none'; return; }
-  const cands = lab.candidates.slice().sort((a, b) => b.net - a.net);
+  // Mark each candidate's open positions to the client's fresh live prices → a live unrealized
+  // read, so the scoreboard is meaningful from day 0 (before any trade closes). Total = closed
+  // net + unrealized. Only mark REAL markets (skip placeholder prices).
+  const candUnreal = (c) => {
+    let u = 0;
+    for (const p of (c.positions || [])) {
+      const m = state.engine.get(p.symbol); const px = m && m.price;
+      if (!m || !m.signalIsReal || !(px > 0) || p.entry == null || !p.risk) continue;
+      const r = ((p.side === 'SHORT') ? (p.entry - px) : (px - p.entry)) / Math.abs(p.risk);
+      u += r * (p.riskDollars || 250);
+    }
+    return Math.round(u);
+  };
+  const cands = lab.candidates.map((c) => ({ ...c, unreal: candUnreal(c), total: c.net + candUnreal(c) }))
+    .sort((a, b) => b.total - a.total);
   const rows = cands.map((c, i) => {
     const live = c.key === 'full';
-    const col = c.net >= 0 ? 'var(--buy)' : 'var(--sell)';
-    const sub = c.trades ? `${c.winRate}% win · PF ${c.profitFactor} · ${c.trades} closed${c.open ? ` · ${c.open} open` : ''}` : `${c.open ? c.open + ' open · ' : ''}gathering…`;
+    const col = c.total >= 0 ? 'var(--buy)' : 'var(--sell)';
+    const parts = [];
+    if (c.open) parts.push(`${c.open} open`);
+    if (c.trades) parts.push(`${c.trades} closed · ${c.winRate}% win`);
+    if (c.open && c.unreal) parts.push(`<span style="color:${c.unreal >= 0 ? 'var(--buy)' : 'var(--sell)'}">${money(c.unreal)} unreal.</span>`);
+    const sub = parts.length ? parts.join(' · ') : 'gathering…';
     return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;${i ? 'border-top:1px solid var(--divider)' : ''}">
       <div style="flex:1;min-width:0">
         <div style="font:600 13px var(--font-heading);display:flex;align-items:center;gap:6px;flex-wrap:wrap">${c.label}${live ? ' <span style="font-size:9px;font-weight:700;color:var(--buy);background:var(--buy-dim);padding:1px 5px;border-radius:4px">LIVE NOW</span>' : ''}</div>
         <div class="text-muted" style="font-size:11px;margin-top:1px">${sub}</div>
       </div>
-      <div style="text-align:right;flex:none;font:800 15px var(--font-heading);color:${col}">${money(c.net)}</div>
+      <div style="text-align:right;flex:none;font:800 15px var(--font-heading);color:${col}">${money(c.total)}</div>
     </div>`;
   }).join('');
   const started = lab.startedAt ? new Date(lab.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—';
-  body.innerHTML = rows + `<div class="text-faint" style="font-size:10.5px;line-height:1.5;margin-top:10px;border-top:1px solid var(--divider);padding-top:8px">Started ${started}${lab.days != null ? ` · ${lab.days}d` : ''} · sorted by net · hypothetical, virtual money. <b style="color:var(--text-muted)">Full ensemble</b> is the config trading live now; <b style="color:var(--text-muted)">MR-only</b> is the calmer, higher-win alternative.</div>`;
+  body.innerHTML = rows + `<div class="text-faint" style="font-size:10.5px;line-height:1.5;margin-top:10px;border-top:1px solid var(--divider);padding-top:8px">Started ${started}${lab.days != null ? ` · ${lab.days}d` : ''} · total = closed + <b style="color:var(--text-muted)">unrealized</b> (live, moves with price) · hypothetical, virtual money. <b style="color:var(--text-muted)">Full ensemble</b> is the config trading live now; <b style="color:var(--text-muted)">MR-only</b> is the calmer, higher-win alternative.</div>`;
 }
 
 // The backtested edge — collapsed by default so it never crowds the live record, which

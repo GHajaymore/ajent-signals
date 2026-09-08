@@ -65,14 +65,19 @@ export function labSummary(lab) {
       const gw = wins.reduce((s, t) => s + t.pnl, 0), gl = Math.abs(closed.filter((t) => t.pnl < 0).reduce((s, t) => s + t.pnl, 0));
       let eq = 0, pk = 0, dd = 0;
       for (const t of closed.slice().sort((a, b) => (a.closedAt || 0) - (b.closedAt || 0))) { eq += t.pnl; pk = Math.max(pk, eq); dd = Math.min(dd, eq - pk); }
+      // Open positions, recipe-STRIPPED (only levels the client already sees for the live
+      // record) so the client can mark them to its own fresh prices for a live unrealized read.
+      const positions = [...Object.values(rec.open), ...Object.values(rec.openTrend || {})]
+        .map((p) => ({ symbol: p.symbol, side: p.side, entry: p.entry, risk: p.risk, riskDollars: p.riskDollars, strat: p.strat }));
       return {
         key: c.key, label: c.label,
         trades: closed.length,
-        open: Object.keys(rec.open).length + Object.keys(rec.openTrend || {}).length,
+        open: positions.length,
         net: Math.round(eq),
         winRate: closed.length ? Math.round((wins.length / closed.length) * 100) : 0,
         profitFactor: +(gw / (gl || 1)).toFixed(2),
         maxDrawdown: Math.round(dd),
+        positions,
       };
     }),
   };
