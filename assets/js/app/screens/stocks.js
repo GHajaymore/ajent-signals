@@ -71,6 +71,7 @@ function riskScreenerHtml(data) {
       <span class="risk-metric">${prof.metric(s)}</span>
       <span class="risk-vol" style="color:${tc}" title="volatility">${tier}</span>
       ${buy ? '<span class="risk-buy">BUY</span>' : ''}
+      <i class="ph ph-caret-down row-caret" aria-hidden="true"></i>
     </div>`;
   }).join('');
   return `<div class="section-label">Screen by risk profile</div>
@@ -118,6 +119,7 @@ function watchRow(s) {
     <span class="stk-sym">${s.symbol}</span>
     <span class="stk-w-meta">${prox}% of the way to a setup</span>
     <div class="stk-prox"><div class="stk-prox-bar"><i style="width:${Math.max(2, prox)}%"></i></div><span>${prox}%</span></div>
+    <i class="ph ph-caret-down row-caret" aria-hidden="true"></i>
   </div>`;
 }
 

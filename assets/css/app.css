@@ -188,7 +188,7 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .stk-conf { font: 600 11px var(--font-mono); color: var(--text-muted); }
 .stk-plan { display: flex; flex-direction: column; gap: 3px; font: 500 10.5px var(--font-mono); color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .stk-plan b { color: var(--text); font-weight: 600; }
-.stk-watch { display: grid; grid-template-columns: 56px 1fr 96px; align-items: center; gap: 10px; padding: 10px 2px; border-top: 1px solid var(--hairline); }
+.stk-watch { display: grid; grid-template-columns: 56px 1fr 96px auto; align-items: center; gap: 10px; padding: 10px 2px; border-top: 1px solid var(--hairline); }
 .stk-watch:first-child { border-top: none; }
 .stk-w-meta { font: 500 11px var(--font-mono); color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .stk-prox { display: flex; align-items: center; gap: 7px; }
@@ -196,6 +196,12 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .stk-prox-bar i { display: block; height: 100%; border-radius: 4px; background: var(--flat); }
 /* Inline expand of a screener row (tap a name → its plan + metrics). */
 .risk-row.open, .stk-watch.open { background: rgba(255,255,255,.02); }
+/* Tap-to-expand affordance: a caret signals the row opens; it rotates + brightens when open. */
+.row-caret { color: var(--text-muted); font-size: 13px; opacity: 0.4; flex: none; transition: transform 0.2s ease, opacity 0.2s ease, color 0.2s ease; }
+.risk-row.open .row-caret, .stk-watch.open .row-caret { transform: rotate(180deg); opacity: 0.9; color: var(--accent-200); }
+.risk-row:active, .stk-watch:active { background: rgba(255,255,255,.035); }
+@media (prefers-reduced-motion: no-preference) { .stk-detail { animation: skdIn 0.18s ease; } }
+@keyframes skdIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 .stk-detail { background: var(--surface-2, rgba(255,255,255,.03)); border: 1px solid var(--hairline); border-radius: 10px; padding: 10px 12px; margin: 2px 0 9px; }
 .skd-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 7px; letter-spacing: -0.01em; }
 .skd-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
