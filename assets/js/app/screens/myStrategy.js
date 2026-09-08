@@ -229,4 +229,19 @@ export function render(container) {
   }
 
   draw();
+
+  // Per-market close history streams in a beat after the screen mounts, so the first
+  // render's board is empty and shows the loading skeleton. This screen deliberately
+  // isn't a LIVE_SCREEN (a 1s full re-render would fight an in-progress slider drag),
+  // so refresh JUST the board — via refreshBoard, which leaves the form untouched —
+  // until the data lands, then stop. Self-clears when the user navigates away (the
+  // board wrapper leaves the DOM) or after a bounded wait.
+  if (!container.querySelector('.cs-row')) {
+    let tries = 0;
+    const poll = setInterval(() => {
+      if (!container.querySelector('#cs-board-wrap') || tries++ > 20) { clearInterval(poll); return; }
+      refreshBoard();
+      if (container.querySelector('.cs-row')) clearInterval(poll);
+    }, 1000);
+  }
 }
