@@ -291,8 +291,12 @@ export default {
           }
         } catch (e) { /* skip this query */ }
       }));
-      items.sort((a, b) => b.time - a.time);
-      return json({ news: items.slice(0, 12), at: Date.now(), source: 'Yahoo Finance (public)' });
+      // Yahoo's search mixes weeks-old evergreen articles in with fresh ones — drop anything
+      // older than a week so the feed is actually "news", not a stale "74d ago" list.
+      const MAX_AGE = 7 * 86400000;
+      const fresh = items.filter((n) => n.time && Date.now() - n.time < MAX_AGE);
+      fresh.sort((a, b) => b.time - a.time);
+      return json({ news: fresh.slice(0, 12), at: Date.now(), source: 'Yahoo Finance (public)' });
     }
 
     // Real OHLC candles for the charts, fetched server-side (no browser CORS,
