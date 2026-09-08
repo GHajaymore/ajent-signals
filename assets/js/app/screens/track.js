@@ -506,6 +506,9 @@ function backtestEdge() {
     </summary>
     <div class="text-muted" style="font-size:12.5px;line-height:1.65;margin-top:10px">
       Across <b style="color:var(--text)">~25 global markets over about a decade</b> of daily data — net of estimated trading costs — the mean-reversion core has shown a <b style="color:var(--text)">profit factor around 2.5–3.5</b> and a <b style="color:var(--text)">win rate near 75%</b>, with modest drawdowns; a second, independent trend-following edge is layered on top. Each setting was checked out-of-sample and across markets, not fitted to one lucky window.
+      <div style="margin-top:9px">
+        <b style="color:var(--text)">vs. buying and holding</b> the same markets, the edge isn't bigger raw returns — it's <b style="color:var(--text)">capital preservation</b>: by sitting in cash most of the time and stepping in only on genuine extremes, it held drawdowns to a fraction of the index's own, which can fall 25–35% in a crash.
+      </div>
       <div style="font-size:11px;line-height:1.55;margin-top:10px;padding:9px 11px;background:var(--flat-dim);border-radius:8px;color:var(--text-faint)">
         Hypothetical results have inherent limitations: they benefit from hindsight and do not represent real trading. No representation is made that any account will achieve similar results.
       </div>
