@@ -1,9 +1,10 @@
 // STOCK SCREENER (Phase 2). The swing edge generalizes to stocks in AGGREGATE
 // (test/phase2.mjs: pooled +0.11R / 67% win / 424 trades) but is noisy per-name, so
 // the honest vehicle is a SCREENER: scan a diversified liquid universe and surface
-// the names FIRING a signal right now, plus the ones closest. Signals ONLY — these
-// are NOT auto-traded into the tracked record (single-name / earnings-gap risk needs
-// guardrails first). Recipe is stripped before serving, same as /signals.
+// the names FIRING a signal right now, plus the ones closest. It is ALSO auto-paper-
+// traded on its own isolated record (RECORD_STOCKS), clearly labelled an unproven
+// EXPERIMENT — single names gap on earnings, so entries are gated to high-quality dips
+// (%B<0.15, tighter than indices). Recipe is stripped before serving, same as /signals.
 import { fetchDailyCandles } from './data.js';
 import { computeSignal } from './strategy.js';
 import { STRATEGY } from './meta.js';
