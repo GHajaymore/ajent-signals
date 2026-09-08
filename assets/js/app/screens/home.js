@@ -590,11 +590,6 @@ export function render(container) {
     ${marketContextHtml(engine)}
     ${trialNudgeHtml()}
 
-    <div class="axis-label">Asset class</div>
-    <div id="focus-wrap">${focusSelectorHtml()}</div>
-    <div class="axis-label">Trading style</div>
-    <div id="style-wrap">${styleSelectorHtml()}</div>
-
     <div id="portfolio-wrap">${portfolioCard(perf)}</div>
 
     <div id="today-wrap">${todayCardHtml()}</div>
@@ -609,6 +604,11 @@ export function render(container) {
     </div>
 
     <div id="hero-wrap" style="margin-top:6px">${heroCard(featured, featuredVerdict)}</div>
+
+    <div class="axis-label" style="margin-top:20px">Filter by asset class</div>
+    <div id="focus-wrap">${focusSelectorHtml()}</div>
+    <div class="axis-label">Trading style</div>
+    <div id="style-wrap">${styleSelectorHtml()}</div>
 
     <div id="positions-wrap">${openPositionsHtml()}</div>
 
