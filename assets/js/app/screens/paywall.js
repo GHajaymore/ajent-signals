@@ -58,6 +58,7 @@ const PRO_FEATURES = [
   { icon: 'ph-clock-countdown', text: 'Trades 24/7 — even when the app is closed' },
   { icon: 'ph-lightning', text: 'Real-time data (Free is delayed)' },
   { icon: 'ph-bell-ringing', text: 'Instant push alerts — entries, stops &amp; targets' },
+  { icon: 'ph-share-network', text: '<b>Signal-export webhooks</b> — pipe every signal to your own broker or bot' },
   { icon: 'ph-star', text: 'High-conviction filter &amp; alerts' },
   { icon: 'ph-crosshair-simple', text: 'Position-size &amp; risk calculator' },
 ];
@@ -126,7 +127,7 @@ export function render(container) {
 
     <div style="display:flex;gap:10px;align-items:flex-start;background:var(--neutral-900);border:1px solid var(--hairline);border-radius:12px;padding:11px 14px;margin-top:16px">
       <i class="ph-fill ph-seal-check" style="color:var(--accent-300);font-size:18px;flex:none;margin-top:1px"></i>
-      <div style="font-size:12.5px;line-height:1.5;color:var(--text-muted)"><b style="color:var(--text)">Same strategy on every plan.</b> Free and Pro both trade the proven <b style="color:var(--text)">Ajent Pulse</b> strategy — the identical signals. Pro only adds <b style="color:var(--text)">access</b>: more markets, real-time (vs delayed) data, and alerts. It is never a “better” or different strategy.</div>
+      <div style="font-size:12.5px;line-height:1.5;color:var(--text-muted)"><b style="color:var(--text)">Same strategy on every plan.</b> Free and Pro both trade the proven <b style="color:var(--text)">Ajent Pulse</b> strategy — the identical signals. Pro only adds <b style="color:var(--text)">access</b>: more markets, real-time (vs delayed) data, alerts, and signal-export to your own tools. It is never a “better” or different strategy.</div>
     </div>
 
     <div style="background:var(--buy-dim);border:1px solid color-mix(in srgb,var(--buy) 30%,transparent);border-radius:12px;padding:11px 14px;margin-top:12px;font-size:12.5px;line-height:1.5;color:var(--buy)">
@@ -153,11 +154,11 @@ export function render(container) {
 
     <div class="plan-option ${billing === 'monthly' ? 'selected' : ''}" data-plan="monthly">
       <div><div class="t">Monthly</div><div class="s">Billed monthly</div></div>
-      <div class="price">$39.90<div class="per">/mo</div></div>
+      <div class="price">$19.90<div class="per">/mo</div></div>
     </div>
     <div class="plan-option ${billing === 'annual' ? 'selected' : ''}" data-plan="annual">
-      <div><div class="t">Annual · 2 months free</div><div class="s">Billed $399.00 yearly ($33.25/mo)</div></div>
-      <div class="price">$399.00<div class="per">/yr</div></div>
+      <div><div class="t">Annual · 2 months free</div><div class="s">Billed $199.00 yearly ($16.58/mo)</div></div>
+      <div class="price">$199.00<div class="per">/yr</div></div>
     </div>
 
     <button class="btn btn-primary btn-block" id="pw-cta" style="height:52px;font-size:15px;margin-top:8px">${offerTrial ? `Start ${TRIAL_DAYS}-day free trial` : (canBuy ? ctaLabel(billing) : 'Join the waitlist')}</button>
