@@ -1105,7 +1105,7 @@ export function render(container) {
 
     ${byAssetClassHtml(closed)}
 
-    ${byEngineHtml(closed)}
+    ${isInternal() ? byEngineHtml(closed) : ''}
 
     ${byMarketHtml(closed)}
 
