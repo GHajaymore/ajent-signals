@@ -209,6 +209,11 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 @media (prefers-reduced-motion: reduce) { .skeleton::after { animation: none; opacity: 0.5; } }
 .stk-sk-row { display: flex; align-items: center; gap: 12px; padding: 11px 2px; border-top: 1px solid var(--hairline); }
 .stk-sk-row:first-child { border-top: none; }
+.sk-mkt { display: flex; align-items: center; gap: 12px; padding: 12px 4px; border-top: 1px solid var(--hairline); }
+.sk-mkt:first-child { border-top: none; }
+.sk-badge { width: 40px; height: 40px; border-radius: 11px; flex: none; }
+.sk-mkt-mid { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.sk-mkt-end { display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
 .stk-detail { background: var(--surface-2, rgba(255,255,255,.03)); border: 1px solid var(--hairline); border-radius: 10px; padding: 10px 12px; margin: 2px 0 9px; }
 .skd-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 7px; letter-spacing: -0.01em; }
 .skd-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }

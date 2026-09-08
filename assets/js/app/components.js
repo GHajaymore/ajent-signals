@@ -138,6 +138,15 @@ export function liveTag(market) {
   return `${dot(false)}${openLabel} · connecting…`; // clock says open, no quote yet
 }
 
+// Shimmer skeleton for a market-row list while live data loads — mirrors the row shape
+// (badge · name/sub · price/change) so the layout doesn't jump when the feeds arrive.
+export function marketRowsSkeleton(n = 5) {
+  const row = '<div class="sk-mkt"><span class="skeleton sk-badge"></span>'
+    + '<div class="sk-mkt-mid"><span class="skeleton" style="width:106px;height:13px"></span><span class="skeleton" style="width:62px;height:10px"></span></div>'
+    + '<div class="sk-mkt-end"><span class="skeleton" style="width:72px;height:14px"></span><span class="skeleton" style="width:44px;height:11px"></span></div></div>';
+  return `<div class="sk-mkt-list">${new Array(n).fill(row).join('')}</div>`;
+}
+
 export function heroCard(market, verdict) {
   const color = verdictColorVar(verdict);
   const s = market.signal;

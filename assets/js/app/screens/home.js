@@ -1,5 +1,5 @@
 import { state, saveSettings, setFocusClass } from '../state.js';
-import { heroCard, watchlistRow, patchRow, patchHero, symTile, dataTag, sparklineSvg } from '../components.js';
+import { heroCard, watchlistRow, patchRow, patchHero, symTile, dataTag, sparklineSvg, marketRowsSkeleton } from '../components.js';
 import { getPerformanceSummary, getOpenCount, getOpenPositions, getClosedTrades } from '../paperTrading.js';
 import { marketSession, countryOpen, marketHolidayToday, cashClosureNote } from '../marketHours.js';
 import { backendConfigured, isEntitled, isPaid, isSignedUp, trialDaysLeft, fetchNews, fetchStocks } from '../backendApi.js';
@@ -626,7 +626,7 @@ export function render(container) {
         .map((sym) => engine.get(sym))
         .filter((m) => m && (!backendConfigured() || isRealMarket(m)))
         .map((m) => watchlistRow(m, m.verdict(threshold)))
-        .join('') || '<div class="text-muted" style="font-size:12.5px;padding:14px 4px">Live data is loading — your markets will appear as their feeds come in.</div>'}</div>
+        .join('') || marketRowsSkeleton(5)}</div>
     </div>
 
     <div class="section-label">Market-moving events<a data-nav="#/calendar">Calendar &rsaquo;</a></div>
@@ -856,7 +856,6 @@ export function refresh(container) {
       if (m) patchRow(el, m, m.verdict(threshold));
     });
   } else {
-    watchlistWrap.innerHTML = visibleWatch.map((m) => watchlistRow(m, m.verdict(threshold))).join('')
-      || '<div class="text-muted" style="font-size:12.5px;padding:14px 4px">Live data is loading — your watchlist markets will appear as their feeds come in.</div>';
+    watchlistWrap.innerHTML = visibleWatch.map((m) => watchlistRow(m, m.verdict(threshold))).join('') || marketRowsSkeleton(5);
   }
 }

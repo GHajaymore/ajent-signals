@@ -4,7 +4,7 @@ import { INDICATORS, INDICATOR_KEYS, defaultCondition, evalCustom, getCustomConf
 import { customStats, customEquity, ajentAvgR } from '../customBook.js';
 import { userStats } from '../userBook.js';
 import { getPerformanceSummary, getClosedTrades } from '../paperTrading.js';
-import { sparklineSvg } from '../components.js';
+import { sparklineSvg, marketRowsSkeleton } from '../components.js';
 
 // "Your strategy" — a multi-indicator builder. Pick from a palette of popular
 // indicators, combine them (all must agree), long / short / both, and see YOUR
@@ -115,7 +115,7 @@ function boardHtml(cfg) {
     </div>`;
   }).join('');
 
-  return `${cmp}<div class="cs-board">${list || '<p class="text-muted" style="text-align:center;padding:20px 0;font-size:13px">Live data is loading…</p>'}</div>`;
+  return `${cmp}<div class="cs-board">${list || marketRowsSkeleton(4)}</div>`;
 }
 
 function recordPanel() {
