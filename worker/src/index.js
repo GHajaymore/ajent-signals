@@ -88,6 +88,25 @@ export default {
       return json({ country: cf.country || null, region: cf.region || null, timezone: cf.timezone || null });
     }
 
+    // First-party FX rates: the Worker fetches + caches USD->* daily so the app converts its
+    // virtual-money display without the browser ever hitting a third-party FX API. Best-effort;
+    // serves stale cache (or null) if the upstream is down, and the client keeps its own USD
+    // fallback. Rates are public data — nothing secret here.
+    if (url.pathname === '/fx') {
+      const store = db(env);
+      const cached = await store.get('FX', 'RATES');
+      if (cached && cached.at && Date.now() - cached.at < 20 * 3600000) return json({ rates: cached.rates, at: cached.at });
+      try {
+        const d = await fetch('https://open.er-api.com/v6/latest/USD', { cache: 'no-store' }).then((r) => r.json());
+        if (d && d.result === 'success' && d.rates && d.rates.EUR) {
+          const at = Date.now();
+          try { await store.put({ pk: 'FX', sk: 'RATES', rates: d.rates, at }); } catch (e) { /* non-fatal */ }
+          return json({ rates: d.rates, at });
+        }
+      } catch (e) { /* fall through to whatever we have */ }
+      return json({ rates: (cached && cached.rates) || null, at: (cached && cached.at) || 0 });
+    }
+
     // Force one run of the 24/7 loop on demand (e.g. right after a deploy) instead
     // of waiting for the next 15-min cron. Guarded by its own ADMIN_KEY secret —
     // separate from the Pro gate, so it never affects free access. No-op (404) when

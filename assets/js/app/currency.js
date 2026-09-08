@@ -20,14 +20,23 @@ try { const c = JSON.parse(localStorage.getItem('ajent_fx_rates') || 'null'); if
 // Refresh USD→* rates at most once a day. Best-effort; silent on failure.
 export async function refreshRates() {
   if (rates && Date.now() - ratesAt < 20 * 3600000) return;
-  try {
-    const r = await fetch('https://open.er-api.com/v6/latest/USD', { cache: 'no-store' });
-    const d = await r.json();
-    if (d && d.result === 'success' && d.rates && d.rates.EUR) {
-      rates = d.rates; ratesAt = Date.now();
-      try { localStorage.setItem('ajent_fx_rates', JSON.stringify({ rates, at: ratesAt })); } catch (e) { /* ignore */ }
-    }
-  } catch (e) { /* keep cached / fall back to USD */ }
+  // First-party first: our own Worker fetches + caches the rates, so in the normal case the
+  // browser never hits a third-party FX API. Fall back to the public API if the Worker is
+  // unreachable. Both responses carry `.rates` (USD-based).
+  const base = (typeof window !== 'undefined' && window.__AJENT_API) || '';
+  const sources = base ? [`${base}/fx`, 'https://open.er-api.com/v6/latest/USD'] : ['https://open.er-api.com/v6/latest/USD'];
+  for (const url of sources) {
+    try {
+      const d = await fetch(url, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null));
+      const rt = d && d.rates;
+      if (rt && rt.EUR) {
+        rates = rt; ratesAt = Date.now();
+        try { localStorage.setItem('ajent_fx_rates', JSON.stringify({ rates, at: ratesAt })); } catch (e) { /* ignore */ }
+        return;
+      }
+    } catch (e) { /* try the next source */ }
+  }
+  // else: keep cached rates / USD fallback
 }
 
 export function localCurrencyCode() { return COUNTRY_CCY[state.geoCountry] || 'USD'; }
