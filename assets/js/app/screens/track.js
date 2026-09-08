@@ -510,12 +510,14 @@ function labAdvertHtml() {
 // "Full statistics" drill-down. `p` is a performance summary.
 function metricStrip(p) {
   const pf = p.profitFactor === Infinity ? '∞' : p.profitFactor.toFixed(2);
-  const cell = (k, v, col) => `<div class="m"><div class="mk">${k}</div><div class="mv"${col ? ` style="color:${col}"` : ''}>${v}</div></div>`;
+  // Plain-language labels (no trader jargon like "Max DD"/"Expectancy"); a tap/hover tip
+  // gives the precise meaning and the technical term for anyone who wants it.
+  const cell = (k, v, col, tip) => `<div class="m" title="${tip}"><div class="mk">${k}</div><div class="mv"${col ? ` style="color:${col}"` : ''}>${v}</div></div>`;
   return `<div class="pf-strip">
-    ${cell('Win', `${p.winRate}%`, 'var(--buy)')}
-    ${cell('Profit factor', pf)}
-    ${cell('Max DD', money(p.maxDrawdown), 'var(--sell)')}
-    ${cell('Expectancy', money(p.expectancy), p.expectancy >= 0 ? 'var(--buy)' : 'var(--sell)')}
+    ${cell('Win rate', `${p.winRate}%`, 'var(--buy)', 'How often a trade closes in profit.')}
+    ${cell('$ won per $ lost', pf, '', 'For every $1 lost, this many dollars were won (profit factor). Above 1 is profitable.')}
+    ${cell('Worst drop', money(p.maxDrawdown), 'var(--sell)', "The account's biggest peak-to-trough dip — how bad it got at its worst (max drawdown).")}
+    ${cell('Avg / trade', money(p.expectancy), p.expectancy >= 0 ? 'var(--buy)' : 'var(--sell)', 'Average profit or loss per trade (expectancy).')}
   </div>`;
 }
 
