@@ -106,8 +106,10 @@ function newsCardHtml() {
   // "74d ago" item makes the section look broken — drop anything older than a few days.
   const MAX_NEWS_AGE = 5 * 86400000;
   const items = loaded ? loaded.filter((n) => n.time && (Date.now() - n.time) < MAX_NEWS_AGE) : null;
+  // Once loaded, if there are no fresh headlines, hide the whole section — a calmer home than
+  // an empty "no headlines" block. It reappears on its own when fresh news arrives.
+  if (loaded && !items.length) return '';
   const body = !loaded ? `<div class="text-muted" style="font-size:12.5px;padding:14px 4px"><i class="ph ph-hourglass-medium" style="margin-right:6px"></i>Loading headlines…</div>`
-    : !items.length ? `<div class="text-muted" style="font-size:12.5px;padding:14px 4px">No recent market headlines.</div>`
     : items.slice(0, 6).map((n) => `<a href="${esc(n.link)}" target="_blank" rel="noopener noreferrer" class="news-row" style="display:block;padding:10px 2px;border-bottom:1px solid var(--hairline);text-decoration:none;color:inherit">
         <div style="font:600 13px var(--font-heading);line-height:1.35">${esc(n.title)}</div>
         <div class="text-muted" style="font-size:11px;margin-top:3px">${esc(n.publisher || 'News')} · ${newsRelTime(n.time)}</div>
