@@ -10,6 +10,7 @@ import { STRATEGY } from './meta.js';
 
 const dayKey = (ms) => new Date(ms).toISOString().slice(0, 10);
 const HOLD_DAYS = 5; // swing time cap — the same as the validated backtest
+const STOCK_PB_MAX = 0.15; // adopted %B gate for single names — tighter than the index 0.30 (noisier)
 
 // Risk-profile metrics for the user-facing risk screener (NOT the Ajent Pulse signal
 // recipe — these are generic public measures anyone computes). Per stock: annualized
@@ -126,7 +127,15 @@ export async function scanStocks(env, store) {
         const { candles } = await fetchDailyCandles({ yahoo: sym, country: 'US' }, env);
         if (!candles || candles.length < 210) return null;
         const price = candles[candles.length - 1].c;
-        const sig = computeSignal(candles, price);
+        let sig = computeSignal(candles, price);
+        // %B gate (adopted 2026-09-08). The equity dip-buy fires only deep near/below the lower
+        // Bollinger band. Single large-caps are NOISIER than indices, so the lab validated a
+        // TIGHTER band here than the index recipe's 0.30 (test/stock-pb-check.mjs: OOS pf
+        // 1.23→1.86, drawdown halved, interior peak at 0.15). Gates both the shown verdict and
+        // the auto-trade so the screener only surfaces high-quality dips.
+        if (sig.verdict === 'BUY' && typeof sig.pctB === 'number' && sig.pctB >= STOCK_PB_MAX) {
+          sig = { ...sig, verdict: 'NO_TRADE', direction: 0, plan: null };
+        }
         if (record) manageStock(record, sym, sig, price, now, risk, cost); // paper-trade it
         const rm = riskMetrics(candles); // generic risk metrics for the risk screener
         return {
