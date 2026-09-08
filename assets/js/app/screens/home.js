@@ -101,9 +101,13 @@ function newsCardHtml() {
         <span class="chip-upgrade">Go Pro</span>
       </div>`;
   }
-  const items = newsCache && newsCache.news ? newsCache.news : null;
-  const body = !items ? `<div class="text-muted" style="font-size:12.5px;padding:14px 4px"><i class="ph ph-hourglass-medium" style="margin-right:6px"></i>Loading headlines…</div>`
-    : !items.length ? `<div class="text-muted" style="font-size:12.5px;padding:14px 4px">No market headlines right now.</div>`
+  const loaded = newsCache && newsCache.news ? newsCache.news : null;
+  // Only recent headlines. The public feed sometimes returns weeks-old articles, and a stale
+  // "74d ago" item makes the section look broken — drop anything older than a few days.
+  const MAX_NEWS_AGE = 5 * 86400000;
+  const items = loaded ? loaded.filter((n) => n.time && (Date.now() - n.time) < MAX_NEWS_AGE) : null;
+  const body = !loaded ? `<div class="text-muted" style="font-size:12.5px;padding:14px 4px"><i class="ph ph-hourglass-medium" style="margin-right:6px"></i>Loading headlines…</div>`
+    : !items.length ? `<div class="text-muted" style="font-size:12.5px;padding:14px 4px">No recent market headlines.</div>`
     : items.slice(0, 6).map((n) => `<a href="${esc(n.link)}" target="_blank" rel="noopener noreferrer" class="news-row" style="display:block;padding:10px 2px;border-bottom:1px solid var(--hairline);text-decoration:none;color:inherit">
         <div style="font:600 13px var(--font-heading);line-height:1.35">${esc(n.title)}</div>
         <div class="text-muted" style="font-size:11px;margin-top:3px">${esc(n.publisher || 'News')} · ${newsRelTime(n.time)}</div>
@@ -580,6 +584,7 @@ export function render(container) {
     ${regionBarHtml(engine)}
 
     <div class="home-greeting">${greeting()}${state.focusClass !== 'all' ? ` · <span style="color:var(--accent-200);font-size:13px;font-weight:600">${focusClassLabel(state.focusClass)}</span>` : ''}</div>
+    <div class="home-tagline">Educational trading signals, auto-traded with virtual money and tracked honestly — winners and losers, nothing hidden.</div>
     ${marketContextHtml(engine)}
     ${trialNudgeHtml()}
 
@@ -593,22 +598,10 @@ export function render(container) {
     <div id="today-wrap">${todayCardHtml()}</div>
 
     <div class="stat-row" style="grid-template-columns:repeat(2,1fr)">
-      <div class="stat-card">
-        <div class="stat-label">Open signals</div>
-        <div class="stat-value" id="stat-open-signals">${openSignals.length}</div>
-        <div class="stat-sub" id="stat-avg-conf">avg ${avgConf}%</div>
-      </div>
       <div class="stat-card" data-nav="#/track">
         <div class="stat-label">Open trades</div>
         <div class="stat-value" id="stat-open-trades" style="color:${focusOpenN ? 'var(--buy)' : 'var(--text)'}">${focusOpenN}</div>
         <div class="stat-sub">live paper positions</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Daily trend</div>
-        <div class="stat-value" id="stat-daily-trend" style="font-size:15px;color:${riskOn ? 'var(--buy)' : 'var(--sell)'};display:flex;align-items:center;gap:5px">
-          <i class="ph-bold ${riskOn ? 'ph-trend-up' : 'ph-trend-down'}"></i>${riskOn ? 'Up' : 'Down'}
-        </div>
-        <div class="stat-sub" id="stat-daily-trend-sub">${upToday} of ${trendCount} markets up</div>
       </div>
       ${strategyChip()}
     </div>
