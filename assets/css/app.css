@@ -898,6 +898,12 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .pf-hero-value { font: 800 42px var(--font-heading); letter-spacing: -1.5px; margin-top: 4px; line-height: 1; }
 .pf-hero-meta { font-size: 12.5px; color: var(--text-muted); margin-top: 9px; }
 .pf-hero-chart { margin-top: 16px; }
+/* Scannable metric strip under the equity curve (TradingView report pattern) — replaces the 8-card grid. */
+.pf-strip { display: flex; margin-top: 14px; border: 1px solid var(--hairline); border-radius: 12px; background: color-mix(in srgb, var(--surface) 70%, transparent); overflow: hidden; }
+.pf-strip .m { flex: 1; padding: 9px 4px; text-align: center; border-right: 1px solid var(--hairline); }
+.pf-strip .m:last-child { border-right: none; }
+.pf-strip .mk { font: 700 8.5px var(--font-body); letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-faint); }
+.pf-strip .mv { font: 700 15px var(--font-heading); margin-top: 3px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .mkt-star { flex: none; background: none; border: none; cursor: pointer; padding: 4px; margin: -4px -2px -4px 0; font-size: 17px; line-height: 1; color: var(--text-muted); opacity: 0.5; transition: opacity 0.15s, color 0.15s, transform 0.1s; }
 .mkt-star:hover { opacity: 1; }
 .mkt-star:active { transform: scale(0.85); }

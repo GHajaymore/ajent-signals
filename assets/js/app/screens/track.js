@@ -493,6 +493,32 @@ function strategyCard() {
   </div>`;
 }
 
+// The candidate scoreboard is an INTERNAL tool (Ajent picks the live strategy from it) — only
+// shown in debug/internal mode. Users instead get the advertise-the-lab trust callout below.
+function isInternal() { try { return new URLSearchParams(location.search).get('debug') === '1' || !!(typeof window !== 'undefined' && window.__ajentDebug); } catch (e) { return false; } }
+// User-facing: advertise that Ajent continuously lab-tests — a credibility feature, not the raw
+// candidate scoreboard. Honest (it's how Ajent Pulse actually evolves).
+function labAdvertHtml() {
+  return `<div class="card" style="padding:13px 15px;margin-bottom:12px;display:flex;gap:11px;align-items:flex-start">
+    <i class="ph-fill ph-flask" style="color:var(--accent-300);font-size:19px;flex:none;margin-top:1px"></i>
+    <div class="text-muted" style="font-size:12.5px;line-height:1.6"><b style="color:var(--text)">Continuously lab-tested.</b> Every change to the strategy is forward-tested on live signals against the alternatives before it ships — validated by its own record, not guessed. New indicators and variants run in the lab until they prove out.</div>
+  </div>`;
+}
+
+// One scannable metric strip (win / PF / max DD / expectancy) under the equity curve — the
+// TradingView strategy-report pattern. Replaces the old 8-card grid; full stats move to a
+// "Full statistics" drill-down. `p` is a performance summary.
+function metricStrip(p) {
+  const pf = p.profitFactor === Infinity ? '∞' : p.profitFactor.toFixed(2);
+  const cell = (k, v, col) => `<div class="m"><div class="mk">${k}</div><div class="mv"${col ? ` style="color:${col}"` : ''}>${v}</div></div>`;
+  return `<div class="pf-strip">
+    ${cell('Win', `${p.winRate}%`, 'var(--buy)')}
+    ${cell('Profit factor', pf)}
+    ${cell('Max DD', money(p.maxDrawdown), 'var(--sell)')}
+    ${cell('Expectancy', money(p.expectancy), p.expectancy >= 0 ? 'var(--buy)' : 'var(--sell)')}
+  </div>`;
+}
+
 // The live strategy lab — candidate strategies forward-tested on the same signals, each in
 // its own shadow record (worker /lab). Renders a placeholder, then wireLab() fills it async.
 function labPanel() {
@@ -570,8 +596,16 @@ function backtestEdge() {
       <i class="ph ph-caret-down" style="color:var(--text-muted);flex:none"></i>
     </summary>
     <div class="text-muted" style="font-size:12.5px;line-height:1.65;margin-top:10px">
-      Across <b style="color:var(--text)">~25 global markets over about a decade</b> of daily data — net of estimated trading costs — the mean-reversion core has shown a <b style="color:var(--text)">profit factor around 2.5–3.5</b> and a <b style="color:var(--text)">win rate near 75%</b>, with modest drawdowns; a second, independent trend-following edge is layered on top. Each setting was checked out-of-sample and across markets, not fitted to one lucky window.
-      <div style="margin-top:9px">
+      Across <b style="color:var(--text)">~25 global markets over about a decade</b> of daily data — net of estimated trading costs — the mean-reversion core has shown a <b style="color:var(--text)">win rate near 75%</b> with modest drawdowns; a second, independent trend-following edge is layered on top. Each setting was checked out-of-sample and across markets, not fitted to one lucky window.
+      <div style="margin-top:14px">
+        <div style="display:flex;justify-content:space-between;font:700 10px var(--font-heading);color:var(--text-muted);margin-bottom:6px;font-variant-numeric:tabular-nums"><span>PF 1.0</span><span style="color:var(--accent-200)">likely 2.5–3.5</span><span>PF 5.0</span></div>
+        <div style="position:relative;height:11px;border-radius:6px;background:color-mix(in srgb,var(--text-muted) 20%,transparent)">
+          <div style="position:absolute;top:0;bottom:0;left:37.5%;right:37.5%;background:linear-gradient(90deg,var(--accent-800),var(--accent));opacity:.6;border-radius:6px"></div>
+          <div style="position:absolute;top:-2px;left:50%;width:3px;height:15px;border-radius:2px;background:var(--accent-100)"></div>
+        </div>
+        <div class="text-faint" style="font-size:10px;margin-top:5px">A range, not a single figure — where the backtested profit factor typically landed. PF &gt; 1 = profitable.</div>
+      </div>
+      <div style="margin-top:12px">
         <b style="color:var(--text)">vs. buying and holding</b> the same markets, the edge isn't bigger raw returns — it's <b style="color:var(--text)">capital preservation</b>: by sitting in cash most of the time and stepping in only on genuine extremes, it held drawdowns to a fraction of the index's own, which can fall 25–35% in a crash.
       </div>
       <div style="font-size:11px;line-height:1.55;margin-top:10px;padding:9px 11px;background:var(--flat-dim);border-radius:8px;color:var(--text-faint)">
@@ -1024,8 +1058,9 @@ export function render(container) {
     <div class="pf-hero ${up ? 'up' : 'down'}">
       <div class="pf-hero-label">Net virtual P&amp;L${focusLabel ? ` · <span style="color:var(--accent-200)">${focusLabel}</span>` : ''} · ${focused.length} trade${focused.length === 1 ? '' : 's'}</div>
       <div class="pf-hero-value" style="color:${pnlColor}">${scopedPerf ? money(scopedPerf.totalPnl) : '$0'}</div>
-      <div class="pf-hero-meta">${scopedPerf ? `<span style="color:var(--buy)">${scopedPerf.winRate}% win</span> · PF ${pfStr} · ${scopedPerf.wins}W / ${scopedPerf.losses}L` : `No ${focusLabel || ''} trades on the record yet — the full breakdown is below.`}</div>
+      <div class="pf-hero-meta">${scopedPerf ? `net on virtual money · ${scopedPerf.wins}W / ${scopedPerf.losses}L` : `No ${focusLabel || ''} trades on the record yet — the full breakdown is below.`}</div>
       ${scopedPerf && focused.length >= 2 ? `<div class="pf-hero-chart">${equityChart(scopedPerf.equity)}</div>` : ''}
+      ${scopedPerf ? metricStrip(scopedPerf) : ''}
     </div>
     </div><!-- /paper-summary -->
     <div class="paper-detail">
@@ -1034,7 +1069,7 @@ export function render(container) {
 
     ${strategyCard()}
 
-    ${labPanel()}
+    ${labAdvertHtml()}
 
     ${backtestEdge()}
 
@@ -1044,19 +1079,21 @@ export function render(container) {
 
     ${riskMeterHtml()}
 
-    <div class="stat2-grid">
-      <div class="stat-card"><div class="stat-label">Win rate</div><div class="stat-value" style="color:var(--buy)">${perf.winRate}%</div><div class="stat-sub">${perf.wins}W / ${perf.losses}L</div></div>
-      <div class="stat-card"><div class="stat-label">Avg win</div><div class="stat-value" style="color:var(--buy)">${money(perf.avgWin)}</div><div class="stat-sub">per winning trade</div></div>
-      <div class="stat-card"><div class="stat-label">Avg loss</div><div class="stat-value" style="color:var(--sell)">${money(-perf.avgLoss)}</div><div class="stat-sub">per losing trade</div></div>
-      <div class="stat-card"><div class="stat-label">Avg hold</div><div class="stat-value">${perf.avgHold}</div><div class="stat-sub">per trade</div></div>
-    </div>
-
-    <div class="stat2-grid">
-      <div class="stat-card"><div class="stat-label">Profit factor</div><div class="stat-value">${perf.profitFactor === Infinity ? '∞' : perf.profitFactor.toFixed(2)}</div><div class="stat-sub">gross win ÷ loss</div></div>
-      <div class="stat-card"><div class="stat-label">Expectancy</div><div class="stat-value" style="color:${perf.expectancy >= 0 ? 'var(--buy)' : 'var(--sell)'}">${money(perf.expectancy)}</div><div class="stat-sub">avg per trade</div></div>
-      <div class="stat-card"><div class="stat-label">Best streak</div><div class="stat-value" style="color:var(--buy)">${perf.bestWinStreak}W</div><div class="stat-sub">consecutive wins</div></div>
-      <div class="stat-card"><div class="stat-label">Max drawdown</div><div class="stat-value" style="color:var(--sell)">${money(perf.maxDrawdown)}</div><div class="stat-sub">peak-to-trough</div></div>
-    </div>
+    <details class="panel" style="padding:12px 16px">
+      <summary style="cursor:pointer;font:600 13.5px var(--font-heading);display:flex;align-items:center;justify-content:space-between;gap:10px"><span>Full statistics</span><i class="ph ph-caret-down" style="color:var(--text-muted);flex:none"></i></summary>
+      <div class="stat2-grid" style="margin-top:12px">
+        <div class="stat-card"><div class="stat-label">Win rate</div><div class="stat-value" style="color:var(--buy)">${perf.winRate}%</div><div class="stat-sub">${perf.wins}W / ${perf.losses}L</div></div>
+        <div class="stat-card"><div class="stat-label">Avg win</div><div class="stat-value" style="color:var(--buy)">${money(perf.avgWin)}</div><div class="stat-sub">per winning trade</div></div>
+        <div class="stat-card"><div class="stat-label">Avg loss</div><div class="stat-value" style="color:var(--sell)">${money(-perf.avgLoss)}</div><div class="stat-sub">per losing trade</div></div>
+        <div class="stat-card"><div class="stat-label">Avg hold</div><div class="stat-value">${perf.avgHold}</div><div class="stat-sub">per trade</div></div>
+      </div>
+      <div class="stat2-grid" style="margin-top:8px">
+        <div class="stat-card"><div class="stat-label">Profit factor</div><div class="stat-value">${perf.profitFactor === Infinity ? '∞' : perf.profitFactor.toFixed(2)}</div><div class="stat-sub">gross win ÷ loss</div></div>
+        <div class="stat-card"><div class="stat-label">Expectancy</div><div class="stat-value" style="color:${perf.expectancy >= 0 ? 'var(--buy)' : 'var(--sell)'}">${money(perf.expectancy)}</div><div class="stat-sub">avg per trade</div></div>
+        <div class="stat-card"><div class="stat-label">Best streak</div><div class="stat-value" style="color:var(--buy)">${perf.bestWinStreak}W</div><div class="stat-sub">consecutive wins</div></div>
+        <div class="stat-card"><div class="stat-label">Max drawdown</div><div class="stat-value" style="color:var(--sell)">${money(perf.maxDrawdown)}</div><div class="stat-sub">peak-to-trough</div></div>
+      </div>
+    </details>
 
     ${pnlPanel(closed)}
 
@@ -1069,6 +1106,8 @@ export function render(container) {
     ${byEngineHtml(closed)}
 
     ${byMarketHtml(closed)}
+
+    ${isInternal() ? labPanel() : ''}
 
     <div class="section-label" style="margin-top:20px">Recent trades${closed.length ? `<a id="export-csv" style="cursor:pointer"><i class="ph-bold ph-download-simple" style="font-size:12px;vertical-align:-1px"></i> Export CSV</a>` : ''}</div>
     <div class="card" style="padding:2px 12px">
