@@ -1,7 +1,7 @@
 import { getClosedTrades, getPerformanceSummary, getOpenPositions, tradePnl } from '../paperTrading.js';
 import { userStats, getUserBook, closeUserTrade, cancelUserOrder, cancelAllPending, userTradeFor, riskLimitsStatus } from '../userBook.js';
 import { customStats, ajentAvgR, getCustomBook, closeCustomPosition, closeAllCustom } from '../customBook.js';
-import { positionCallPill, updateCallPill, exitProgressText } from '../tradeGuidance.js';
+import { positionCallPill, updateCallPill, exitProgressText, posDomKey } from '../tradeGuidance.js';
 import { getStrategy, getAdaptive } from '../strategyMeta.js';
 import { fmtPrice } from '../format.js';
 import { state, getEnabledPaperMarkets, setPaperMarketEnabled, setAllPaperMarkets, setPaperMarkets, FREE_MARKET_LIMIT } from '../state.js';
@@ -544,7 +544,8 @@ function openRow(p) {
   const dec = market?.decimals ?? p.decimals ?? 2;
   const col = pnl ? (pnl.dollars >= 0 ? 'var(--buy)' : 'var(--sell)') : 'var(--text-muted)';
   const pnlStr = pnl ? `${money(pnl.dollars)}${exitProgressText(p, pnl.px) ? ` · ${exitProgressText(p, pnl.px)}` : ''}` : 'live…';
-  return `<div class="closed-row" data-open-row="${p.symbol}" data-nav="#/chart/${p.symbol}" style="cursor:pointer;display:block;padding:11px 4px">
+  const k = posDomKey(p); // unique per position (a market may hold both an MR and a trend slot)
+  return `<div class="closed-row" data-open-row="${k}" data-nav="#/chart/${p.symbol}" style="cursor:pointer;display:block;padding:11px 4px">
       <div style="display:flex;align-items:center;gap:12px">
         <div class="closed-sym">${p.symbol}</div>
         <div class="closed-body" style="flex:1;min-width:0">
@@ -552,11 +553,11 @@ function openRow(p) {
           <div class="closed-sub">Entry ${fmtPrice(p.entry, dec)} · stop ${fmtPrice(p.stop, dec)} · target ${fmtPrice(p.target1, dec)}</div>
         </div>
         <div style="text-align:right;flex:none">
-          <div class="tabular" data-open-pnl="${p.symbol}" style="color:${col};font-weight:700;font-size:13.5px">${pnlStr}</div>
+          <div class="tabular" data-open-pnl="${k}" style="color:${col};font-weight:700;font-size:13.5px">${pnlStr}</div>
           <div class="text-muted" style="font-size:10px;margin-top:1px">unrealized</div>
         </div>
       </div>
-      <div data-open-bar="${p.symbol}">${pnl ? riskBar(pnl.r) : ''}</div>
+      <div data-open-bar="${k}">${pnl ? riskBar(pnl.r) : ''}</div>
     </div>`;
 }
 
@@ -1070,15 +1071,16 @@ export function refresh(container) {
     if (openWrap.dataset.sig !== sig) {
       getOpenPositions().forEach((p) => {
         const pnl = posLivePnl(p);
-        const pEl = openWrap.querySelector(`[data-open-pnl="${p.symbol}"]`);
-        const bEl = openWrap.querySelector(`[data-open-bar="${p.symbol}"]`);
+        const k = posDomKey(p);
+        const pEl = openWrap.querySelector(`[data-open-pnl="${k}"]`);
+        const bEl = openWrap.querySelector(`[data-open-bar="${k}"]`);
         if (pEl && pnl) {
           const prog = exitProgressText(p, pnl.px);
           pEl.textContent = `${money(pnl.dollars)}${prog ? ` · ${prog}` : ''}`;
           pEl.style.color = pnl.dollars >= 0 ? 'var(--buy)' : 'var(--sell)';
         }
         if (bEl && pnl) bEl.innerHTML = riskBar(pnl.r);
-        updateCallPill(openWrap.querySelector(`[data-call="${p.symbol}"]`), state.engine.get(p.symbol), p);
+        updateCallPill(openWrap.querySelector(`[data-call="${k}"]`), state.engine.get(p.symbol), p);
       });
       // If the set of open positions changed (a trade opened/closed), rebuild.
       const cur = [...openWrap.querySelectorAll('[data-open-row]')].map((el) => el.dataset.openRow).join(',');

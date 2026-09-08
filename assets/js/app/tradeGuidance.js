@@ -49,9 +49,13 @@ export function exitProgressText(p, price) {
   return `${shown}% to ${diff > 0 ? 'target' : 'stop'}`;
 }
 
+// A DOM key unique per open position. A market can now hold both an MR and a trend
+// position (concurrent ensemble slots), so keying live-patch nodes by symbol alone would
+// collide. MR/legacy keep the bare symbol (unchanged); trend gets a suffix.
+export const posDomKey = (p) => p.symbol + (p.strat === 'trend' ? '~T' : '');
 export function positionCallPill(market, pos) {
   const c = positionCall(market, pos);
-  return `<span class="call-pill ${c.status}" data-call="${pos.symbol}"${c.tip ? ` title="${c.tip.replace(/"/g, '&quot;')}"` : ''}>${callInner(c)}</span>`;
+  return `<span class="call-pill ${c.status}" data-call="${posDomKey(pos)}"${c.tip ? ` title="${c.tip.replace(/"/g, '&quot;')}"` : ''}>${callInner(c)}</span>`;
 }
 // Re-evaluate and update an already-rendered pill in place (prices move → call moves).
 export function updateCallPill(el, market, pos) {

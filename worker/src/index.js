@@ -413,7 +413,10 @@ export default {
         const rec = await store.get('RECORD', 'ALL');
         // Strip recipe-revealing fields from open positions (exit threshold, exit rule
         // name, hold cap). The client uses the derived `call` the scheduler set instead.
-        const open = rec && rec.open ? Object.values(rec.open).map(publicPosition) : [];
+        // The ensemble holds MR (rec.open) and trend (rec.openTrend) in parallel slots — a
+        // market can have one of each; merge both so the client sees every open position.
+        const openRaw = [...Object.values((rec && rec.open) || {}), ...Object.values((rec && rec.openTrend) || {})];
+        const open = openRaw.map(publicPosition);
         const closed = (rec && rec.closed ? rec.closed : []).slice(0, 200).map(publicPosition);
         return json({ open, closed, summary: summarize(closed), notice: NOTICE });
       } catch (e) { return json({ error: 'trades: ' + String((e && e.message) || e).slice(0, 200) }, 500); }

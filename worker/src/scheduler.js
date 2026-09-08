@@ -97,9 +97,15 @@ export function mrShouldExit(sig, pos, price, now, exitRsiOverride) {
   return null;
 }
 
-export function processPosition({ symbol, meta, sig, live, open, record, now, risk, cost = 0, exitRsi, dials = null, strat = 'mr', shouldExit }) {
+// `openMap`/`lastCloseMap` let a market hold engine-independent position slots (the ensemble
+// runs the MR leg into record.open and the trend leg into record.openTrend concurrently, so a
+// weeks-long trend hold never blocks the MR dip-buy — see runTick). Both default to the shared
+// record maps, so every existing caller (backtests, both-ways, stocks) behaves exactly as before.
+export function processPosition({ symbol, meta, sig, live, open, record, now, risk, cost = 0, exitRsi, dials = null, strat = 'mr', shouldExit, openMap, lastCloseMap }) {
   const exitFn = shouldExit || ((s, p, pr, nw) => mrShouldExit(s, p, pr, nw, exitRsi));
-  const pos = record.open[symbol];
+  const om = openMap || record.open;
+  const lc = lastCloseMap || record.lastClose;
+  const pos = om[symbol];
   if (pos) {
     const price = live ?? sig.price;
     const short = pos.side === 'SHORT';
@@ -115,12 +121,12 @@ export function processPosition({ symbol, meta, sig, live, open, record, now, ri
     const outcome = pnl > 0 ? 'Win' : pnl < 0 ? 'Loss' : 'Break-even';
     record.closed.unshift({ symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', strat: pos.strat || 'mr', entry: pos.entry, exit: price, resultR: +resultR.toFixed(3), pnl, cost, riskDollars: pos.riskDollars || risk, outcome, exitReason: exit, openedAt: pos.openedAt, closedAt: now, adxEntry: pos.adxEntry ?? null, nearSupport: pos.nearSupport ?? null, adxRange: pos.adxRange ?? null, pbEntry: pos.pbEntry ?? null });
     if (record.closed.length > 300) record.closed.length = 300;
-    delete record.open[symbol];
-    record.lastClose[symbol] = { signalDay: dayKey(now), at: now };
+    delete om[symbol];
+    lc[symbol] = { signalDay: dayKey(now), at: now };
     return `exit:${exit}`;
   }
   if ((sig.verdict === 'BUY' || sig.verdict === 'SELL') && sig.plan && open) {
-    const lastClose = record.lastClose[symbol];
+    const lastClose = lc[symbol];
     if (lastClose && lastClose.signalDay === dayKey(now)) return 'skip:tradedToday';
     const short = sig.verdict === 'SELL';
     const entry = live ?? sig.plan.entry;
@@ -128,7 +134,7 @@ export function processPosition({ symbol, meta, sig, live, open, record, now, ri
     // Size = base risk × global size dial × this engine's adaptive weight (bounded).
     const engineW = (dials && dials.engines && dials.engines[strat] && dials.engines[strat].weight) || 1;
     const riskDollars = Math.round(risk * ((dials && dials.sizeMult) || 1) * engineW);
-    record.open[symbol] = { symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', strat, entry, stop: short ? entry + r : entry - r, target1: short ? entry - r : entry + r, risk: r, riskDollars, conviction: sig.conviction, maxHoldMin: sig.plan.maxHoldMin, exitRule: strat === 'trend' ? 'trailStop' : 'rsiRecover', exitAbove: sig.plan.exitAbove, peak: entry, openedAt: now, adxEntry: sig.plan.adxEntry ?? null, nearSupport: sig.plan.nearSupport ?? null, adxRange: sig.plan.adxRange ?? null, pbEntry: sig.plan.pbEntry ?? null };
+    om[symbol] = { symbol, name: meta.name, side: short ? 'SHORT' : 'LONG', strat, entry, stop: short ? entry + r : entry - r, target1: short ? entry - r : entry + r, risk: r, riskDollars, conviction: sig.conviction, maxHoldMin: sig.plan.maxHoldMin, exitRule: strat === 'trend' ? 'trailStop' : 'rsiRecover', exitAbove: sig.plan.exitAbove, peak: entry, openedAt: now, adxEntry: sig.plan.adxEntry ?? null, nearSupport: sig.plan.nearSupport ?? null, adxRange: sig.plan.adxRange ?? null, pbEntry: sig.plan.pbEntry ?? null };
     return 'open';
   }
   return 'none';
@@ -148,17 +154,29 @@ export async function runTick(env, store) {
   // last-close guard), read once and written once — no KV list() anywhere.
   const stored = await store.get('RECORD', 'ALL');
   const record = {
-    open: (stored && stored.open) || {},
-    closed: (stored && stored.closed) || [],
+    open: (stored && stored.open) || {},           // MR (+ both-ways) positions, keyed by symbol
+    openTrend: (stored && stored.openTrend) || {},  // trend positions — a PARALLEL slot so a weeks-
+    closed: (stored && stored.closed) || [],        // long trend hold never blocks the MR dip-buy
     lastClose: (stored && stored.lastClose) || {},
+    lastCloseTrend: (stored && stored.lastCloseTrend) || {},
     migrated: !!(stored && stored.migrated),
+    slotsSplit: !!(stored && stored.slotsSplit),    // one-time: move legacy trend positions out of open
     adopted: (stored && stored.adopted) || null, // last-adopted dials (weekly cadence)
   };
+  // One-time, lossless: legacy records kept the trend leg in record.open (keyed by symbol, one
+  // position per market). Move any trend position to its own slot so the concurrent-slots
+  // ensemble can run. MR positions are untouched. Idempotent via the slotsSplit flag.
+  if (!record.slotsSplit) {
+    for (const [sym, p] of Object.entries(record.open)) {
+      if (p && p.strat === 'trend') { record.openTrend[sym] = p; delete record.open[sym]; }
+    }
+    record.slotsSplit = true;
+  }
   // Signature of the persisted record, so we only WRITE it back when it actually changes
   // (a trade, a book-profit call flip, a retune, or migration) — not every tick. Combined
   // with moving the rotation cursor to the SIGNALS blob, this drops RECORD from a per-tick
   // write to a rare one, roughly halving the tick's KV writes (the free-tier bottleneck).
-  const recordSigBefore = JSON.stringify({ o: (stored && stored.open) || {}, c: ((stored && stored.closed) || []).length, a: (stored && stored.adopted) || null, m: !!(stored && stored.migrated) });
+  const recordSigBefore = JSON.stringify({ o: (stored && stored.open) || {}, t: (stored && stored.openTrend) || {}, c: ((stored && stored.closed) || []).length, a: (stored && stored.adopted) || null, m: !!(stored && stored.migrated), s: !!(stored && stored.slotsSplit) });
   // One-time migration from the old per-key layout to this blob, attempted at most
   // once (the `migrated` flag is then persisted) so we never pin the KV list quota.
   if (!record.migrated) {
@@ -196,7 +214,8 @@ export async function runTick(env, store) {
   const cursor = ((storedCursor % pool.length) + pool.length) % pool.length;
   const batch = [];
   for (let i = 0; i < Math.min(SCAN_BATCH_SIZE, pool.length); i++) batch.push(pool[(cursor + i) % pool.length]);
-  const openSyms = Object.keys(record.open).filter((s) => MARKETS[s]); // always manage positions
+  // Always manage BOTH slots' open positions (bare-symbol keys in each map).
+  const openSyms = [...new Set([...Object.keys(record.open), ...Object.keys(record.openTrend)])].filter((s) => MARKETS[s]);
   let scanSet = [...new Set([...openSyms, ...batch])];
   if (scanSet.length > MAX_FETCHES) {
     // Managing open positions is the priority; fill remaining slots with batch symbols.
@@ -287,31 +306,26 @@ export async function runTick(env, store) {
       const newsHold = highImpactToday(meta.country, new Date(now));
       bySym[symbol] = { symbol, name: meta.name, updatedAt: now, ...displaySig, live, liveTime, prevClose, history, newsHold: newsHold ? newsHold.name : null, strat: dispStrat };
       const canOpen = isOpen(meta) && !meta.noTrade && !newsHold;
-      // Manage the open position with ITS engine's exit; if flat, open a new one.
-      const pos = record.open[symbol];
-      let res;
+      // Emit the Pro webhook event for whatever a slot just did.
+      const emit = (res, sig) => {
+        if (res === 'open') events.push({ type: 'position.open', event: 'open', symbol, name: meta.name, price: live ?? sig.price, strategy: strategyLabel, plan: sig.plan, signal: sig, at: now });
+        else if (typeof res === 'string' && res.startsWith('exit:')) events.push({ type: 'position.close', event: res.slice(5), symbol, name: meta.name, price: live ?? sig.price, strategy: strategyLabel, signal: sig, at: now });
+      };
       if (bothWays) {
-        // One call: manages an open long/short with the both-ways MR exit, or opens
-        // from a fresh BUY/SELL when flat (processPosition already handles SHORT).
-        res = processPosition({ symbol, meta, sig: mrSig, live, open: canOpen, record, now, risk, cost, dials, strat: 'mr', shouldExit: bothMRShouldExit });
-      } else if (pos) {
-        const isTrend = pos.strat === 'trend';
-        res = processPosition({ symbol, meta, sig: isTrend ? trendSig : mrSig, live, open: canOpen, record, now, risk, cost, dials, strat: pos.strat, shouldExit: isTrend ? trendShouldExit : mrShouldExit });
+        // One MR-only engine (long/short); no trend leg for symmetric cells.
+        emit(processPosition({ symbol, meta, sig: mrSig, live, open: canOpen, record, now, risk, cost, dials, strat: 'mr', shouldExit: bothMRShouldExit }), mrSig);
       } else {
-        res = processPosition({ symbol, meta, sig: mrSig, live, open: canOpen, record, now, risk, cost, dials, strat: 'mr', shouldExit: mrShouldExit });
-        if (res === 'none' && canOpen && trendSig.verdict === 'BUY') {
-          res = processPosition({ symbol, meta, sig: trendSig, live, open: canOpen, record, now, risk, cost, dials, strat: 'trend', shouldExit: trendShouldExit });
-        }
-      }
-      if (res === 'open') {
-        events.push({ type: 'position.open', event: 'open', symbol, name: meta.name, price: live ?? displaySig.price, strategy: strategyLabel, plan: displaySig.plan, signal: displaySig, at: now });
-      } else if (typeof res === 'string' && res.startsWith('exit:')) {
-        events.push({ type: 'position.close', event: res.slice(5), symbol, name: meta.name, price: live ?? displaySig.price, strategy: strategyLabel, signal: displaySig, at: now });
+        // ENSEMBLE: MR and trend run as INDEPENDENT per-market slots (record.open / record.openTrend)
+        // so a weeks-long trend hold never blocks the far-superior MR dip-buy (lab 2026-09-08). Each
+        // slot manages its own open position with its own exit, or opens when flat.
+        emit(processPosition({ symbol, meta, sig: mrSig, live, open: canOpen, record, now, risk, cost, dials, strat: 'mr', shouldExit: mrShouldExit }), mrSig);
+        emit(processPosition({ symbol, meta, sig: trendSig, live, open: canOpen, record, now, risk, cost, dials, strat: 'trend', shouldExit: trendShouldExit, openMap: record.openTrend, lastCloseMap: record.lastCloseTrend }), trendSig);
       }
       // Derive the position's book-profit / hold CALL here (the recipe stays on the
       // server) so the client can show it WITHOUT the exit threshold, which /trades
       // strips. Only for a still-open position.
-      const openPos = record.open[symbol];
+      // The board shows one signal (displaySig); read the CALL from the slot that produced it.
+      const openPos = dispStrat === 'trend' ? record.openTrend[symbol] : record.open[symbol];
       if (openPos) {
         const long = (openPos.side || 'LONG') === 'LONG';
         if (openPos.strat === 'trend') openPos.call = 'trend';
@@ -331,9 +345,9 @@ export async function runTick(env, store) {
   // stop the others. RECORD first — the paper trades are the most important thing
   // to save; a batched blob each (no KV list, fits the free tier).
   // RECORD only when it actually changed (trade / call flip / retune / migration).
-  const recordSigAfter = JSON.stringify({ o: record.open, c: record.closed.length, a: record.adopted, m: record.migrated });
+  const recordSigAfter = JSON.stringify({ o: record.open, t: record.openTrend, c: record.closed.length, a: record.adopted, m: record.migrated, s: record.slotsSplit });
   if (recordSigAfter !== recordSigBefore) {
-    try { await store.put({ pk: 'RECORD', sk: 'ALL', updatedAt: Date.now(), open: record.open, closed: record.closed, lastClose: record.lastClose, migrated: record.migrated, adopted: record.adopted }); } catch (e) { /* retried next tick */ }
+    try { await store.put({ pk: 'RECORD', sk: 'ALL', updatedAt: Date.now(), open: record.open, openTrend: record.openTrend, closed: record.closed, lastClose: record.lastClose, lastCloseTrend: record.lastCloseTrend, migrated: record.migrated, slotsSplit: record.slotsSplit, adopted: record.adopted }); } catch (e) { /* retried next tick */ }
   }
   // SIGNALS every scan (prices/signals move); it also carries the rotating scan cursor.
   try { await store.put({ pk: 'SIGNALS', sk: 'ALL', updatedAt: Date.now(), scanCursor: nextCursor, signals: Object.values(bySym), adaptive: { ...learned, adopted: record.adopted, nextRetune: (record.adopted.at || nowMs) + RETUNE_MS } }); } catch (e) { /* retried next tick */ }
