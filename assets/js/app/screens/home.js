@@ -66,7 +66,7 @@ import { isRealMarket } from './markets.js';
 import { inActiveRegion, regionChipsHtml, regionBarHtml, activeRegion } from '../regions.js';
 import { upcomingEvents, daysUntil } from '../econCalendar.js';
 import { fmtPrice } from '../format.js';
-import { positionCallPill, updateCallPill, exitProgressText } from '../tradeGuidance.js';
+import { positionCallPill, updateCallPill, exitProgressText, posDomKey } from '../tradeGuidance.js';
 
 // --- Market news (Pro/trial) ------------------------------------------------
 let newsCache = null, newsCacheAt = 0;
@@ -368,23 +368,52 @@ function todayCardHtml() {
     </div>`;
 }
 
+// A visual stop → entry → current → target track for an open position. Maps stop to the
+// LEFT end and target to the RIGHT (works for long AND short via the signed fraction), so
+// a glance shows how much buffer remains before the stop — the honest answer to "how close
+// am I to being stopped out". The current marker + fill are green when winning, red when losing.
+function positionTrack(p, price, dec) {
+  if (p.entry == null || p.stop == null || p.target1 == null) return '';
+  const denom = (p.target1 - p.stop) || 1;
+  const frac = (v) => Math.max(0, Math.min(100, ((v - p.stop) / denom) * 100));
+  const eP = frac(p.entry);
+  const cP = price != null ? frac(price) : eP;
+  const long = (p.side || 'LONG') === 'LONG';
+  const winning = price != null && (long ? price > p.entry : price < p.entry);
+  const col = winning ? 'var(--buy)' : 'var(--sell)';
+  const a = Math.min(eP, cP), b = Math.max(eP, cP);
+  const cur = price != null ? fmtPrice(price, dec) : '—';
+  return `<div class="pos-track" title="Stop ${fmtPrice(p.stop, dec)} · Entry ${fmtPrice(p.entry, dec)} · Target ${fmtPrice(p.target1, dec)}">
+    <div class="pos-track-ends"><span class="ptx stop">▏Stop ${fmtPrice(p.stop, dec)}</span><span class="ptx now" style="color:${col}">Now ${cur}</span><span class="ptx target">Target ${fmtPrice(p.target1, dec)}▕</span></div>
+    <div class="pos-track-bar">
+      <span class="pt-fill" style="left:${a}%;width:${b - a}%;background:${col}"></span>
+      <span class="pt-entry" style="left:${eP}%"></span>
+      <span class="pt-cur" style="left:${cP}%;background:${col};box-shadow:0 0 0 3px color-mix(in srgb,${col} 30%,transparent)"></span>
+    </div>
+  </div>`;
+}
+
 function positionRow(p) {
   const market = state.engine.get(p.symbol);
   const long = (p.side || 'LONG') === 'LONG';
   const pnl = livePnl(p);
   const col = pnl ? (pnl.dollars >= 0 ? 'var(--buy)' : 'var(--sell)') : 'var(--text-muted)';
-  const pnlStr = pnl ? `${money(pnl.dollars)}${exitProgressText(p, pnl.px) ? ` · ${exitProgressText(p, pnl.px)}` : ''}` : '· · ·';
+  const pnlStr = pnl ? money(pnl.dollars) : '· · ·';
   const dec = market ? market.decimals : 2;
-  return `<div class="setup-row" data-nav="#/chart/${p.symbol}" data-pos="${p.symbol}">
-    ${symTile(p.symbol, 34)}
-    <div class="setup-body">
-      <div class="setup-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${p.name || p.symbol} ${positionCallPill(market, p)}${p.conviction === 'high' ? ' <span class="conv-badge"><i class="ph-fill ph-star"></i>High conviction</span>' : ''}</div>
-      <div class="setup-type" style="color:${long ? 'var(--buy)' : 'var(--sell)'}"><i class="ph-fill ${long ? 'ph-caret-up' : 'ph-caret-down'}"></i>${long ? 'Long' : 'Short'} · entry ${fmtPrice(p.entry, dec)} · ${relTime(p.openedAt)}</div>
+  const k = posDomKey(p);
+  return `<div class="setup-row pos-row" data-nav="#/chart/${p.symbol}" data-pos="${k}" style="display:block;padding:11px 8px">
+    <div style="display:flex;align-items:center;gap:10px">
+      ${symTile(p.symbol, 34)}
+      <div class="setup-body" style="flex:1;min-width:0">
+        <div class="setup-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${p.name || p.symbol} ${positionCallPill(market, p)}${p.conviction === 'high' ? ' <span class="conv-badge"><i class="ph-fill ph-star"></i>High conviction</span>' : ''}</div>
+        <div class="setup-type" style="color:${long ? 'var(--buy)' : 'var(--sell)'}"><i class="ph-fill ${long ? 'ph-caret-up' : 'ph-caret-down'}"></i>${long ? 'Long' : 'Short'} · entry ${fmtPrice(p.entry, dec)} · ${relTime(p.openedAt)}</div>
+      </div>
+      <div style="text-align:right;flex:none">
+        <div style="color:${col};font-weight:700;font-size:14px" class="tabular" data-pos-pnl="${k}">${pnlStr}</div>
+        <div class="text-muted" style="font-size:10.5px;margin-top:1px">unrealized</div>
+      </div>
     </div>
-    <div style="text-align:right;flex:none">
-      <div style="color:${col};font-weight:700;font-size:13.5px" class="tabular" data-pos-pnl="${p.symbol}">${pnlStr}</div>
-      <div class="text-muted" style="font-size:10.5px;margin-top:2px">unrealized</div>
-    </div>
+    <div data-pos-track="${k}" style="margin-top:9px">${positionTrack(p, pnl ? pnl.px : null, dec)}</div>
   </div>`;
 }
 
@@ -786,19 +815,22 @@ export function refresh(container) {
   if (posWrap) {
     const open = focusOpen();
     const cur = [...posWrap.querySelectorAll('[data-pos]')].map((el) => el.dataset.pos).join(',');
-    const next = open.map((p) => p.symbol).join(',');
+    const next = open.map((p) => posDomKey(p)).join(',');
     if (cur !== next) {
       posWrap.innerHTML = openPositionsHtml();
     } else {
       open.forEach((p) => {
-        const el = posWrap.querySelector(`[data-pos-pnl="${p.symbol}"]`);
+        const k = posDomKey(p);
+        const el = posWrap.querySelector(`[data-pos-pnl="${k}"]`);
         if (!el) return;
         const pnl = livePnl(p);
         if (!pnl) return;
-        const prog = exitProgressText(p, pnl.px);
-        el.textContent = `${money(pnl.dollars)}${prog ? ` · ${prog}` : ''}`;
+        el.textContent = money(pnl.dollars); // the % progress now lives on the visual track below
         el.style.color = pnl.dollars >= 0 ? 'var(--buy)' : 'var(--sell)';
-        updateCallPill(posWrap.querySelector(`[data-call="${p.symbol}"]`), state.engine.get(p.symbol), p);
+        const market = state.engine.get(p.symbol);
+        const tEl = posWrap.querySelector(`[data-pos-track="${k}"]`);
+        if (tEl) tEl.innerHTML = positionTrack(p, pnl.px, market ? market.decimals : 2);
+        updateCallPill(posWrap.querySelector(`[data-call="${k}"]`), market, p);
       });
     }
   }
