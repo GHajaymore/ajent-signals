@@ -8,7 +8,7 @@ import { ASSET_GROUPS, ASSET_BY_KEY } from '../assetClass.js';
 // client fetch). When the backend is connected we never display SIM markets —
 // no fabricated data, ever.
 export function isRealMarket(m) { return !!(m && (m.hasServerSignal || m.signalIsReal)); }
-import { marketRow, patchRow, symTile, sparklineSvg } from '../components.js';
+import { marketRow, patchRow, symTile, sparklineSvg, marketRowsSkeleton } from '../components.js';
 import { escapeHtml, fmtPct, fmtPrice, verdictColorVar, countryFlag } from '../format.js';
 import { marketSession } from '../marketHours.js';
 
@@ -235,6 +235,13 @@ function listHtml() {
   const engine = state.engine;
   const threshold = state.settings.threshold;
   const q = query.trim().toUpperCase();
+
+  // Cold load: a real backend is configured but no live markets have synced yet. Show
+  // skeleton rows, not the filter/search "nothing found" copy below — the board isn't
+  // empty, the feed just hasn't arrived (the subtitle already says "Loading live data").
+  if (backendConfigured() && !engine.markets.some(isRealMarket)) {
+    return marketRowsSkeleton(6);
+  }
 
   // "Watching": a flat, proximity-ranked view (not grouped) so the closest-to-
   // firing markets sit at the top.
