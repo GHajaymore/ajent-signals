@@ -16,9 +16,11 @@ const CRYPTO = new Set(['BTC', 'ETH']);
 const DATA = {};
 for (const sym of SYMS) { if (!MARKETS[sym]) continue; try { const { candles } = await fetchDailyCandles(MARKETS[sym], { DATA_PROVIDER: 'yahoo' }); if (candles && candles.length > 260) DATA[sym] = candles; } catch (e) { /* skip */ } }
 
-// mode: 'mr' | 'trend' | 'ensemble'. Returns closed trades (tagged with the leg + dates).
-function runMarket(sym, mode) {
+// mode: 'mr' | 'trend' | 'ensemble' | 'preempt'. trendW scales trend position size (the adaptive
+// per-engine weight floors at 0.5, so trendW=0.5 shows whether that self-correction suffices).
+function runMarket(sym, mode, trendW = 1) {
   const candles = DATA[sym], meta = MARKETS[sym];
+  const dials = { engines: { mr: { weight: 1 }, trend: { weight: trendW } } };
   const record = { open: {}, closed: [], lastClose: {} };
   for (let i = 210; i < candles.length; i++) {
     const price = candles[i].c, now = candles[i].t;
@@ -41,14 +43,14 @@ function runMarket(sym, mode) {
         }
       } else {
         let res = processPosition({ symbol: sym, meta, sig: mrSig, live: price, open: true, record, now, risk: RISK, cost: COST, strat: 'mr', shouldExit: mrShouldExit });
-        if (res === 'none' && trendSig.verdict === 'BUY') processPosition({ symbol: sym, meta, sig: trendSig, live: price, open: true, record, now, risk: RISK, cost: COST, strat: 'trend', shouldExit: trendShouldExit });
+        if (res === 'none' && trendSig.verdict === 'BUY') processPosition({ symbol: sym, meta, sig: trendSig, live: price, open: true, record, now, risk: RISK, cost: COST, dials, strat: 'trend', shouldExit: trendShouldExit });
       }
     }
   }
   return record.closed.map((t) => ({ ...t, sym }));
 }
 const TRADES = {};
-function tradesFor(mode) { if (!TRADES[mode]) { const all = []; for (const sym of Object.keys(DATA)) all.push(...runMarket(sym, mode)); TRADES[mode] = all.sort((a, b) => a.closedAt - b.closedAt); } return TRADES[mode]; }
+function tradesFor(mode, trendW = 1) { const key = mode + trendW; if (!TRADES[key]) { const all = []; for (const sym of Object.keys(DATA)) all.push(...runMarket(sym, mode, trendW)); TRADES[key] = all.sort((a, b) => a.closedAt - b.closedAt); } return TRADES[key]; }
 function metrics(all) {
   let eq = 0, pk = 0, dd = 0; const w = all.filter((x) => x.pnl > 0);
   const gw = w.reduce((s, x) => s + x.pnl, 0), gl = Math.abs(all.filter((x) => x.pnl < 0).reduce((s, x) => s + x.pnl, 0));
@@ -68,8 +70,9 @@ for (const [label, mode] of [['MR only     ', 'mr'], ['Trend only  ', 'trend'], 
   console.log(`  ${' '.repeat(label.length)} IS   ${fmt(metrics(all.filter((t) => t.closedAt < mid)))}`);
   console.log(`  ${' '.repeat(label.length)} OOS  ${fmt(metrics(all.filter((t) => t.closedAt >= mid)))}`);
 }
-const en = metrics(tradesFor('ensemble')), mr = metrics(tradesFor('mr')), pe = metrics(tradesFor('preempt'));
-console.log(`\n  Live ensemble return/DD ${en.retDD} vs MR-only ${mr.retDD} vs MR-preempt ${pe.retDD}.`);
-console.log(`  → ${mr.retDD > en.retDD ? 'The current always-on trend leg STARVES the superior MR edge (MR trades ' + en.byLeg.mr + ' in ensemble vs ' + mr.n + ' standalone).' : 'Ensemble holds up.'}`);
-console.log(`  → MR-preempt recovers MR trades to ${pe.byLeg.mr} and return/DD to ${pe.retDD} (net $${pe.net}).`);
+const en = metrics(tradesFor('ensemble')), mr = metrics(tradesFor('mr'));
+console.log('\n  Does the adaptive per-engine down-weighting (floor 0.5x) fix the trend drag?');
+for (const w of [1.0, 0.5, 0.3]) { const m = metrics(tradesFor('ensemble', w)); console.log(`  ensemble, trend x${w.toFixed(1)}  ${fmt(m)}`); }
+console.log(`\n  Live ensemble return/DD ${en.retDD} vs MR-only ${mr.retDD}. Trend starves MR (${en.byLeg.mr} MR trades in ensemble vs ${mr.n} standalone).`);
+console.log('  → down-weighting trend helps but does not reach MR-only; the drag is structural (occupied markets), not just sizing.');
 console.log('');
