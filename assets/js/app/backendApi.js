@@ -15,6 +15,17 @@ function base() {
 
 export function backendConfigured() { return !!base(); }
 
+// Live strategy-lab scoreboard (candidate forward-tests). Returns null on any failure.
+export async function fetchLab() {
+  const b = base();
+  if (!b) return null;
+  try {
+    const r = await fetch(`${b}/lab`, { cache: 'no-store' });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (e) { return null; }
+}
+
 // Pro token — issued by the payment flow after a verified purchase, stored here.
 function proToken() {
   try { return (typeof window !== 'undefined' && window.__AJENT_PRO_TOKEN) || localStorage.getItem('ajent_pro_token') || ''; } catch (e) { return ''; }

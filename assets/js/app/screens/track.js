@@ -5,7 +5,7 @@ import { positionCallPill, updateCallPill, exitProgressText, posDomKey } from '.
 import { getStrategy, getAdaptive } from '../strategyMeta.js';
 import { fmtPrice } from '../format.js';
 import { state, getEnabledPaperMarkets, setPaperMarketEnabled, setAllPaperMarkets, setPaperMarkets, FREE_MARKET_LIMIT } from '../state.js';
-import { isEntitled } from '../backendApi.js';
+import { isEntitled, fetchLab } from '../backendApi.js';
 import { CATEGORY_ORDER } from '../mockEngine.js';
 import { groupForSymbol, labelForKey, EXPERIMENT_CLASSES, ASSET_GROUPS } from '../assetClass.js';
 import { fmtMoney as fmtMoneyCcy } from '../currency.js';
@@ -493,6 +493,41 @@ function strategyCard() {
   </div>`;
 }
 
+// The live strategy lab — candidate strategies forward-tested on the same signals, each in
+// its own shadow record (worker /lab). Renders a placeholder, then wireLab() fills it async.
+function labPanel() {
+  return `<div class="panel" id="lab-panel" style="padding:14px 16px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+      <i class="ph-fill ph-flask" style="color:var(--accent-300);font-size:17px"></i>
+      <b style="font:700 14px var(--font-heading)">Strategy lab</b>
+      <span style="font-size:9.5px;font-weight:700;color:var(--flat);background:var(--flat-dim);padding:2px 6px;border-radius:5px">LIVE FORWARD-TEST</span>
+    </div>
+    <div class="text-muted" style="font-size:11.5px;line-height:1.5;margin-bottom:10px">Candidate strategies paper-trade the <b style="color:var(--text)">same live signals</b> into their own shadow records — the forward record decides which wins before we change anything.</div>
+    <div id="lab-body"><div class="text-faint" style="font-size:12px;padding:6px 0">Loading the lab…</div></div>
+  </div>`;
+}
+async function wireLab(container) {
+  const body = container.querySelector('#lab-body');
+  if (!body) return;
+  const lab = await fetchLab();
+  if (!lab || !Array.isArray(lab.candidates)) { const p = container.querySelector('#lab-panel'); if (p) p.style.display = 'none'; return; }
+  const cands = lab.candidates.slice().sort((a, b) => b.net - a.net);
+  const rows = cands.map((c, i) => {
+    const live = c.key === 'full';
+    const col = c.net >= 0 ? 'var(--buy)' : 'var(--sell)';
+    const sub = c.trades ? `${c.winRate}% win · PF ${c.profitFactor} · ${c.trades} closed${c.open ? ` · ${c.open} open` : ''}` : `${c.open ? c.open + ' open · ' : ''}gathering…`;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;${i ? 'border-top:1px solid var(--divider)' : ''}">
+      <div style="flex:1;min-width:0">
+        <div style="font:600 13px var(--font-heading);display:flex;align-items:center;gap:6px;flex-wrap:wrap">${c.label}${live ? ' <span style="font-size:9px;font-weight:700;color:var(--buy);background:var(--buy-dim);padding:1px 5px;border-radius:4px">LIVE NOW</span>' : ''}</div>
+        <div class="text-muted" style="font-size:11px;margin-top:1px">${sub}</div>
+      </div>
+      <div style="text-align:right;flex:none;font:800 15px var(--font-heading);color:${col}">${money(c.net)}</div>
+    </div>`;
+  }).join('');
+  const started = lab.startedAt ? new Date(lab.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—';
+  body.innerHTML = rows + `<div class="text-faint" style="font-size:10.5px;line-height:1.5;margin-top:10px;border-top:1px solid var(--divider);padding-top:8px">Started ${started}${lab.days != null ? ` · ${lab.days}d` : ''} · sorted by net · hypothetical, virtual money. <b style="color:var(--text-muted)">Full ensemble</b> is the config trading live now; <b style="color:var(--text-muted)">MR-only</b> is the calmer, higher-win alternative.</div>`;
+}
+
 // The backtested edge — collapsed by default so it never crowds the live record, which
 // stays the headline. Fills the one gap vs honest peers (TradingView/Danelfin/Composer):
 // we were hiding a genuinely strong, validated backtest behind a tiny live sample. Figures
@@ -969,6 +1004,8 @@ export function render(container) {
 
     ${strategyCard()}
 
+    ${labPanel()}
+
     ${backtestEdge()}
 
     ${youVsAjentCard(perf, closed.length)}
@@ -1034,6 +1071,7 @@ export function render(container) {
 
   wireSelector(container);
   wirePnl(container);
+  wireLab(container); // async — fills the strategy-lab scoreboard from /lab
 
   const exportBtn = container.querySelector('#export-csv');
   if (exportBtn) exportBtn.addEventListener('click', () => {
