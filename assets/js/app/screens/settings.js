@@ -7,6 +7,7 @@ import { localCurrencyCode, currencySymbol, displayCurrencyCode, usdToDisplay, d
 import { isStandalone, isIOS, installAvailable, promptInstall } from '../install.js';
 import { pushSupported, pushPermission, enablePush, disablePush } from '../pushClient.js';
 import { isEntitled } from '../backendApi.js';
+import { isOperator, getRole } from '../role.js';
 
 // User-facing summary of how fresh the data is (kept honest — see the scan cadence in the
 // Worker and the client poll intervals in main.js). Reused wherever we surface freshness.
@@ -343,6 +344,11 @@ export function render(container) {
     <div class="setting-help" style="margin-top:0">${DATA_REFRESH_NOTE}</div>
     `)}
 
+    ${isOperator() ? `<a href="#/console" class="setting-row" style="text-decoration:none;display:flex;align-items:center;gap:12px;margin-top:8px">
+      <i class="ph-fill ph-shield-star" style="color:var(--accent-300);font-size:20px"></i>
+      <div style="flex:1"><div style="font:600 14px var(--font-heading);color:var(--text)">Operator console</div><div class="text-muted" style="font-size:12px">Signed in as ${getRole()} · analytics &amp; levers</div></div>
+      <i class="ph-bold ph-caret-right" style="color:var(--text-muted)"></i>
+    </a>` : ''}
     <div class="footer-note">Ajent Signals is an educational tool and does not execute trades.<br>Markets tagged REAL compute indicators from a free public price feed (unofficial, best-effort, delayed). Markets without a live feed show no signal and are hidden — never a fabricated one · <a href="#/console" style="color:inherit;text-decoration:none" title="Operator console">v1.0.0</a><br><a href="../privacy/">Privacy</a> · <a href="../terms/">Terms</a> · <a href="#/methodology">How it works</a></div>
   </div>`;
 
