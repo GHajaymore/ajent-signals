@@ -675,6 +675,13 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .onboard-dots { display: flex; gap: 7px; }
 .onboard-dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--neutral-700); transition: all 0.2s; }
 .onboard-dots span.on { background: var(--buy); width: 20px; border-radius: 4px; }
+.onboard-dots span { position: relative; cursor: pointer; }
+.onboard-dots span::before { content: ''; position: absolute; inset: -9px; border-radius: 50%; }
+.onboard-back { position: absolute; top: 14px; left: 16px; background: none; border: none; color: var(--text-muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 6px 8px; z-index: 2; }
+.onboard-back[hidden] { display: none; }
+.onboard-wrap:focus { outline: none; }
+@keyframes obSlide { from { opacity: 0; transform: translateX(22px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes obSlideBack { from { opacity: 0; transform: translateX(-22px); } to { opacity: 1; transform: translateX(0); } }
 .seg-toggle { display: flex; gap: 4px; background: var(--neutral-900); border-radius: 11px; padding: 4px; }
 .seg-opt { flex: 1; border: none; background: transparent; color: var(--text-muted); font: 600 13px var(--font-heading); padding: 9px 8px; border-radius: 8px; cursor: pointer; transition: background 0.15s, color 0.15s; }
 .seg-opt.on { background: var(--accent-800); color: var(--accent-100); }
