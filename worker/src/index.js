@@ -12,6 +12,7 @@ import { labSummary } from './lab.js';
 import { registerWebhook, listWebhooks, deleteWebhook, deliverEvents, sampleEvent, EDU_DISCLAIMER } from './webhooks.js';
 import { createCheckoutSession, verifyStripeSignature, handleStripeEvent, tokenForSession, refreshToken, validateApple, validateGoogle, startTrial } from './billing.js';
 import { roleForKey, issueRoleToken, requireRole, roleSecret } from './roles.js';
+import { loadAutoTradeConfig, saveAutoTradeConfig } from './config.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -180,6 +181,25 @@ export default {
         };
       }
       return json(payload);
+    }
+
+    // Admin market control — which markets Ajent auto-trades. GET lists every market with its
+    // disabled flag; POST { disabled:[symbols] } saves (symbols validated against MARKETS).
+    // Disabling only stops NEW entries; open positions still exit. Admin+ (a user-facing lever).
+    if (url.pathname === '/console/config/markets') {
+      const gate = await requireRole(request, env, 'admin');
+      if (!gate.ok) return json({ error: gate.reason }, gate.status || 403);
+      const store = db(env);
+      if (request.method === 'POST') {
+        const b = await readJson(request);
+        const valid = new Set(Object.keys(MARKETS));
+        const saved = await saveAutoTradeConfig(store, b.disabled, valid, gate.role);
+        return json({ ok: true, ...saved });
+      }
+      const cfg = await loadAutoTradeConfig(store);
+      const dis = new Set(cfg.disabled);
+      const markets = Object.entries(MARKETS).map(([symbol, m]) => ({ symbol, name: m.name || symbol, cls: m.assetClass || m.class || 'other', disabled: dis.has(symbol) }));
+      return json({ role: gate.role, updatedAt: cfg.updatedAt, by: cfg.by, disabledCount: cfg.disabled.length, markets });
     }
 
     // The intraday day-trading experiment was RETIRED 2026-09-06 (a thin edge with heavy

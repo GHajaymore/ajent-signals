@@ -9,6 +9,7 @@ import { highImpactToday } from './calendar.js';
 import { computeTrend, trendShouldExit } from './trend.js';
 import { computeBothMR, bothMRShouldExit } from './bothways.js';
 import { labStep } from './lab.js';
+import { loadDisabledSet } from './config.js';
 
 const dayKey = (ms) => new Date(ms).toISOString().slice(0, 10);
 
@@ -154,6 +155,8 @@ export async function runTick(env, store) {
   // The paper record is ONE blob (open positions + closed trades + per-market
   // last-close guard), read once and written once — no KV list() anywhere.
   const stored = await store.get('RECORD', 'ALL');
+  // Admin-disabled markets (config.js): they still EXIT any open position but open no new ones.
+  const disabled = await loadDisabledSet(store);
   const record = {
     open: (stored && stored.open) || {},           // MR (+ both-ways) positions, keyed by symbol
     openTrend: (stored && stored.openTrend) || {},  // trend positions — a PARALLEL slot so a weeks-
@@ -313,7 +316,7 @@ export async function runTick(env, store) {
       // News/event regime filter: stand aside on a high-impact event day.
       const newsHold = highImpactToday(meta.country, new Date(now));
       bySym[symbol] = { symbol, name: meta.name, updatedAt: now, ...displaySig, live, liveTime, prevClose, history, newsHold: newsHold ? newsHold.name : null, strat: dispStrat };
-      const canOpen = isOpen(meta) && !meta.noTrade && !newsHold;
+      const canOpen = isOpen(meta) && !meta.noTrade && !newsHold && !disabled.has(symbol);
       // Emit the Pro webhook event for whatever a slot just did.
       const emit = (res, sig) => {
         if (res === 'open') events.push({ type: 'position.open', event: 'open', symbol, name: meta.name, price: live ?? sig.price, strategy: strategyLabel, plan: sig.plan, signal: sig, at: now });
