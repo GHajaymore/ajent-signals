@@ -190,10 +190,11 @@ export function heroCard(market, verdict) {
       <div class="hero-no-setup">No active setup — entry, stop &amp; target appear once a signal fires.</div>` : `
       <div class="hero-quad">
         <div class="hero-quad-cell"><div class="k">Entry</div><div class="v tabular">${fmtPrice(s.plan.entry, market.decimals)}</div></div>
-        <div class="hero-quad-cell"><div class="k">Stop</div><div class="v tabular" style="color:var(--sell)">${fmtPrice(s.plan.stop, market.decimals)}</div></div>
+        <div class="hero-quad-cell" title="Volatility-based stop set to the market's daily range. The position is sized so this only risks your fixed per-trade amount — a wider stop just means a smaller size, never a bigger loss."><div class="k">Stop</div><div class="v tabular" style="color:var(--sell)">${fmtPrice(s.plan.stop, market.decimals)}</div></div>
         <div class="hero-quad-cell"><div class="k">Target</div><div class="v tabular" style="color:var(--buy)">${fmtPrice(s.plan.target1, market.decimals)}</div></div>
         <div class="hero-quad-cell"><div class="k">R : R</div><div class="v tabular" style="color:var(--accent-200)">${s.plan.riskReward.toFixed(1)} : 1</div></div>
-      </div>`}
+      </div>
+      <div class="hero-risknote" style="font-size:10.5px;color:var(--text-faint);margin-top:8px;line-height:1.45">The stop sets position <b style="color:var(--text-muted)">size</b>, not your loss — every trade risks a fixed amount, so a wide stop just means a smaller position.</div>`}
       ${posLine}
     </div>
   </div>`;
