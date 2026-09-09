@@ -823,15 +823,28 @@ function renderSignalTab(market, verdict, color) {
         : `This is a <b style="color:var(--text)">mean-reversion</b> trade: it buys the oversold flush and exits when the <b style="color:var(--text)">move reverts to the mean</b> — rather than at a fixed target, so winners can run past the 1:1 mark. A hard <b style="color:var(--text)">volatility-based stop</b> caps the downside and a time stop closes stale trades. The reference target is the ~1:1 level for orientation, not a hard exit.`}
     </div>
     ${(() => {
-      // Explain the stop in dollar terms — answering "isn't a ~200pt ES stop $10k?".
-      // Shown for real futures (meaningful contract multiplier). Cap-aware.
+      // Explain the stop in dollar terms — answering "isn't a ~200pt ES stop $10k?" (futures)
+      // and "isn't a ~$7k BTC stop a $7k loss?" (spot/crypto). The gap is a volatility stop in
+      // PRICE; the position is sized to a fixed dollar risk, so a wide stop = smaller size, not
+      // more dollars. Futures add a contract multiplier (and a per-contract cap); spot doesn't.
       const pv = Number(market.pointValue) || 0;
       const stopPts = Math.abs((s.plan && s.plan.entry) - dispStop);
-      if (!(pv >= 5) || !(stopPts > 0)) return '';
-      const perContract = Math.round(stopPts * pv);
+      if (!(stopPts > 0)) return '';
       const cap = perTradeRisk();
       const usd = (n) => fmtMoneyCcy(n, { sign: false }); // display currency (local/USD)
       const round = (n) => Math.round(n).toLocaleString('en-US');
+      // Spot / cash / crypto — no contract multiplier, but a high-priced instrument (BTC, an
+      // index ETF) can show a stop that LOOKS huge in price. Clarify sizing so the price gap
+      // never reads as the loss. Only when the gap is wide enough to alarm (≥3%).
+      if (pv < 5) {
+        const stopPct = (stopPts / ((s.plan && s.plan.entry) || 1)) * 100;
+        if (stopPct < 3) return '';
+        const unit = market.crypto ? `a whole ${market.name || market.symbol}` : `a whole unit`;
+        return `<div class="text-faint" style="font-size:11px;line-height:1.55;margin-top:8px;padding:0 2px">
+          <b style="color:var(--text-muted)">Why so wide — and why it isn't a big loss.</b> The stop is volatility-based, set to ${market.symbol}'s daily range (~${stopPct.toFixed(1)}% below entry) so it breathes with the swings instead of a tight fixed distance. That gap is the <b style="color:var(--text-muted)">price move, not your loss</b> — you don't buy ${unit}. Each position is sized to a fixed <b style="color:var(--text-muted)">${usd(cap)}</b> risk, so a wider stop just means a <b style="color:var(--text-muted)">smaller position</b>, never more dollars. On leveraged <b style="color:var(--text-muted)">futures</b> (e.g. CME Bitcoin, 5&times; per contract) the same move is worth far more — size to your risk there too, or trade micros.
+        </div>`;
+      }
+      const perContract = Math.round(stopPts * pv);
       if (stopCapped) {
         const rawPts = Math.abs(planEntry - rawStop);
         return `<div class="text-faint" style="font-size:11px;line-height:1.55;margin-top:8px;padding:0 2px">
