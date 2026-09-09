@@ -1027,8 +1027,11 @@ function youVsAjentCard(perf, ajTradeCount) {
   if (!(you.trades || you.open || cs.trades || cs.open)) {
     return `<div class="panel">
       <div class="panel-title" style="display:flex;align-items:center;gap:8px"><i class="ph-fill ph-scales" style="color:var(--accent)"></i>You vs Ajent</div>
-      <div class="text-muted" style="font-size:12.5px;line-height:1.55;padding:2px 0 10px">Take a signal your own way, or build your own strategy — and your record goes head-to-head with Ajent right here, by <b style="color:var(--text)">avg R per trade</b> (fair at any scale).</div>
-      <a href="#/mystrategy" class="ub-strat-link">Build your strategy &amp; compete <i class="ph-bold ph-caret-right"></i></a>
+      <div class="text-muted" style="font-size:12.5px;line-height:1.55;padding:2px 0 10px">Go head-to-head with Ajent on a live record, scored by <b style="color:var(--text)">avg R per trade</b> (fair at any scale). Two ways in — take a live signal your own way, or build your own strategy.</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <a href="#/markets" class="ub-strat-link" style="margin-top:0;background:color-mix(in srgb,var(--accent) 14%,transparent)"><i class="ph-bold ph-crosshair"></i>Take a live signal your way <i class="ph-bold ph-caret-right"></i></a>
+        <a href="#/mystrategy" class="ub-strat-link" style="margin-top:0"><i class="ph-bold ph-wrench"></i>Build your own strategy <i class="ph-bold ph-caret-right"></i></a>
+      </div>
     </div>`;
   }
   const ajR = ajentAvgR(getClosedTrades());
