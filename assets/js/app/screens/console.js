@@ -1,5 +1,7 @@
-import { money } from '../format.js';
+import { fmtMoney } from '../currency.js';
 import { getRoleSession, getRole, isOwner, clearRole, unlockRole, fetchConsoleOverview } from '../role.js';
+
+const money = (n) => fmtMoney(n); // display currency (local by default, USD toggle) — matches other screens
 
 // The OPERATOR CONSOLE — owner/admin seats. Hidden from members (reached at #/console; a shortcut
 // appears in Settings once unlocked). Access is proven by a secret key exchanged for a role token
