@@ -67,7 +67,7 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 
 /* Stat cards row */
 .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
-.stat-card { position: relative; overflow: hidden; background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0) 55%), var(--surface); border: 1px solid var(--hairline); border-radius: var(--radius-md); padding: 13px 14px; box-shadow: 0 6px 18px -10px rgba(0,0,0,0.7); transition: transform 0.18s ease, border-color 0.18s ease; }
+.stat-card { position: relative; overflow: hidden; background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0) 55%), var(--surface); border: 1px solid var(--hairline); border-radius: var(--radius-md); padding: 13px 14px; box-shadow: 0 8px 20px -12px rgba(0,0,0,0.7), var(--edge-hi); transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; }
 .stat-card::before { content: ''; position: absolute; top: 0; left: 14px; right: 14px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, var(--accent), transparent); opacity: 0.65; }
 .stat-card:active { transform: scale(0.98); }
 .stat-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 600; margin-bottom: 6px; }
@@ -586,7 +586,7 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .stat3-cell .k { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
 .stat3-cell .v { font: 600 14px var(--font-heading); margin-top: 4px; }
 
-.panel { background: linear-gradient(180deg, rgba(255,255,255,0.022), rgba(255,255,255,0) 44%), var(--surface); border: 1px solid var(--hairline); border-radius: var(--radius-lg); padding: 16px 18px; margin-bottom: 16px; box-shadow: var(--shadow-elev); }
+.panel { background: linear-gradient(180deg, rgba(255,255,255,0.032), rgba(255,255,255,0) 44%), var(--surface); border: 1px solid var(--hairline); border-radius: var(--radius-lg); padding: 16px 18px; margin-bottom: 16px; box-shadow: var(--shadow-elev), var(--edge-hi); }
 .panel-title { font: 600 14px var(--font-heading); margin-bottom: 10px; }
 
 .plan-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--divider); font-size: 13.5px; }
