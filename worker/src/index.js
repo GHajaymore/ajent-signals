@@ -11,6 +11,7 @@ import { regimeGateExperiment, bothWaysRangingExperiment, bollingerBandExperimen
 import { labSummary } from './lab.js';
 import { registerWebhook, listWebhooks, deleteWebhook, deliverEvents, sampleEvent, EDU_DISCLAIMER } from './webhooks.js';
 import { createCheckoutSession, verifyStripeSignature, handleStripeEvent, tokenForSession, refreshToken, validateApple, validateGoogle, startTrial } from './billing.js';
+import { roleForKey, issueRoleToken, requireRole, roleSecret } from './roles.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -129,6 +130,56 @@ export default {
       const rec = await db(env).get('RECORD', 'ALL');
       const closed = (rec && rec.closed) || [];
       return json({ updatedAt: Date.now(), closedTrades: closed.length, equity: regimeGateExperiment(closed), bothWays: bothWaysRangingExperiment(closed), bollinger: bollingerBandExperiment(closed) });
+    }
+
+    // OPERATOR CONSOLE — owner/admin seats (roles.js). Closed by default: needs a signing
+    // secret (ROLE_SECRET or PRO_SECRET) AND the seat's access key configured, else 404/401.
+    //
+    // POST /role/unlock { key } → exchanges a secret access key for a short-lived role token.
+    if (url.pathname === '/role/unlock' && request.method === 'POST') {
+      const secret = roleSecret(env);
+      if (!secret) return json({ error: 'console not configured' }, 404);
+      const b = await readJson(request);
+      const role = roleForKey(String(b.key || ''), env);
+      if (!role) return json({ error: 'invalid access key' }, 401);
+      const ttlHours = 12;
+      const token = await issueRoleToken(role, ttlHours, secret);
+      return json({ role, token, exp: Date.now() + ttlHours * 3600000 });
+    }
+
+    // GET /console/overview — aggregate operator analytics. Admin+ sees reach + the Ajent
+    // record + config; owner additionally sees the lab, experiments, and the honest paid/free
+    // reach split. No per-user P/L (there are no server-side user accounts yet — aggregate only).
+    if (url.pathname === '/console/overview') {
+      const gate = await requireRole(request, env, 'admin');
+      if (!gate.ok) return json({ error: gate.reason }, gate.status || 403);
+      const store = db(env);
+      const rec = await store.get('RECORD', 'ALL') || {};
+      const closed = rec.closed || [];
+      const openN = Object.keys(rec.open || {}).length + Object.keys(rec.openTrend || {}).length;
+      const stockRec = await store.get('RECORD_STOCKS', 'ALL');
+      const push = await store.get('PUSH', 'SUBS');
+      const devices = push && push.subs ? Object.keys(push.subs).length : 0;
+      let proAccounts = 0;
+      try { const hooks = await store.list('HOOK#'); proAccounts = new Set(hooks.map((h) => String(h.pk).replace(/^HOOK#/, ''))).size; } catch (e) { /* non-fatal */ }
+      const byClass = {};
+      for (const m of Object.values(MARKETS)) { const k = m.assetClass || m.class || 'other'; byClass[k] = (byClass[k] || 0) + 1; }
+      const payload = {
+        role: gate.role,
+        updatedAt: Date.now(),
+        ajent: { ...summarize(closed), open: openN },
+        stocks: stockRec ? summarize(stockRec.closed || []) : null,
+        reach: { devices, proAccounts },
+        config: { marketsTotal: Object.keys(MARKETS).length, byClass, strategy: STRATEGY.name },
+      };
+      if (gate.role === 'owner') {
+        payload.ownerOnly = {
+          lab: labSummary(await store.get('RECORD_LAB', 'ALL') || {}),
+          experiments: { equity: regimeGateExperiment(closed), bollinger: bollingerBandExperiment(closed) },
+          paidFree: { proEngaged: payload.reach.proAccounts, engagedDevices: devices, note: 'Reach proxies only — per-user identity + paid/free split arrives with the user-accounts phase. No per-user P/L is collected yet.' },
+        };
+      }
+      return json(payload);
     }
 
     // The intraday day-trading experiment was RETIRED 2026-09-06 (a thin edge with heavy
