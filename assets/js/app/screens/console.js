@@ -1,5 +1,5 @@
 import { fmtMoney } from '../currency.js';
-import { getRoleSession, getRole, isOwner, clearRole, unlockRole, fetchConsoleOverview } from '../role.js';
+import { getRoleSession, getRole, isOwner, clearRole, unlockRole, fetchConsoleOverview, fetchMarketConfig, saveMarketConfig } from '../role.js';
 
 const money = (n) => fmtMoney(n); // display currency (local by default, USD toggle) — matches other screens
 
@@ -79,6 +79,8 @@ function overviewView(d) {
         <span style="font-size:10px;font-weight:700;color:var(--text-muted);border:1px solid var(--hairline);border-radius:6px;padding:3px 8px">READ ONLY</span>
       </div>
     `)}
+    ${sectionLabel('Markets Ajent auto-trades')}
+    <div id="ck-markets" class="card" style="padding:14px 16px"><span class="text-muted" style="font-size:12px">Loading markets…</span></div>
   `;
 
   if (role === 'admin') {
@@ -121,6 +123,54 @@ function overviewView(d) {
   return html;
 }
 
+// Interactive market on/off control (admin + owner). Fetches the config, renders a toggle per
+// market grouped by class, and saves the disabled list. Off = no new entries (open trades still
+// exit). Repaints in place on each toggle — simple and fine for the market count.
+async function wireMarkets(container) {
+  const wrap = container.querySelector('#ck-markets');
+  if (!wrap) return;
+  const cfg = await fetchMarketConfig();
+  if (!cfg || cfg.error) { wrap.innerHTML = `<span class="text-muted" style="font-size:12px">${(cfg && cfg.error) || 'Market config unavailable — deploy the worker to enable.'}</span>`; return; }
+  const markets = cfg.markets || [];
+  const disabled = new Set(markets.filter((m) => m.disabled).map((m) => m.symbol));
+  const orig = new Set(disabled);
+  const groups = {};
+  for (const m of markets) (groups[m.cls] = groups[m.cls] || []).push(m);
+
+  const paint = () => {
+    const total = markets.length, on = total - disabled.size;
+    const changed = disabled.size !== orig.size || [...disabled].some((s) => !orig.has(s));
+    wrap.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div><div style="font:600 13px var(--font-heading)">${on} of ${total} auto-trading</div><div class="text-muted" style="font-size:11px;margin-top:1px">${cfg.by ? `Last changed by ${cfg.by}` : 'Default — all on'}${cfg.updatedAt ? ` · ${new Date(cfg.updatedAt).toLocaleDateString()}` : ''}</div></div>
+        <button id="ck-mkt-save" class="btn ${changed ? 'btn-primary' : ''}" ${changed ? '' : 'disabled'} style="height:34px;padding:0 14px;font-size:12px">Save</button>
+      </div>
+      <div class="text-faint" style="font-size:10.5px;margin:8px 0 2px;line-height:1.5">Turning a market off stops <b style="color:var(--text-muted)">new</b> entries — any open position still exits normally. The strategy itself is unchanged.</div>
+      ${Object.entries(groups).map(([cls, ms]) => `
+        <div style="margin-top:10px">
+          <div style="font:700 9px var(--font-heading);letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint)">${cls}</div>
+          ${ms.map((m) => { const off = disabled.has(m.symbol); return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--divider)">
+            <div style="min-width:0;font:600 12.5px var(--font-heading);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.symbol} · <span class="text-muted" style="font-weight:400">${m.name}</span></div>
+            <button class="ck-toggle" data-sym="${m.symbol}" role="switch" aria-checked="${!off}" aria-label="${m.name}" style="flex:none;width:44px;height:24px;border-radius:20px;border:none;cursor:pointer;position:relative;background:${off ? 'var(--neutral-700)' : 'var(--buy)'};transition:background .15s">
+              <span style="position:absolute;top:3px;left:${off ? '3px' : '23px'};width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s"></span>
+            </button>
+          </div>`; }).join('')}
+        </div>`).join('')}
+    `;
+    wrap.querySelectorAll('.ck-toggle').forEach((b) => b.addEventListener('click', () => {
+      const s = b.dataset.sym; if (disabled.has(s)) disabled.delete(s); else disabled.add(s); paint();
+    }));
+    const save = wrap.querySelector('#ck-mkt-save');
+    if (save && changed) save.addEventListener('click', async () => {
+      save.disabled = true; save.textContent = 'Saving…';
+      const res = await saveMarketConfig([...disabled]);
+      if (res && res.ok) { orig.clear(); (res.disabled || []).forEach((s) => orig.add(s)); disabled.clear(); orig.forEach((s) => disabled.add(s)); cfg.by = res.by; cfg.updatedAt = res.updatedAt; paint(); }
+      else { save.disabled = false; save.textContent = 'Save'; save.insertAdjacentHTML('afterend', `<div class="text-faint" style="font-size:11px;color:var(--sell);margin-top:6px">${(res && res.error) || 'Save failed.'}</div>`); }
+    });
+  };
+  paint();
+}
+
 export function render(container) {
   const session = getRoleSession();
   if (!session) {
@@ -157,5 +207,6 @@ export function render(container) {
     container.innerHTML = overviewView(d);
     const lock = container.querySelector('#ck-lock');
     if (lock) lock.addEventListener('click', () => { clearRole(); render(container); });
+    wireMarkets(container);
   });
 }

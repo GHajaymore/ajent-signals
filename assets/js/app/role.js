@@ -50,3 +50,27 @@ export async function fetchConsoleOverview() {
     return await r.json();
   } catch (e) { return { error: 'Network error — couldn’t reach the server.' }; }
 }
+
+// Admin market control — which markets Ajent auto-trades.
+export async function fetchMarketConfig() {
+  const b = base(); const s = getRoleSession();
+  if (!b || !s) return null;
+  try {
+    const r = await fetch(`${b}/console/config/markets`, { cache: 'no-store', headers: { 'X-Role-Token': s.token } });
+    if (r.status === 401 || r.status === 403) { clearRole(); return { error: 'Your console session expired — unlock again.' }; }
+    if (!r.ok) return { error: 'Couldn’t load market config.' };
+    return await r.json();
+  } catch (e) { return { error: 'Network error.' }; }
+}
+
+// Save the disabled-symbol list. Returns { ok, disabled, ... } or { error }.
+export async function saveMarketConfig(disabled) {
+  const b = base(); const s = getRoleSession();
+  if (!b || !s) return { error: 'No session.' };
+  try {
+    const r = await fetch(`${b}/console/config/markets`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Role-Token': s.token }, body: JSON.stringify({ disabled }) });
+    if (r.status === 401 || r.status === 403) { clearRole(); return { error: 'Session expired.' }; }
+    if (!r.ok) return { error: 'Save failed.' };
+    return await r.json();
+  } catch (e) { return { error: 'Network error.' }; }
+}
