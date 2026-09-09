@@ -409,8 +409,9 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
   cursor: pointer;
   transition: transform 0.15s ease;
   background: linear-gradient(150deg, color-mix(in srgb, var(--vc) 55%, transparent), color-mix(in srgb, var(--vc) 7%, transparent) 52%, var(--hairline) 82%);
-  box-shadow: 0 18px 44px -26px var(--vc);
+  box-shadow: 0 22px 50px -26px var(--vc), 0 10px 24px -14px rgba(0,0,0,0.62);
 }
+@media (hover: hover) { .hero-card:hover { transform: translateY(-2px); box-shadow: 0 28px 60px -26px var(--vc), 0 14px 30px -14px rgba(0,0,0,0.66); } }
 .hero-card:active { transform: scale(0.99); }
 .hero-inner {
   position: relative;
@@ -420,6 +421,7 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
     radial-gradient(120% 92% at 100% -12%, color-mix(in srgb, var(--vc) 13%, transparent), transparent 56%),
     linear-gradient(160deg, var(--surface), var(--surface-2));
   padding: 15px 18px 16px;
+  box-shadow: var(--edge-hi);
 }
 .hero-eyebrow { display: flex; align-items: center; gap: 5px; font: 700 10.5px var(--font-heading); text-transform: uppercase; letter-spacing: 0.08em; color: var(--vc); margin-bottom: 13px; }
 .hero-eyebrow i { font-size: 12px; }
@@ -768,7 +770,7 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 }
 .home-market-note i { font-size: 15px; color: var(--accent-200); opacity: .85; }
 
-.pf-card { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 20px; border-radius: 20px; cursor: pointer; overflow: hidden; border: 1px solid var(--hairline); background: linear-gradient(140deg, color-mix(in srgb, var(--buy) 11%, var(--surface)), var(--surface) 68%); box-shadow: 0 14px 34px -22px rgba(0,0,0,0.8); }
+.pf-card { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 20px; border-radius: 20px; cursor: pointer; overflow: hidden; border: 1px solid var(--hairline); background: linear-gradient(140deg, color-mix(in srgb, var(--buy) 11%, var(--surface)), var(--surface) 68%); box-shadow: 0 20px 44px -22px rgba(0,0,0,0.72), 0 6px 16px -8px rgba(0,0,0,0.5), var(--edge-hi); }
 .pf-card.down { background: linear-gradient(140deg, color-mix(in srgb, var(--sell) 11%, var(--surface)), var(--surface) 68%); }
 .pf-card::after { content: ''; position: absolute; inset: 0; background: radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--buy) 16%, transparent), transparent 58%); pointer-events: none; }
 .pf-card.down::after { background: radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--sell) 16%, transparent), transparent 58%); }
