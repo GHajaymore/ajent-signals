@@ -343,7 +343,7 @@ export function render(container) {
     <div class="setting-help" style="margin-top:0">${DATA_REFRESH_NOTE}</div>
     `)}
 
-    <div class="footer-note">Ajent Signals is an educational tool and does not execute trades.<br>Markets tagged REAL compute indicators from a free public price feed (unofficial, best-effort, delayed). Markets without a live feed show no signal and are hidden — never a fabricated one · v1.0.0<br><a href="../privacy/">Privacy</a> · <a href="../terms/">Terms</a> · <a href="#/methodology">How it works</a></div>
+    <div class="footer-note">Ajent Signals is an educational tool and does not execute trades.<br>Markets tagged REAL compute indicators from a free public price feed (unofficial, best-effort, delayed). Markets without a live feed show no signal and are hidden — never a fabricated one · <a href="#/console" style="color:inherit;text-decoration:none" title="Operator console">v1.0.0</a><br><a href="../privacy/">Privacy</a> · <a href="../terms/">Terms</a> · <a href="#/methodology">How it works</a></div>
   </div>`;
 
   // Remember which categories the user left open, so the full re-renders that a

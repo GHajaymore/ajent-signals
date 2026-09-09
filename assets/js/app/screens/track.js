@@ -10,6 +10,7 @@ import { CATEGORY_ORDER } from '../mockEngine.js';
 import { groupForSymbol, labelForKey, EXPERIMENT_CLASSES, ASSET_GROUPS } from '../assetClass.js';
 import { fmtMoney as fmtMoneyCcy } from '../currency.js';
 import { hoverAttrs, hoverLayerSvg, wireChartHover } from '../chartHover.js';
+import { isOwner } from '../role.js';
 import { shareOrCopy } from '../share.js';
 
 // Share the honest You-vs-Ajent result — avg R per trade (performance, never the recipe).
@@ -497,7 +498,7 @@ function strategyCard() {
 
 // The candidate scoreboard is an INTERNAL tool (Ajent picks the live strategy from it) — only
 // shown in debug/internal mode. Users instead get the advertise-the-lab trust callout below.
-function isInternal() { try { return new URLSearchParams(location.search).get('debug') === '1' || !!(typeof window !== 'undefined' && window.__ajentDebug); } catch (e) { return false; } }
+function isInternal() { try { return isOwner() || new URLSearchParams(location.search).get('debug') === '1' || !!(typeof window !== 'undefined' && window.__ajentDebug); } catch (e) { return false; } }
 // User-facing: advertise that Ajent continuously lab-tests — a credibility feature, not the raw
 // candidate scoreboard. Honest (it's how Ajent Pulse actually evolves).
 function labAdvertHtml() {
