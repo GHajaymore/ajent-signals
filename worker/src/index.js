@@ -16,7 +16,7 @@ import { loadAutoTradeConfig, saveAutoTradeConfig } from './config.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Authorization,Content-Type',
+  'Access-Control-Allow-Headers': 'Authorization,Content-Type,X-Role-Token',
   'Access-Control-Allow-Methods': 'GET,POST,DELETE,OPTIONS',
 };
 const json = (body, status = 200) =>
