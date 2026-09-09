@@ -175,21 +175,52 @@ function portfolioCard(perf) {
         <div class="pf-meta">${meta}</div>
       </div>
       <i class="ph-bold ph-arrow-up-right pf-go"></i>
-    </div>`;
+    </div>${todayLineHtml()}`;
   }
   const up = perf.totalPnl >= 0;
   const col = up ? 'var(--buy)' : 'var(--sell)';
-  const spark = perf.equity && perf.equity.length > 1 ? sparklineSvg(perf.equity, col, 128, 46) : '';
+  const spark = perf.equity && perf.equity.length > 1 ? sparklineSvg(perf.equity, col, 320, 48) : '';
   const bal = Number(state.settings.accountBalance) || 25000;
   const retPct = (perf.totalPnl / bal) * 100;
-  return `<div class="pf-card ${up ? 'up' : 'down'}" data-nav="#/track">
-    <div class="pf-main">
-      <div class="pf-label">Paper return · net of costs</div>
-      <div class="pf-value" id="hp-pnl" style="color:${col}">${retPct >= 0 ? '+' : ''}${retPct.toFixed(1)}<span class="pf-cur">%</span></div>
-      <div class="pf-meta" id="hp-meta"><span style="color:${col}">${money(perf.totalPnl)}</span> on ${money(bal)} · ${perf.winRate}% win · PF ${pfLabel(perf)}</div>
+  // ONE calm, self-contained record card. Leads with the honest strength (net $ + the
+  // risk-adjusted strip that matches the Paper screen) rather than a tiny live %, and folds
+  // today's swing noise into a quiet secondary line so a normal unrealized dip stops reading
+  // as a scary loss. The "Nothing hidden" tag makes the anti-bot-lie honesty explicit
+  // (open-position drawdown is included). Strip labels mirror track.js metricStrip verbatim.
+  return `<div class="pf-card pf-card--full ${up ? 'up' : 'down'}" data-nav="#/track">
+    <div class="pf-fullhead">
+      <div class="pf-label">Your paper record</div>
+      <span class="pf-badge" title="Open-position drawdown is included — winners and losers, unedited. Nothing is hidden.">Nothing hidden</span>
     </div>
-    <div class="pf-chart">${spark}<div class="pf-go-sm"><i class="ph-bold ph-caret-right"></i></div></div>
+    <div class="pf-value" id="hp-pnl" style="color:${col}">${money(perf.totalPnl)}</div>
+    <div class="pf-meta" id="hp-meta">net on virtual money · ${retPct >= 0 ? '+' : ''}${retPct.toFixed(1)}% on ${money(bal)}</div>
+    <div class="pf-fullspark">${spark}</div>
+    <div class="pf-strip">
+      <div class="m" title="How often a trade closes in profit."><div class="mk">Win rate</div><div class="mv" style="color:var(--buy)">${perf.winRate}%</div></div>
+      <div class="m" title="For every $1 lost, this many dollars were won (profit factor). Above 1 is profitable."><div class="mk">$ won per $ lost</div><div class="mv">${pfLabel(perf)}</div></div>
+      <div class="m" title="The account's biggest peak-to-trough dip — how bad it got at its worst (max drawdown)."><div class="mk">Worst drop</div><div class="mv" style="color:var(--sell)">${money(perf.maxDrawdown)}</div></div>
+      <div class="m" title="Average profit or loss per trade (expectancy)."><div class="mk">Avg / trade</div><div class="mv" style="color:${perf.expectancy >= 0 ? 'var(--buy)' : 'var(--sell)'}">${money(perf.expectancy)}</div></div>
+    </div>
+    ${todayLineHtml()}
   </div>`;
+}
+
+// Today's P&L as a CALM one-line footer inside the record card (not a big red hero). Keeps the
+// realized/unrealized split honest, and — for a swing day with nothing closed yet — says the
+// open figure is unrealized so a normal dip doesn't read as a loss. Carries its own data-sig so
+// the live loop can swap just this line each tick without rebuilding the whole card.
+function todayLineHtml() {
+  const t = todayPnl();
+  const sig = `${Math.round(t.realized)}|${Math.round(t.unreal)}|${t.closedCount}|${t.openCount}`;
+  if (!t.closedCount && !t.openCount) return `<div id="today-line" data-sig="${sig}" hidden></div>`;
+  const col = (v) => (v >= 0 ? 'var(--buy)' : 'var(--sell)');
+  const parts = [];
+  if (t.closedCount) parts.push(`<span style="color:${col(t.realized)}">${money(t.realized)}</span> realized`);
+  if (t.openCount) parts.push(`<span style="color:${col(t.unreal)}">${money(t.unreal)}</span> unrealized`);
+  const tail = (t.openCount && !t.closedCount)
+    ? ` · ${t.openCount} swing trade${t.openCount > 1 ? 's' : ''} still open`
+    : (t.openCount ? ` · ${t.openCount} open` : '');
+  return `<div id="today-line" data-sig="${sig}" class="pf-today"><span class="pf-today-k">Today</span> ${parts.join(' · ')}${tail}</div>`;
 }
 
 // Only Swing is SELECTABLE (the proven board); Scalping/Position show disabled with an
@@ -358,29 +389,6 @@ function todayPnl() {
   for (const p of open) { const q = livePnl(p); if (q) { unreal += q.dollars; marked++; } }
   return { realized, closedCount: closedToday.length, unreal, openCount: open.length, marked };
 }
-function todayCardHtml() {
-  const t = todayPnl();
-  if (!t.closedCount && !t.openCount) return '';
-  const net = t.realized + t.unreal;
-  const col = (v) => (v >= 0 ? 'var(--buy)' : 'var(--sell)');
-  // Swing trades hold ~1-3 days, so a day with open positions but nothing closed
-  // shows unrealized-only — that's expected, not a stuck app. Say so once.
-  const swingHint = (t.openCount && !t.closedCount)
-    ? `<div class="text-faint" style="font-size:10.5px;margin-top:4px">Swing style — positions hold a few days, so today may show unrealized only until one closes.</div>`
-    : '';
-  return `<div class="card" data-nav="#/track" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:13px 16px;margin-top:10px">
-      <div style="flex:1">
-        <div class="text-muted" style="font-size:11px;letter-spacing:.04em;text-transform:uppercase">Today</div>
-        <div id="today-net" style="font:800 22px var(--font-heading);color:${col(net)};line-height:1.1;margin-top:1px">${money(net)}</div>
-        <div class="text-muted" style="font-size:11px;margin-top:2px" id="today-sub">
-          <span style="color:${col(t.realized)}">${money(t.realized)}</span> realized${t.closedCount ? ` · ${t.closedCount} closed` : ''} · <span style="color:${col(t.unreal)}">${money(t.unreal)}</span> unrealized${t.openCount ? ` · ${t.openCount} open` : ''}
-        </div>
-        ${swingHint}
-      </div>
-      <i class="ph-bold ph-caret-right" style="color:var(--text-muted)"></i>
-    </div>`;
-}
-
 // A visual stop → entry → current → target track for an open position. Maps stop to the
 // LEFT end and target to the RIGHT (works for long AND short via the signed fraction), so
 // a glance shows how much buffer remains before the stop — the honest answer to "how close
@@ -634,8 +642,6 @@ export function render(container) {
 
     <div id="portfolio-wrap">${portfolioCard(perf)}</div>
 
-    <div id="today-wrap">${todayCardHtml()}</div>
-
     <div class="stat-row" style="grid-template-columns:repeat(2,1fr)">
       <div class="stat-card" data-nav="#/track">
         <div class="stat-label">Open trades</div>
@@ -792,9 +798,7 @@ export function refresh(container) {
   if (pfWrap) {
     const perf = getPerformanceSummary(focusClosed());
     const shown = container.querySelector('#hp-pnl')?.textContent ?? null;
-    const bal = Number(state.settings.accountBalance) || 25000;
-    const rp = perf ? (perf.totalPnl / bal * 100) : 0;
-    const next = perf ? `${rp >= 0 ? '+' : ''}${rp.toFixed(1)}%` : null;
+    const next = perf ? money(perf.totalPnl) : null;
     if (shown !== next) pfWrap.innerHTML = portfolioCard(perf);
   }
 
@@ -848,13 +852,14 @@ export function refresh(container) {
     }
   }
 
-  // Today's P&L: rebuild the card when its content changes (prices tick, a trade
-  // opens/closes) so realized + unrealized stay live.
-  const todayWrap = container.querySelector('#today-wrap');
-  if (todayWrap) {
+  // Today's P&L now lives as a calm footer line inside the record card. Swap just that line
+  // (and the strip's live "Open" count is not shown — Open trades has its own card) when its
+  // content changes, so realized + unrealized stay live without rebuilding the whole card.
+  const todayLine = container.querySelector('#today-line');
+  if (todayLine) {
     const t = todayPnl();
     const sig = `${Math.round(t.realized)}|${Math.round(t.unreal)}|${t.closedCount}|${t.openCount}`;
-    if (todayWrap.dataset.sig !== sig) { todayWrap.innerHTML = todayCardHtml(); todayWrap.dataset.sig = sig; }
+    if (todayLine.dataset.sig !== sig) todayLine.outerHTML = todayLineHtml();
   }
 
   // Top setups / watching: rebuild only when the content signature changes, so it

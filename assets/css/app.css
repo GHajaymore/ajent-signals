@@ -904,6 +904,15 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .pf-strip .m:last-child { border-right: none; }
 .pf-strip .mk { font: 700 8.5px var(--font-body); letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-faint); }
 .pf-strip .mv { font: 700 15px var(--font-heading); margin-top: 3px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+/* Consolidated "Your paper record" home card: vertical layout with net + curve + strip + today. */
+.pf-card.pf-card--full { flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 0; }
+.pf-card.pf-card--full > * { position: relative; z-index: 1; }
+.pf-fullhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pf-badge { font-size: 10px; font-weight: 700; letter-spacing: 0.02em; color: var(--buy); border: 1px solid color-mix(in srgb, var(--buy) 40%, transparent); background: color-mix(in srgb, var(--buy) 10%, transparent); border-radius: 20px; padding: 2px 9px; white-space: nowrap; flex: none; }
+.pf-fullspark { margin-top: 12px; }
+.pf-fullspark svg { width: 100%; height: auto; display: block; }
+.pf-today { font-size: 11px; color: var(--text-muted); margin-top: 12px; border-top: 1px solid var(--hairline); padding-top: 9px; line-height: 1.55; }
+.pf-today .pf-today-k { text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; color: var(--text-faint); margin-right: 3px; }
 .mkt-star { flex: none; background: none; border: none; cursor: pointer; padding: 4px; margin: -4px -2px -4px 0; font-size: 17px; line-height: 1; color: var(--text-muted); opacity: 0.5; transition: opacity 0.15s, color 0.15s, transform 0.1s; }
 .mkt-star:hover { opacity: 1; }
 .mkt-star:active { transform: scale(0.85); }
