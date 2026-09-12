@@ -17,12 +17,34 @@ const PB30 = 0.30, PB20 = 0.20;
 //   mrOnly    — MR dip-buyer only → does the trend leg earn its lower win rate?
 //   mrTightPb — MR with a tighter %B<0.20 → is quality-over-quantity better live?
 //   mrSupport — MR + support-proximity filter → does the strong-but-unadopted filter add value?
+//   volScaled — full ensemble but position size scaled INVERSELY to volatility (small in high-vol
+//               crash regimes, full when calm), scoped to non-FX. Backtest validated it beats flat
+//               sizing on equities+commodities over a full cycle (defends 2018/2020/2022 crashes)
+//               while the current adaptive dial is procyclical. This forward-tests it live before
+//               any recipe change. See [[ajent-strategy-filter-candidates]] / honest-numbers.
 export const LAB_CANDIDATES = [
   { key: 'full', label: 'Full ensemble (MR + trend)', pb: PB30, support: false, trend: true },
   { key: 'mrOnly', label: 'MR-only', pb: PB30, support: false, trend: false },
   { key: 'mrTightPb', label: 'MR · %B < 0.20', pb: PB20, support: false, trend: false },
   { key: 'mrSupport', label: 'MR · at support', pb: PB30, support: true, trend: false },
+  { key: 'volScaled', label: 'Full · vol-scaled size', pb: PB30, support: false, trend: true, volScale: true },
 ];
+
+// Defensive vol-scaled size dial (0.4–1.0): shrink the position when the market's short-term
+// realized vol is elevated vs its own baseline (crash/fragile regime), full size when calm. Can
+// only CUT exposure, never lever up. Returns 1 when there isn't enough history.
+function rvol(candles, i, w) {
+  if (i < w) return null;
+  let s = 0, s2 = 0;
+  for (let j = i - w + 1; j <= i; j++) { const r = Math.log(candles[j].c / candles[j - 1].c); s += r; s2 += r * r; }
+  const m = s / w; return Math.sqrt(Math.max(0, s2 / w - m * m));
+}
+function volSizeMult(candles) {
+  const n = candles.length; if (n < 101) return 1;
+  const cur = rvol(candles, n - 1, 20), base = rvol(candles, n - 1, 100);
+  if (!cur || !base) return 1;
+  return Math.max(0.4, Math.min(1.0, base / cur));
+}
 
 // Apply a candidate's entry gate to the shared MR signal. Crypto keeps the full recipe (edge
 // reverses there), exactly like the live engine.
@@ -43,10 +65,14 @@ export function labStep(lab, symbol, candles, live, meta, now, risk, cost) {
   if (!candles || candles.length < 210) return;
   const mrSig = computeSignal(candles, live);
   const trendSig = computeTrend(candles, live);
+  // Vol-scaled dial for the volScaled candidate, scoped to NON-FX (equities/commodities/crypto),
+  // where the backtest validated it. FX excluded — vol-scaling hurt it there. Computed once/market.
+  const volMult = (meta.cell === 'fx') ? 1 : volSizeMult(candles);
   for (const c of LAB_CANDIDATES) {
     const rec = lab.cand[c.key] || (lab.cand[c.key] = blankRec());
-    processPosition({ symbol, meta, sig: gateMr(mrSig, meta, c), live, open: true, record: rec, now, risk, cost, strat: 'mr', shouldExit: mrShouldExit });
-    if (c.trend) processPosition({ symbol, meta, sig: trendSig, live, open: true, record: rec, now, risk, cost, strat: 'trend', shouldExit: trendShouldExit, openMap: rec.openTrend, lastCloseMap: rec.lastCloseTrend });
+    const dials = c.volScale ? { sizeMult: volMult } : null;
+    processPosition({ symbol, meta, sig: gateMr(mrSig, meta, c), live, open: true, record: rec, now, risk, cost, dials, strat: 'mr', shouldExit: mrShouldExit });
+    if (c.trend) processPosition({ symbol, meta, sig: trendSig, live, open: true, record: rec, now, risk, cost, dials, strat: 'trend', shouldExit: trendShouldExit, openMap: rec.openTrend, lastCloseMap: rec.lastCloseTrend });
     if (rec.closed.length > 200) rec.closed.length = 200; // keep the blob bounded
   }
 }
