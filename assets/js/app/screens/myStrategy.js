@@ -95,45 +95,29 @@ function boardHtml(cfg) {
   const rows = markets.map((m) => ({ m, c: evalCustom(m, cfg), aj: m.verdict(threshold) === 'BUY' })).filter((x) => x.c.ready);
   if (!rows.length) return `<div class="cs-board">${marketRowsSkeleton(4)}</div>`;
 
-  // Group the board into the three answers the user actually wants: where you AGREE with Ajent,
-  // where ONLY your rule fires, and Ajent's buys your rule MISSED (the teachable set). Markets
-  // where neither fired are dropped as noise — the old list buried the 1 signal that fired under
-  // a dozen "1/2 met" rows and hid most of Ajent's buys off the bottom.
+  // MOAT-SAFE comparison: show the honest AGGREGATE (your fires / Ajent's buys / overlap COUNT) and
+  // then ONLY the user's OWN fired signals. We deliberately DON'T list which specific markets Ajent
+  // bought that the user missed, nor per-condition guidance toward them — that would be a directed
+  // "fit your rule to Ajent's picks" reverse-engineering loop. Ajent's signals are public, but we
+  // don't hand users a tool to converge their rule onto the recipe's outputs. (See recipe-lock.)
   const yours = rows.filter((x) => x.c.fires);
-  const ajent = rows.filter((x) => x.aj);
-  const agree = yours.filter((x) => x.aj);
-  const onlyYou = yours.filter((x) => !x.aj);
-  const onlyAjent = ajent.filter((x) => !x.c.fires).sort((a, b) => b.c.proximity - a.c.proximity);
+  const ajentCount = rows.filter((x) => x.aj).length;
+  const agree = yours.filter((x) => x.aj).length;
 
-  const summary = `<div class="cs-sum">Your rule fired on <b>${yours.length}</b> · Ajent bought <b>${ajent.length}</b> · you agree on <b style="color:var(--accent-300)">${agree.length}</b>.</div>`;
+  const summary = `<div class="cs-sum">Your rule fired on <b>${yours.length}</b> · Ajent bought <b>${ajentCount}</b> · you agree on <b style="color:var(--accent-300)">${agree}</b>.</div>`;
 
-  // Row where YOUR rule fired — strength + direction (+ the AJENT tag when you also agree).
-  const firedRow = ({ m, c, aj }) => {
+  if (!yours.length) {
+    return `${summary}<div class="cs-empty" style="padding:8px 2px">Your rule isn’t firing on any market right now${ajentCount ? ' — loosen your conditions if you want more signals' : ''}.</div>`;
+  }
+  const list = yours.slice().sort((a, b) => b.c.confidence - a.c.confidence).map(({ m, c }) => {
     const dir = c.dir < 0 ? '<span class="cs-tag you sh">SHORT</span>' : '<span class="cs-tag you">LONG</span>';
     return `<div class="cs-row" data-nav="#/signal/${m.symbol}">
       <span class="cs-sym">${m.symbol}</span>
-      <span class="cs-rsi"><span class="cs-conf">${c.confidence}%</span> strong</span>
-      <span class="cs-tags">${dir}${aj ? '<span class="cs-tag aj">AJENT</span>' : ''}</span>
+      <span class="cs-rsi"><span class="cs-conf">${c.confidence}%</span> conviction</span>
+      <span class="cs-tags">${dir}</span>
     </div>`;
-  };
-  // Row for an Ajent buy your rule missed — show WHICH conditions are met vs not, so the user
-  // learns exactly what to loosen to catch it. Falls back to a count if per-condition is missing.
-  const missRow = ({ m, c }) => {
-    const chips = (c.conds || []).map((cd) => `<span class="cs-cmet ${cd.ok ? 'ok' : 'no'}">${cd.ok ? '✓' : '✗'} ${cd.abbr}</span>`).join('');
-    return `<div class="cs-row" data-nav="#/signal/${m.symbol}">
-      <span class="cs-sym">${m.symbol}</span>
-      <span class="cs-miss">${chips || `${c.met}/${c.total} met`}</span>
-      <span class="cs-tags"><span class="cs-tag aj">BUY</span></span>
-    </div>`;
-  };
-  const section = (label, color, items, emptyNote, rowFn) =>
-    `<div class="cs-sec"><div class="cs-sec-h" style="color:${color}">${label} · ${items.length}</div>${items.length ? items.slice(0, 12).map(rowFn).join('') : `<div class="cs-empty">${emptyNote}</div>`}</div>`;
-
-  return `${summary}<div class="cs-board2">
-    ${section('You both agree', 'var(--buy)', agree, 'No overlap right now — your rule and Ajent don’t agree on today’s board.', firedRow)}
-    ${section('Only your rule', 'var(--accent-300)', onlyYou, 'Your rule isn’t firing where Ajent isn’t.', firedRow)}
-    ${section('Only Ajent — you missed these', 'var(--flat)', onlyAjent, 'You’re not missing any of Ajent’s buys right now.', missRow)}
-  </div>`;
+  }).join('');
+  return `${summary}<div class="cs-sec"><div class="cs-sec-h" style="color:var(--accent-300)">Your signals · ${yours.length}</div>${list}</div>`;
 }
 
 function recordPanel() {
