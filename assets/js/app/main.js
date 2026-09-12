@@ -105,10 +105,12 @@ function renderTabbar(route) {
 function renderRoute() {
   const route = parseHash();
 
-  if (!state.accepted && route[0] !== 'gate') { location.hash = '#/gate'; return; }
+  // The operator console (#/console) is an owner/admin back-door — never route it through the
+  // member disclaimer/onboarding/signup funnel, so it's reachable directly on any browser.
+  if (!state.accepted && route[0] !== 'gate' && route[0] !== 'console') { location.hash = '#/gate'; return; }
   if (state.accepted && route[0] === 'gate') { location.hash = state.onboarded ? '#/home' : '#/welcome'; return; }
   // First run after accepting the disclaimer: show the onboarding walkthrough.
-  if (state.accepted && !state.onboarded && route[0] !== 'welcome') { location.hash = '#/welcome'; return; }
+  if (state.accepted && !state.onboarded && route[0] !== 'welcome' && route[0] !== 'console') { location.hash = '#/welcome'; return; }
   if (state.accepted && state.onboarded && route[0] === 'welcome') { location.hash = '#/home'; return; }
 
   const showTabbar = !NO_TABBAR.has(route[0]);
