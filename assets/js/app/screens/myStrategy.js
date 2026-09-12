@@ -119,7 +119,7 @@ function boardHtml(cfg) {
   // Row for an Ajent buy your rule missed — show WHICH conditions are met vs not, so the user
   // learns exactly what to loosen to catch it. Falls back to a count if per-condition is missing.
   const missRow = ({ m, c }) => {
-    const chips = (c.conds || []).map((cd) => `<span class="cs-cond ${cd.ok ? 'ok' : 'no'}">${cd.ok ? '✓' : '✗'} ${cd.abbr}</span>`).join('');
+    const chips = (c.conds || []).map((cd) => `<span class="cs-cmet ${cd.ok ? 'ok' : 'no'}">${cd.ok ? '✓' : '✗'} ${cd.abbr}</span>`).join('');
     return `<div class="cs-row" data-nav="#/signal/${m.symbol}">
       <span class="cs-sym">${m.symbol}</span>
       <span class="cs-miss">${chips || `${c.met}/${c.total} met`}</span>
