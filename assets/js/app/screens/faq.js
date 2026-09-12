@@ -12,7 +12,7 @@ const FAQ = [
   },
   {
     q: 'What’s the strategy’s real edge, then?',
-    a: 'A solid win rate (~<b>75%</b>) with a small drawdown: in cash most of the time, entering only on genuine oversold extremes, and now <b>holding winners until they mean-revert</b> rather than exiting early. The aim is a strong <b>risk-adjusted</b> return while staying competitive with buy-and-hold — not to out-gain a rising index every year.',
+    a: 'A solid win rate (~<b>75%</b>) with a small drawdown: in cash most of the time, entering only on genuine oversold extremes, and <b>holding winners until they mean-revert</b> rather than exiting early. The aim is a strong <b>risk-adjusted</b> return while staying competitive with buy-and-hold — not to out-gain a rising index every year.<br><br><b>One honest caveat — it’s regime-dependent.</b> This is a mean-reversion edge, so it’s strongest in normal and rising markets and weakest in <b>fast crashes and choppy or bear stretches</b>, where oversold dips can keep falling. Years like 2018 or 2022 can show red — that’s the nature of buying dips, not a malfunction. The headline win rate reflects calmer markets and a young live record; expect <b>losing stretches when markets fall hard or chop</b>. We track the record unedited precisely so you see that honestly when it happens.',
   },
   {
     q: 'Are the numbers you show real, or simulated?',
