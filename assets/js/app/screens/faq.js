@@ -19,6 +19,10 @@ const FAQ = [
     a: '<b>Real. Simulation was removed entirely.</b> Every price and signal comes from real market data. When there’s no real data for a market, we show “no live data” and hide it — never a fabricated price or a fake signal.',
   },
   {
+    q: 'What do the numbers mean — profit factor, avg R, drawdown?',
+    a: 'Plain-English, so nothing is a black box:<br>• <b>Win rate</b> — how often a trade closes in profit. A high one isn’t the whole story: a 90%-win strategy still loses money if the 10% of losses are huge.<br>• <b>Profit factor</b> — dollars won for every $1 lost (gross profit ÷ gross loss). Above 1 is profitable; ~2.5 means it made about $2.50 for each $1 it gave back.<br>• <b>Avg / trade (expectancy)</b> — the average profit or loss per trade. This is the <b>fair</b> number: it holds at any account size, unlike total $, which mostly reflects how many trades were taken.<br>• <b>Avg R</b> — the same idea in “risk units”: +0.30R means the average trade earns 0.30× what it risked. Scale-free, so any two strategies compare fairly.<br>• <b>Max drawdown</b> (“worst drop”) — the biggest peak-to-trough dip the account took. It answers “how bad did it get?” — the number that actually tests your nerve, and the reason the stop only ever risks a fixed, small amount per trade.<br>• <b>Ret/risk</b> (stock screener) — return per unit of volatility: how much a stock climbed versus how choppy it was. Higher means more reward for the risk taken.',
+  },
+  {
     q: 'Is the data real-time?',
     a: 'It depends on the market, and every price is labelled so you always know. <b>Crypto</b> is real-time. <b>US index futures</b> (ES/NQ/YM/RTY) show a <b>near-real-time estimate</b> derived from their live tracking ETF (SPY/QQQ/DIA/IWM) — labelled “~RT · SPY” — because the free futures feed itself runs ~15 min behind. Other indices are <b>real but delayed ~15–25 minutes</b>, labelled “delayed”. Delayed means <i>real, just late</i> — never fabricated. Signals compute on daily bars, so the small lag doesn’t change which setups fire.',
   },
