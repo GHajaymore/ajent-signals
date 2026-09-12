@@ -168,6 +168,9 @@ export function resetCustomConfig() { try { localStorage.removeItem(LS); } catch
 // Evaluate the user's whole rule on one market's recent closes. Returns the firing
 // state for the configured direction, a user-derived confidence, and proximity =
 // how many of their conditions are currently met (honest "3 of 4" style progress).
+// Short chip labels per indicator, for the compact "which condition is met" board.
+const COND_ABBR = { rsi: 'RSI', ma: 'Trend', macd: 'MACD', bollinger: 'Bands', stoch: 'Stoch', momentum: 'Mom.', adx: 'ADX' };
+
 export function evalCustom(market, cfg) {
   const h = market && market.history;
   if (!Array.isArray(h) || h.length < 30 || !cfg.conditions || !cfg.conditions.length) return { ready: false };
@@ -175,17 +178,21 @@ export function evalCustom(market, cfg) {
   if (!(price > 0)) return { ready: false };
 
   let longMet = 0, shortMet = 0, longDepth = 0, shortDepth = 0, total = 0;
+  const perCond = []; // per-condition met/unmet, so the board can show WHICH condition holds you back
   for (const cond of cfg.conditions) {
     const ind = INDICATORS[cond.key]; if (!ind) continue;
     const r = ind.eval(h, price, cond); if (!r) return { ready: false }; // not enough history yet
     total += 1;
     if (r.bull) { longMet += 1; longDepth += r.longDepth || 0; }
     if (r.bear) { shortMet += 1; shortDepth += r.shortDepth || 0; }
+    perCond.push({ key: cond.key, abbr: COND_ABBR[cond.key] || (ind.label || cond.key), bull: !!r.bull, bear: !!r.bear });
   }
   if (!total) return { ready: false };
 
   const wantLong = cfg.direction !== 'short';
   const wantShort = cfg.direction !== 'long';
+  // A condition "counts" toward the direction the user is trading — that's what met/proximity use.
+  for (const pc of perCond) pc.ok = (wantLong && pc.bull) || (wantShort && pc.bear);
   const longFires = wantLong && longMet === total;
   const shortFires = wantShort && shortMet === total;
   // If both sides fire (possible with 'both' + loose rules), take the deeper one.
@@ -199,5 +206,5 @@ export function evalCustom(market, cfg) {
   const proximity = Math.round((met / total) * 100); // % of your conditions currently met
   // longFires/shortFires are the raw per-side states (before the direction gate), so
   // the paper tracker can tell when an OPEN position's own setup has ended.
-  return { ready: true, fires, dir, price, confidence, proximity, met, total, longFires: longMet === total, shortFires: shortMet === total };
+  return { ready: true, fires, dir, price, confidence, proximity, met, total, conds: perCond, longFires: longMet === total, shortFires: shortMet === total };
 }
