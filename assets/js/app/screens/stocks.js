@@ -69,7 +69,7 @@ function riskScreenerHtml(data) {
       <span class="risk-rank">${i + 1}</span>
       <div class="risk-body"><span class="risk-sym">${s.symbol}</span><span class="risk-sec">${s.sector || ''}</span></div>
       <span class="risk-metric">${prof.metric(s)}</span>
-      <span class="risk-vol" style="color:${tc}" title="volatility">${tier}</span>
+      <span class="risk-vol" style="color:${tc}" title="volatility of this stock">${tier}${tier === '—' ? '' : ' <span class="risk-vol-l">vol</span>'}</span>
       ${buy ? '<span class="risk-buy">BUY</span>' : ''}
       <i class="ph ph-caret-down row-caret" aria-hidden="true"></i>
     </div>`;

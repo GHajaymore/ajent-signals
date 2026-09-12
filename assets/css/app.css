@@ -119,7 +119,8 @@ body.app-body { background: var(--bg); overscroll-behavior-y: none; }
 .risk-px { font: 500 12px var(--font-mono); color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .risk-sec { font: 600 10px var(--font-mono); color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 5px; padding: 1px 6px; white-space: nowrap; }
 .risk-metric { font: 700 12px var(--font-mono); color: var(--text); font-variant-numeric: tabular-nums; flex: none; }
-.risk-vol { font: 700 9px var(--font-mono); letter-spacing: 0.05em; width: 34px; flex: none; text-align: center; }
+.risk-vol { font: 700 9px var(--font-mono); letter-spacing: 0.05em; width: 52px; flex: none; text-align: center; }
+.risk-vol-l { font-size: 8px; font-weight: 600; color: var(--text-faint); letter-spacing: 0; }
 .risk-buy { font: 700 8.5px var(--font-mono); background: var(--buy); color: #04120d; padding: 2px 5px; border-radius: 4px; flex: none; }
 
 /* Strategy-status cells (Paper) — the proven/experiment lifecycle at a glance */
