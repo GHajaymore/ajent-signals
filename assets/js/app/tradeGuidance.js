@@ -8,7 +8,7 @@
 // scan's price, which can differ from the level — see the exit-fill note).
 const CALL_MAP = {
   stopHit: { status: 'cut', label: 'Stop hit · closing', tone: 'var(--sell)', icon: 'ph-hand-palm', tip: 'Live price crossed the stop — the record closes this on the next scan (~5 min), at the price then (which can be past the stop).' },
-  targetHit: { status: 'profit', label: 'Target hit · closing', tone: 'var(--buy)', icon: 'ph-flag-checkered', tip: 'Live price reached the target — the record books it on the next scan (~5 min), at the price then.' },
+  target: { status: 'profit', label: 'Above target · in profit', tone: 'var(--buy)', icon: 'ph-flag-checkered', tip: 'Price is past the 1R target line. That target is a reference, not an auto-exit: a mean-reversion trade books when the move reverts, and a trend trade rides on with a trailing stop. See the exit call below.' },
   profit: { status: 'profit', label: 'Book profit', tone: 'var(--buy)', icon: 'ph-flag-checkered', tip: 'The move has reverted — the strategy is likely to book this profit on the next scan.' },
   cut: { status: 'cut', label: 'Cut · stop', tone: 'var(--sell)', icon: 'ph-hand-palm', tip: 'Near the stop.' },
   trend: { status: 'hold', label: 'Ride the trend', tone: 'var(--flat)', icon: 'ph-trend-up', tip: 'Trend position — held with a trailing stop until the trend breaks.' },
@@ -22,10 +22,15 @@ export function positionCall(market, pos) {
   // scan, so a level crossed on the live price is the thing to surface — it overrides a
   // stale server 'call'. The position will close at the next server scan (≤5 min).
   if (price != null && pos.stop != null && (long ? price <= pos.stop : price >= pos.stop)) return CALL_MAP.stopHit;
-  if (price != null && pos.target1 != null && (long ? price >= pos.target1 : price <= pos.target1)) return CALL_MAP.targetHit;
-  // Otherwise show the server's book-profit / trend / hold guidance from the last scan.
+  // The server's recipe-derived call is authoritative for the profit/trend/hold decision.
+  // target1 is NOT an auto-exit on either engine — a mean-reversion trade books when the
+  // move reverts (a server 'profit' call), a trend trade rides on with a trailing stop — so
+  // reaching target1 must never be shown as "closing". Defer to the server call.
   if (pos && pos.call && CALL_MAP[pos.call]) return CALL_MAP[pos.call];
   if (pos && pos.strat === 'trend') return CALL_MAP.trend;
+  // No server call yet and price is past the 1R target line: surface that it's in profit —
+  // informational only; it does not mean the record is about to close.
+  if (price != null && pos.target1 != null && (long ? price >= pos.target1 : price <= pos.target1)) return CALL_MAP.target;
   return CALL_MAP.hold;
 }
 
