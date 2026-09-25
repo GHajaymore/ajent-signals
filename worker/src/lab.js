@@ -22,12 +22,18 @@ const PB30 = 0.30, PB20 = 0.20;
 //               sizing on equities+commodities over a full cycle (defends 2018/2020/2022 crashes)
 //               while the current adaptive dial is procyclical. This forward-tests it live before
 //               any recipe change. See [[ajent-strategy-filter-candidates]] / honest-numbers.
+//   trendPartial — full ensemble but the TREND leg books HALF the position at the 1R target and
+//               rides the other half on the trailing stop (a "scale-out"). Answers: does locking in
+//               a partial at target beat letting the whole trend position ride? Tests the classic
+//               take-some-off-the-table tradeoff live (locks gains earlier vs. gives up runner
+//               upside). Modelled as two half-size trend slots so it reuses the production maths.
 export const LAB_CANDIDATES = [
   { key: 'full', label: 'Full ensemble (MR + trend)', pb: PB30, support: false, trend: true },
   { key: 'mrOnly', label: 'MR-only', pb: PB30, support: false, trend: false },
   { key: 'mrTightPb', label: 'MR · %B < 0.20', pb: PB20, support: false, trend: false },
   { key: 'mrSupport', label: 'MR · at support', pb: PB30, support: true, trend: false },
   { key: 'volScaled', label: 'Full · vol-scaled size', pb: PB30, support: false, trend: true, volScale: true },
+  { key: 'trendPartial', label: 'Full · book ½ at target', pb: PB30, support: false, trend: true, partial: true },
 ];
 
 // Defensive vol-scaled size dial (0.4–1.0): shrink the position when the market's short-term
@@ -56,8 +62,18 @@ function gateMr(sig, meta, c) {
   return sig;
 }
 
-// Fresh per-candidate shadow record.
-function blankRec() { return { open: {}, openTrend: {}, closed: [], lastClose: {}, lastCloseTrend: {} }; }
+// Scale-out exit for the trendPartial "scalp" half: take profit the moment price reaches the 1R
+// target, otherwise fall back to the normal trend exit (trailing/hard/time stop) so the downside
+// is protected exactly like the runner half. Trend is long-only in production, but kept side-aware.
+function scalpTrendExit(sig, pos, price, now) {
+  const long = pos.side !== 'SHORT';
+  if (pos.target1 != null && (long ? price >= pos.target1 : price <= pos.target1)) return 'target';
+  return trendShouldExit(sig, pos, price, now);
+}
+
+// Fresh per-candidate shadow record. openTrendScalp/lastCloseTrendScalp hold the trendPartial
+// scale-out half (a second trend slot); harmless/empty for every other candidate.
+function blankRec() { return { open: {}, openTrend: {}, openTrendScalp: {}, closed: [], lastClose: {}, lastCloseTrend: {}, lastCloseTrendScalp: {} }; }
 
 // Run ONE market through EVERY candidate. `candles` are the scheduler's already-fetched daily
 // bars; `live` the fresh quote; `meta` the market. Mutates `lab.cand`.
@@ -70,9 +86,17 @@ export function labStep(lab, symbol, candles, live, meta, now, risk, cost) {
   const volMult = (meta.cell === 'fx') ? 1 : volSizeMult(candles);
   for (const c of LAB_CANDIDATES) {
     const rec = lab.cand[c.key] || (lab.cand[c.key] = blankRec());
+    if (!rec.openTrendScalp) { rec.openTrendScalp = {}; rec.lastCloseTrendScalp = {}; } // upgrade older blobs
     const dials = c.volScale ? { sizeMult: volMult } : null;
     processPosition({ symbol, meta, sig: gateMr(mrSig, meta, c), live, open: true, record: rec, now, risk, cost, dials, strat: 'mr', shouldExit: mrShouldExit });
-    if (c.trend) processPosition({ symbol, meta, sig: trendSig, live, open: true, record: rec, now, risk, cost, dials, strat: 'trend', shouldExit: trendShouldExit, openMap: rec.openTrend, lastCloseMap: rec.lastCloseTrend });
+    if (c.trend && c.partial) {
+      // Two half-size trend slots: runner rides the trailing stop; scalp books at the 1R target.
+      const half = { sizeMult: 0.5 };
+      processPosition({ symbol, meta, sig: trendSig, live, open: true, record: rec, now, risk, cost, dials: half, strat: 'trend', shouldExit: trendShouldExit, openMap: rec.openTrend, lastCloseMap: rec.lastCloseTrend });
+      processPosition({ symbol, meta, sig: trendSig, live, open: true, record: rec, now, risk, cost, dials: half, strat: 'trend', shouldExit: scalpTrendExit, openMap: rec.openTrendScalp, lastCloseMap: rec.lastCloseTrendScalp });
+    } else if (c.trend) {
+      processPosition({ symbol, meta, sig: trendSig, live, open: true, record: rec, now, risk, cost, dials, strat: 'trend', shouldExit: trendShouldExit, openMap: rec.openTrend, lastCloseMap: rec.lastCloseTrend });
+    }
     if (rec.closed.length > 200) rec.closed.length = 200; // keep the blob bounded
   }
 }
@@ -93,7 +117,7 @@ export function labSummary(lab) {
       for (const t of closed.slice().sort((a, b) => (a.closedAt || 0) - (b.closedAt || 0))) { eq += t.pnl; pk = Math.max(pk, eq); dd = Math.min(dd, eq - pk); }
       // Open positions, recipe-STRIPPED (only levels the client already sees for the live
       // record) so the client can mark them to its own fresh prices for a live unrealized read.
-      const positions = [...Object.values(rec.open), ...Object.values(rec.openTrend || {})]
+      const positions = [...Object.values(rec.open), ...Object.values(rec.openTrend || {}), ...Object.values(rec.openTrendScalp || {})]
         .map((p) => ({ symbol: p.symbol, side: p.side, entry: p.entry, risk: p.risk, riskDollars: p.riskDollars, strat: p.strat }));
       return {
         key: c.key, label: c.label,
