@@ -10,6 +10,7 @@
 import { computeSignal } from './strategy.js';
 import { computeTrend, trendShouldExit } from './trend.js';
 import { mrShouldExit, processPosition } from './scheduler.js';
+import { volSizeMult } from './indicators.js';
 
 const PB30 = 0.30, PB20 = 0.20;
 // The forward-test slate. Each answers a real question:
@@ -36,21 +37,9 @@ export const LAB_CANDIDATES = [
   { key: 'trendPartial', label: 'Full · book ½ at target', pb: PB30, support: false, trend: true, partial: true },
 ];
 
-// Defensive vol-scaled size dial (0.4–1.0): shrink the position when the market's short-term
-// realized vol is elevated vs its own baseline (crash/fragile regime), full size when calm. Can
-// only CUT exposure, never lever up. Returns 1 when there isn't enough history.
-function rvol(candles, i, w) {
-  if (i < w) return null;
-  let s = 0, s2 = 0;
-  for (let j = i - w + 1; j <= i; j++) { const r = Math.log(candles[j].c / candles[j - 1].c); s += r; s2 += r * r; }
-  const m = s / w; return Math.sqrt(Math.max(0, s2 / w - m * m));
-}
-function volSizeMult(candles) {
-  const n = candles.length; if (n < 101) return 1;
-  const cur = rvol(candles, n - 1, 20), base = rvol(candles, n - 1, 100);
-  if (!cur || !base) return 1;
-  return Math.max(0.4, Math.min(1.0, base / cur));
-}
+// Defensive vol-scaled size dial (0.4–1.0) is now shared from indicators.js (volSizeMult) — the
+// SAME function the live scheduler adopted, so the lab's `volScaled` candidate stays a faithful
+// A/B of the live sizing.
 
 // Apply a candidate's entry gate to the shared MR signal. Crypto keeps the full recipe (edge
 // reverses there), exactly like the live engine.

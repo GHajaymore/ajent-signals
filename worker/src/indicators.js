@@ -97,3 +97,21 @@ export function roc(cl, p = 12) {
   for (let i = p; i < cl.length; i++) { const past = cl[i - p]; o[i] = past > 0 ? (cl[i] / past - 1) * 100 : null; }
   return o;
 }
+// Realized (close-to-close log-return) volatility over the last `w` bars ending at index `i`.
+function rvol(candles, i, w) {
+  if (i < w) return null;
+  let s = 0, s2 = 0;
+  for (let j = i - w + 1; j <= i; j++) { const r = Math.log(candles[j].c / candles[j - 1].c); s += r; s2 += r * r; }
+  const m = s / w; return Math.sqrt(Math.max(0, s2 / w - m * m));
+}
+// DEFENSIVE volatility-scaled position-size multiplier (default 0.4–1.0): shrink the position when
+// short-term realized vol (20d) is elevated vs its own baseline (100d) — i.e. a fragile/crash
+// regime — and use full size when calm. Can only CUT exposure, never lever up. Returns 1 without
+// enough history. Backtest-validated (vol-scaled-*-probe): improves risk-adjusted return in-sample
+// AND out-of-sample on equities + commodities over a full cycle; scoped to NON-FX by the caller.
+export function volSizeMult(candles, lo = 0.4, hi = 1.0) {
+  const n = candles.length; if (n < 101) return 1;
+  const cur = rvol(candles, n - 1, 20), base = rvol(candles, n - 1, 100);
+  if (!cur || !base) return 1;
+  return Math.max(lo, Math.min(hi, base / cur));
+}

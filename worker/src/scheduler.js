@@ -10,6 +10,7 @@ import { computeTrend, trendShouldExit } from './trend.js';
 import { computeBothMR, bothMRShouldExit } from './bothways.js';
 import { labStep } from './lab.js';
 import { loadDisabledSet } from './config.js';
+import { volSizeMult } from './indicators.js';
 
 const dayKey = (ms) => new Date(ms).toISOString().slice(0, 10);
 
@@ -267,6 +268,15 @@ export async function runTick(env, store) {
       const meta = MARKETS[symbol];
       const { candles, live, liveTime } = await fetchDailyCandles(meta, env);
       const bothWays = meta.engine === 'mrBoth';
+      // ADOPTED 2026-09-25: DEFENSIVE volatility-scaled sizing (the one lever that passed the
+      // robustness gate on a full decade, in-sample AND out-of-sample — see [[ajent-strategy-filter
+      // -candidates]] / honest-numbers). For NON-FX markets the size dial is now the per-market
+      // volSizeMult (0.4–1.0, shrinks into high-vol/crash regimes, full when calm) INSTEAD of the
+      // procyclical pooled sizeMult (which made the cycle worse). FX is excluded — vol-scaling hurt
+      // it (low-vol + already ADX-ranging-gated). Only ever CUTS size; sizes only NEW opens. The
+      // lab's `volScaled` candidate keeps forward-testing this A/B in parallel.
+      const volMult = (meta.cell === 'fx') ? 1 : volSizeMult(candles);
+      const mktDials = { ...dials, sizeMult: (meta.cell === 'fx') ? dials.sizeMult : volMult };
       // BOTH-WAYS cells (FX, commodities — symmetric assets) use the long+short MR
       // engine. Everything else uses the equity ENSEMBLE: mean-reversion dip-buyer +
       // trend-follow continuation, long-only, at most one opens per market.
@@ -282,12 +292,13 @@ export async function runTick(env, store) {
         if (!meta.crypto && mrSig.verdict === 'BUY' && typeof mrSig.pctB === 'number' && mrSig.pctB >= PB_ADOPT_MAX) {
           mrSig = { ...mrSig, verdict: 'NO_TRADE', direction: 0, plan: null };
         }
-        // Express the evolved dials in the MR plan (stop scaled by the global dial).
-        if (mrSig.plan && dials && dials.stopMult) {
-          const scale = dials.stopMult / STRATEGY.stopAtrMult;
+        // Express the evolved dials in the MR plan (stop scaled by the global dial; size by the
+        // per-market vol-scaled dial adopted above).
+        if (mrSig.plan && mktDials && mktDials.stopMult) {
+          const scale = mktDials.stopMult / STRATEGY.stopAtrMult;
           const long = mrSig.direction > 0;
           const r = mrSig.plan.risk * scale;
-          mrSig.plan = { ...mrSig.plan, risk: r, stop: long ? mrSig.plan.entry - r : mrSig.plan.entry + r, target1: long ? mrSig.plan.entry + r : mrSig.plan.entry - r, stopMult: dials.stopMult, sizeMult: dials.sizeMult };
+          mrSig.plan = { ...mrSig.plan, risk: r, stop: long ? mrSig.plan.entry - r : mrSig.plan.entry + r, target1: long ? mrSig.plan.entry + r : mrSig.plan.entry - r, stopMult: mktDials.stopMult, sizeMult: mktDials.sizeMult };
         }
         trendSig = computeTrend(candles, live);
       }
@@ -324,13 +335,13 @@ export async function runTick(env, store) {
       };
       if (bothWays) {
         // One MR-only engine (long/short); no trend leg for symmetric cells.
-        emit(processPosition({ symbol, meta, sig: mrSig, live, open: canOpen, record, now, risk, cost, dials, strat: 'mr', shouldExit: bothMRShouldExit }), mrSig);
+        emit(processPosition({ symbol, meta, sig: mrSig, live, open: canOpen, record, now, risk, cost, dials: mktDials, strat: 'mr', shouldExit: bothMRShouldExit }), mrSig);
       } else {
         // ENSEMBLE: MR and trend run as INDEPENDENT per-market slots (record.open / record.openTrend)
         // so a weeks-long trend hold never blocks the far-superior MR dip-buy (lab 2026-09-08). Each
         // slot manages its own open position with its own exit, or opens when flat.
-        emit(processPosition({ symbol, meta, sig: mrSig, live, open: canOpen, record, now, risk, cost, dials, strat: 'mr', shouldExit: mrShouldExit }), mrSig);
-        emit(processPosition({ symbol, meta, sig: trendSig, live, open: canOpen, record, now, risk, cost, dials, strat: 'trend', shouldExit: trendShouldExit, openMap: record.openTrend, lastCloseMap: record.lastCloseTrend }), trendSig);
+        emit(processPosition({ symbol, meta, sig: mrSig, live, open: canOpen, record, now, risk, cost, dials: mktDials, strat: 'mr', shouldExit: mrShouldExit }), mrSig);
+        emit(processPosition({ symbol, meta, sig: trendSig, live, open: canOpen, record, now, risk, cost, dials: mktDials, strat: 'trend', shouldExit: trendShouldExit, openMap: record.openTrend, lastCloseMap: record.lastCloseTrend }), trendSig);
       }
       // Derive the position's book-profit / hold CALL here (the recipe stays on the
       // server) so the client can show it WITHOUT the exit threshold, which /trades
