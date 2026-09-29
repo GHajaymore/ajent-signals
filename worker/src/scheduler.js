@@ -34,7 +34,12 @@ const PB_ADOPT_MAX = 0.30;
 // Open-position markets are ALWAYS scanned (even if their exchange just closed) so exits
 // (stop / RSI / time) are never delayed. MAX_FETCHES hard-bounds board fetches per tick
 // so board + the day tick (~4) + KV overhead stays comfortably under 50.
-const SCAN_BATCH_SIZE = 30;
+// Batch trimmed 30→18 (2026-09-29): each scheduled tick recomputes computeSignal + computeTrend
+// for every scanned market, and the full universe pushed a heavy tick past the Workers free-tier
+// CPU cap (observed `exceededCpu`, which silently skipped the SIGNALS write → a stalled feed).
+// A smaller rotating batch keeps every tick under the cap; open-position markets are still ALWAYS
+// scanned, and the ~2-min cron rotates the rest through within a few ticks (fine for daily bars).
+const SCAN_BATCH_SIZE = 18;
 const MAX_FETCHES = 34;
 
 // DYNAMIC CADENCE. The cron fires often (every 2 min), but a tick only actually SCANS —
@@ -268,15 +273,6 @@ export async function runTick(env, store) {
       const meta = MARKETS[symbol];
       const { candles, live, liveTime } = await fetchDailyCandles(meta, env);
       const bothWays = meta.engine === 'mrBoth';
-      // ADOPTED 2026-09-25: DEFENSIVE volatility-scaled sizing (the one lever that passed the
-      // robustness gate on a full decade, in-sample AND out-of-sample — see [[ajent-strategy-filter
-      // -candidates]] / honest-numbers). For NON-FX markets the size dial is now the per-market
-      // volSizeMult (0.4–1.0, shrinks into high-vol/crash regimes, full when calm) INSTEAD of the
-      // procyclical pooled sizeMult (which made the cycle worse). FX is excluded — vol-scaling hurt
-      // it (low-vol + already ADX-ranging-gated). Only ever CUTS size; sizes only NEW opens. The
-      // lab's `volScaled` candidate keeps forward-testing this A/B in parallel.
-      const volMult = (meta.cell === 'fx') ? 1 : volSizeMult(candles);
-      const mktDials = { ...dials, sizeMult: (meta.cell === 'fx') ? dials.sizeMult : volMult };
       // BOTH-WAYS cells (FX, commodities — symmetric assets) use the long+short MR
       // engine. Everything else uses the equity ENSEMBLE: mean-reversion dip-buyer +
       // trend-follow continuation, long-only, at most one opens per market.
@@ -292,15 +288,24 @@ export async function runTick(env, store) {
         if (!meta.crypto && mrSig.verdict === 'BUY' && typeof mrSig.pctB === 'number' && mrSig.pctB >= PB_ADOPT_MAX) {
           mrSig = { ...mrSig, verdict: 'NO_TRADE', direction: 0, plan: null };
         }
-        // Express the evolved dials in the MR plan (stop scaled by the global dial; size by the
-        // per-market vol-scaled dial adopted above).
-        if (mrSig.plan && mktDials && mktDials.stopMult) {
-          const scale = mktDials.stopMult / STRATEGY.stopAtrMult;
-          const long = mrSig.direction > 0;
-          const r = mrSig.plan.risk * scale;
-          mrSig.plan = { ...mrSig.plan, risk: r, stop: long ? mrSig.plan.entry - r : mrSig.plan.entry + r, target1: long ? mrSig.plan.entry + r : mrSig.plan.entry - r, stopMult: mktDials.stopMult, sizeMult: mktDials.sizeMult };
-        }
         trendSig = computeTrend(candles, live);
+      }
+      // ADOPTED 2026-09-25: DEFENSIVE volatility-scaled sizing (the one lever that passed the
+      // full-decade robustness gate; see [[ajent-strategy-filter-candidates]]). For NON-FX markets
+      // the size dial is the per-market volSizeMult (0.4–1.0 — shrink into high-vol/crash regimes,
+      // full when calm) INSTEAD of the procyclical pooled sizeMult; FX excluded (vol-scaling hurt
+      // it). Only CUTS size. Computed LAZILY — only when a leg will actually open (non-FX + an
+      // actionable signal) — so it adds ~no CPU on the common NO_TRADE ticks (this laziness is what
+      // keeps the scan under the Workers free-tier CPU budget). Sizes only NEW opens.
+      const wantsEntry = bothWays ? (mrSig.verdict === 'BUY' || mrSig.verdict === 'SELL') : (mrSig.verdict === 'BUY' || trendSig.verdict === 'BUY');
+      const volMult = (meta.cell === 'fx' || !wantsEntry) ? 1 : volSizeMult(candles);
+      const mktDials = { ...dials, sizeMult: (meta.cell === 'fx') ? dials.sizeMult : volMult };
+      // Express the evolved dials in the MR plan (stop by the global dial, size by the vol dial).
+      if (!bothWays && mrSig.plan && mktDials.stopMult) {
+        const scale = mktDials.stopMult / STRATEGY.stopAtrMult;
+        const long = mrSig.direction > 0;
+        const r = mrSig.plan.risk * scale;
+        mrSig.plan = { ...mrSig.plan, risk: r, stop: long ? mrSig.plan.entry - r : mrSig.plan.entry + r, target1: long ? mrSig.plan.entry + r : mrSig.plan.entry - r, stopMult: mktDials.stopMult, sizeMult: mktDials.sizeMult };
       }
       const now = Date.now();
       // The signal shown: for both-ways, the MR signal (BUY/SELL/no-trade); for the
