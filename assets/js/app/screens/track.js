@@ -601,32 +601,32 @@ function backtestEdge() {
       <i class="ph ph-caret-down" style="color:var(--text-muted);flex:none"></i>
     </summary>
     <div class="text-muted" style="font-size:12.5px;line-height:1.65;margin-top:10px">
-      Across <b style="color:var(--text)">~25 global markets over about a decade</b> of daily data — net of estimated trading costs — the mean-reversion core has shown a <b style="color:var(--text)">win rate near 75%</b> with modest drawdowns; a second, independent trend-following edge is layered on top. Each setting was checked out-of-sample and across markets, not fitted to one lucky window. It’s a mean-reversion edge, so it’s <b style="color:var(--text)">regime-dependent</b> — strongest in calm and rising markets, weakest in fast crashes and choppy or bear years (2018, 2022), which can be <b style="color:var(--text)">loss-making</b>. Judge it over a full cycle, and expect red stretches when markets fall hard.
+      Across <b style="color:var(--text)">~25 global markets over about a decade</b> of daily data — net of estimated trading costs — the strategy has been <b style="color:var(--text)">modestly profitable over the full cycle</b>: a blended profit factor around <b style="color:var(--text)">1.1–1.2</b>, with a mean-reversion win rate of roughly <b style="color:var(--text)">60–70%</b> on the developed-index core it’s tuned for. A second, independent trend-following edge is layered on top. Each setting was checked out-of-sample and across markets, not fitted to one lucky window. It’s a mean-reversion edge, so it’s <b style="color:var(--text)">regime-dependent</b> — profitable in calm and rising years (2017, 2021, 2024–2026), and <b style="color:var(--text)">loss-making in fast crashes and choppy or bear years (2018, 2020, 2022)</b>. It’s a small edge meant to compound over a full cycle, not a high win-rate machine — judge it by the live record, and expect real red stretches when markets fall hard.
       <div style="margin-top:14px">
-        <div style="display:flex;justify-content:space-between;font:700 10px var(--font-heading);color:var(--text-muted);margin-bottom:6px;font-variant-numeric:tabular-nums"><span>PF 1.0</span><span style="color:var(--accent-200)">likely 2.5–3.5</span><span>PF 5.0</span></div>
+        <div style="display:flex;justify-content:space-between;font:700 10px var(--font-heading);color:var(--text-muted);margin-bottom:6px;font-variant-numeric:tabular-nums"><span>PF 1.0</span><span style="color:var(--accent-200)">~1.1–1.6 over a full cycle</span><span>PF 5.0</span></div>
         <div style="position:relative;height:11px;border-radius:6px;background:color-mix(in srgb,var(--text-muted) 20%,transparent)">
-          <div style="position:absolute;top:0;bottom:0;left:37.5%;right:37.5%;background:linear-gradient(90deg,var(--accent-800),var(--accent));opacity:.6;border-radius:6px"></div>
-          <div style="position:absolute;top:-2px;left:50%;width:3px;height:15px;border-radius:2px;background:var(--accent-100)"></div>
+          <div style="position:absolute;top:0;bottom:0;left:2.5%;right:85%;background:linear-gradient(90deg,var(--accent-800),var(--accent));opacity:.6;border-radius:6px"></div>
+          <div style="position:absolute;top:-2px;left:3.75%;width:3px;height:15px;border-radius:2px;background:var(--accent-100)"></div>
         </div>
-        <div class="text-faint" style="font-size:10px;margin-top:5px">A range, not a single figure — where the backtested profit factor typically landed. PF &gt; 1 = profitable.</div>
+        <div class="text-faint" style="font-size:10px;margin-top:5px">A range, not a single figure — where the backtested profit factor landed over a full cycle. Calm years ran higher; crash years fell below 1 (loss-making). PF &gt; 1 = profitable.</div>
       </div>
       <div style="margin-top:16px">
         <div style="font:600 12.5px var(--font-heading);color:var(--text)">Edge by setup depth</div>
-        <div style="font-size:11.5px;margin-top:4px;line-height:1.55">The deeper the dip the engine buys, the more it earns per trade — a real gradient across every tier, not one hero number. That the ranking holds is itself the proof the edge is real.</div>
+        <div style="font-size:11.5px;margin-top:4px;line-height:1.55">Broadly, the deeper the dip the engine buys, the more it has earned per trade — a gradient, not one hero number. The rarest, deepest extremes are noisier (fewer trades), so the very deepest tier can earn a touch less.</div>
         <div style="margin-top:11px;display:flex;flex-direction:column;gap:8px">
-          <div style="display:grid;grid-template-columns:88px 1fr 38px;gap:9px;font:700 9px var(--font-heading);color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em"><span>Setup depth</span><span>Avg profit / trade</span><span style="text-align:right">Win</span></div>
+          <div style="display:grid;grid-template-columns:96px 1fr 38px;gap:9px;font:700 9px var(--font-heading);color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em"><span>Setup depth</span><span>Avg profit / trade</span><span style="text-align:right">Win</span></div>
           ${[
-            { d: 'Deepest dip', v: 95, w: 100, o: 1, win: '74%' },
-            { d: 'Deep', v: 92, w: 98, o: 0.8, win: '76%' },
-            { d: 'Moderate', v: 64, w: 68, o: 0.62, win: '74%' },
-            { d: 'Shallowest', v: 63, w: 67, o: 0.48, win: '76%' },
-          ].map((t) => `<div style="display:grid;grid-template-columns:88px 1fr 38px;gap:9px;align-items:center">
+            { d: 'Below band', v: 64, w: 83, o: 1, win: '64%' },
+            { d: 'Deep', v: 77, w: 100, o: 0.82, win: '74%' },
+            { d: 'Moderate', v: 62, w: 80, o: 0.64, win: '75%' },
+            { d: 'Shallow', v: 51, w: 66, o: 0.48, win: '71%' },
+          ].map((t) => `<div style="display:grid;grid-template-columns:96px 1fr 38px;gap:9px;align-items:center">
             <span style="font-size:11.5px;color:var(--text)">${t.d}</span>
             <span style="display:flex;align-items:center;gap:7px"><span style="height:15px;width:${t.w}%;background:var(--buy);opacity:${t.o};border-radius:3px"></span><span style="font:700 11.5px var(--font-heading);color:var(--buy);white-space:nowrap">$${t.v}</span></span>
             <span style="text-align:right;font-size:11px;color:var(--text-muted)">${t.win}</span>
           </div>`).join('')}
         </div>
-        <div class="text-faint" style="font-size:10.5px;margin-top:9px;line-height:1.5">Win rate stays ~75% across every tier — it's the <b style="color:var(--text-muted)">size</b> of the edge that scales with depth, not the odds. Equity dip-buyer, 8 index markets · ~2 years of daily data · 84 backtested trades.</div>
+        <div class="text-faint" style="font-size:10.5px;margin-top:9px;line-height:1.5">Win rate runs ~65–75% across tiers — it's largely the <b style="color:var(--text-muted)">size</b> of the edge that scales with depth, not the odds. This is the developed-index core it's tuned for (8 markets · 93 backtested trades) — the best-fit scope, so higher than the ~1.1–1.2 blended profit factor across the full universe and full cycle above.</div>
       </div>
       <div style="margin-top:12px">
         <b style="color:var(--text)">vs. buying and holding</b> the same markets, the edge isn't bigger raw returns — it's <b style="color:var(--text)">capital preservation</b>: by sitting in cash most of the time and stepping in only on genuine extremes, it held drawdowns to a fraction of the index's own, which can fall 25–35% in a crash.
