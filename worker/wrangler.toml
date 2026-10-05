@@ -16,16 +16,14 @@ workers_dev = true
 [triggers]
 crons = ["*/2 * * * *", "10 22 * * *"]
 
-# Branded API endpoint — READY BUT NOT YET LIVE. ajailabs.app DNS is still
-# authoritative on GoDaddy (ns*.domaincontrol.com), so this Worker custom domain
-# cannot resolve until the GoDaddy→Cloudflare DNS migration completes and the zone
-# activates on Cloudflare. First-level subdomain so the free *.ajailabs.app
-# Universal SSL cert will cover it (a deeper api.ajent.ajailabs.app would need the
-# paid Advanced Certificate Manager). Once it resolves: point app/index.html + sw.js
-# at https://ajent-api.ajailabs.app and retire the personal workers.dev URL.
-[[routes]]
-pattern = "ajent-api.ajailabs.app"
-custom_domain = true
+# Branded API endpoint — DISABLED 2026-10-05 (was breaking every deploy). ajailabs.app DNS is
+# still authoritative on GoDaddy, so this Worker custom domain cannot resolve, and wrangler fails
+# the `domains/records` bind on each deploy. workers_dev=true keeps the live URL, so leaving this
+# off costs nothing. RE-ENABLE (uncomment) only AFTER the GoDaddy→Cloudflare DNS migration lands
+# and the zone activates — then point app/index.html + sw.js at https://ajent-api.ajailabs.app.
+# [[routes]]
+# pattern = "ajent-api.ajailabs.app"
+# custom_domain = true
 
 # KV store for signals + the paper record.
 # Create it once:  wrangler kv namespace create AJENT_KV

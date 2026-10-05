@@ -1,0 +1,28 @@
+name: Deploy Worker
+
+# Auto-deploys the Cloudflare Worker (worker/) on every push that touches it — so the
+# 24/7 scan/strategy never depends on a developer's local `wrangler` OAuth (which expires).
+# Reuses the same CLOUDFLARE_API_TOKEN repo secret as the Pages deploy. The token must have
+# "Workers Scripts: Edit" permission (the Pages-only template does NOT — if this job fails
+# with an auth/permission error, re-create the token from the "Edit Cloudflare Workers"
+# template, or add Workers Scripts:Edit to the existing one, and update the repo secret).
+
+on:
+  push:
+    branches: [main]
+    paths: ['worker/**']
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: 5ca55034550e551f75539e8694f78b68
+          workingDirectory: worker
+          command: deploy

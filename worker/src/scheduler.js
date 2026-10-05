@@ -41,6 +41,12 @@ const PB_ADOPT_MAX = 0.30;
 // scanned, and the ~2-min cron rotates the rest through within a few ticks (fine for daily bars).
 const SCAN_BATCH_SIZE = 18;
 const MAX_FETCHES = 34;
+// Trend leg live auto-trading. PAUSED 2026-10-05: a month of live + lab evidence shows the trend
+// leg is the sole drag (live 0/9, −$2,166; every trend-inclusive lab candidate net-negative) while
+// the MR dip-buyer is solidly profitable. The leg is still computed/displayed and still forward-
+// tested in the lab; flip back to true to resume live auto-trading once the lab shows it earning
+// again in a trending regime. Existing open trend positions still exit normally while this is false.
+const TREND_LIVE_AUTOTRADE = false;
 
 // DYNAMIC CADENCE. The cron fires often (every 2 min), but a tick only actually SCANS —
 // fetching + writing — when enough time has passed FOR THE CURRENT ACTIVITY LEVEL, judged
@@ -346,7 +352,17 @@ export async function runTick(env, store) {
         // so a weeks-long trend hold never blocks the far-superior MR dip-buy (lab 2026-09-08). Each
         // slot manages its own open position with its own exit, or opens when flat.
         emit(processPosition({ symbol, meta, sig: mrSig, live, open: canOpen, record, now, risk, cost, dials: mktDials, strat: 'mr', shouldExit: mrShouldExit }), mrSig);
-        emit(processPosition({ symbol, meta, sig: trendSig, live, open: canOpen, record, now, risk, cost, dials: mktDials, strat: 'trend', shouldExit: trendShouldExit, openMap: record.openTrend, lastCloseMap: record.lastCloseTrend }), trendSig);
+        // Trend leg: PAUSED from auto-trading the live record (TREND_LIVE_AUTOTRADE=false, 2026-10-05).
+        // A full month of forward + live evidence is decisive: live trend 0/9 (-$2,166) vs live MR
+        // 67% win / +$1,061, and every trend-inclusive lab candidate is net-negative (Full ensemble
+        // PF 0.61) while every MR-only variant is positive. Trend-following is inherently low-win-rate
+        // and this choppy/down regime punishes it; it can't be filtered to win (ADX + quality gates
+        // both rejected). Passing open:false still MANAGES/EXITS any open trend position on its own
+        // rules (no abrupt realize) but opens NO new ones — so the live record becomes the proven MR
+        // dip-buyer. The trend signal is still computed + DISPLAYED (board activity) and the trend leg
+        // keeps running in the LAB, so it can re-earn live auto-trading from data when a trending
+        // regime returns. See [[ajent-strategy-filter-candidates]] #16 / honest-numbers.
+        emit(processPosition({ symbol, meta, sig: trendSig, live, open: canOpen && TREND_LIVE_AUTOTRADE, record, now, risk, cost, dials: mktDials, strat: 'trend', shouldExit: trendShouldExit, openMap: record.openTrend, lastCloseMap: record.lastCloseTrend }), trendSig);
       }
       // Derive the position's book-profit / hold CALL here (the recipe stays on the
       // server) so the client can show it WITHOUT the exit threshold, which /trades
