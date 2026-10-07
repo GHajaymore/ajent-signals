@@ -260,7 +260,11 @@ function byEngineHtml(closed) {
     map.set(k, e);
   }
   const rows = [...map.values()];
-  if (rows.length < 2) return ''; // only show once both engines have traded
+  if (rows.length < 2) return ''; // only show once more than one engine has traded
+  // Honest status per engine: the dip-buyer is the LIVE strategy; the trend leg was retired from
+  // live trading (2026-10-06) after it lagged the choppy regime. Past trades stay on the record.
+  const STATUS = { mr: ['LIVE', 'var(--buy)', 'color-mix(in srgb,var(--buy) 16%,transparent)'], trend: ['RETIRED', 'var(--text-muted)', 'var(--flat-dim)'], legacy: ['ARCHIVE', 'var(--text-muted)', 'var(--flat-dim)'] };
+  const tag = (k) => { const s = STATUS[k]; return s ? `<span style="font:700 8.5px var(--font-mono);letter-spacing:.05em;padding:2px 6px;border-radius:5px;background:${s[2]};color:${s[1]};margin-left:7px;vertical-align:middle;white-space:nowrap">${s[0]}</span>` : ''; };
   return `
     <div class="section-label">Performance by engine</div>
     <div class="card" style="padding:2px 12px">
@@ -272,13 +276,14 @@ function byEngineHtml(closed) {
         return `<div class="closed-row">
           <div class="closed-sym"><i class="ph-fill ${icon}" style="font-size:16px;color:var(--accent-300)"></i></div>
           <div class="closed-body">
-            <div class="closed-title">${ENGINE_NAME[e.key] || e.key}</div>
+            <div class="closed-title">${ENGINE_NAME[e.key] || e.key}${tag(e.key)}</div>
             <div class="closed-sub">${e.trades} trade${e.trades === 1 ? '' : 's'} · ${wr}% win</div>
           </div>
           <div class="closed-result"><div class="r" style="color:${color}">${money(e.pnl)}</div></div>
         </div>`;
       }).join('')}
-    </div>`;
+    </div>
+    <div class="text-faint" style="font-size:11px;line-height:1.5;margin:6px 2px 14px">The headline record above combines <b style="color:var(--text-muted)">every</b> engine — nothing hidden. The <b style="color:var(--text-muted)">mean-reversion dip-buyer</b> is the live strategy; the <b style="color:var(--text-muted)">trend-follow</b> leg was <b style="color:var(--text-muted)">retired from live trading on 6 Oct 2026</b> after it lagged the recent choppy, falling regime. Its past trades stay on the record, shown here separately so you can judge each engine on its own.</div>`;
 }
 
 // Group real closed trades by market → net P&L, win rate, count. Sorted best→worst.
@@ -1129,7 +1134,7 @@ export function render(container) {
 
     ${byAssetClassHtml(closed)}
 
-    ${isInternal() ? byEngineHtml(closed) : ''}
+    ${byEngineHtml(closed)}
 
     ${byMarketHtml(closed)}
 
