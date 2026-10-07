@@ -35,6 +35,10 @@ export const LAB_CANDIDATES = [
   { key: 'mrSupport', label: 'MR · at support', pb: PB30, support: true, trend: false },
   { key: 'volScaled', label: 'Full · vol-scaled size', pb: PB30, support: false, trend: true, volScale: true },
   { key: 'trendPartial', label: 'Full · book ½ at target', pb: PB30, support: false, trend: true, partial: true },
+  // Mirrors the CURRENT LIVE config (trend leg paused 2026-10-06 + vol-scaled sizing): MR dip-buyer
+  // only, non-FX positions vol-scaled. This is the live A/B anchor — compare vs `mrOnly` (does
+  // vol-scaling still help the MR engine forward?) and vs `full` (confirm dropping trend was right).
+  { key: 'mrOnlyVol', label: 'MR-only · vol-scaled (LIVE)', pb: PB30, support: false, trend: false, volScale: true },
 ];
 
 // Defensive vol-scaled size dial (0.4–1.0) is now shared from indicators.js (volSizeMult) — the
