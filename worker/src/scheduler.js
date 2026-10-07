@@ -315,8 +315,13 @@ export async function runTick(env, store) {
       }
       const now = Date.now();
       // The signal shown: for both-ways, the MR signal (BUY/SELL/no-trade); for the
-      // ensemble, whichever engine is actionable (dip first, else trend).
-      const displaySig = bothWays ? mrSig : (mrSig.verdict === 'BUY' ? mrSig : (trendSig.verdict === 'BUY' ? trendSig : mrSig));
+      // ensemble, whichever engine is actionable (dip first, else trend). While the trend leg
+      // is PAUSED from live auto-trading (TREND_LIVE_AUTOTRADE=false), we DON'T surface a trend
+      // BUY as a live signal either — the record no longer takes it, so showing it would both
+      // break the "auto-trades every signal" promise and risk pushing a user into an untracked,
+      // currently-unproven trade. Markets in an uptrend with no dip simply show MR's no-trade.
+      // (Already-open trend positions still display + manage normally via /trades.)
+      const displaySig = bothWays ? mrSig : (mrSig.verdict === 'BUY' ? mrSig : ((TREND_LIVE_AUTOTRADE && trendSig.verdict === 'BUY') ? trendSig : mrSig));
       const prev = bySym[symbol];
       const actionable = displaySig.verdict === 'BUY' || displaySig.verdict === 'SELL';
       if (actionable && (!prev || prev.verdict !== displaySig.verdict)) {
