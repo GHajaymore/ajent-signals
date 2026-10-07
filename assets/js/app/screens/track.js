@@ -491,7 +491,7 @@ function strategyCard() {
       ${s.proven ? '<span style="font-size:9.5px;font-weight:700;color:#0b2b20;background:var(--buy);padding:2px 6px;border-radius:5px">PROVEN</span>' : ''}
       <span style="font-size:9.5px;font-weight:700;color:var(--accent-100);background:var(--accent-800);padding:2px 6px;border-radius:5px">ADAPTIVE</span>
     </div>
-    <div class="text-muted" style="font-size:12px;line-height:1.5;margin-top:7px">A proven ensemble of edges — it fades oversold dips and rides established uptrends — applied across every market. It re-tunes on a set cadence (about weekly) from all trades pooled, automatically and within hard safety bounds. ${note}</div>
+    <div class="text-muted" style="font-size:12px;line-height:1.5;margin-top:7px">Its proven core fades oversold dips (mean reversion) across every market, holding days. A trend-following leg is <b style="color:var(--text)">currently paused from live trading</b> while it's re-validated in the lab — it lagged in the recent choppy, falling regime, so the record now runs the dip-buyer that's carried the edge. It re-tunes on a set cadence (about weekly) from all trades pooled, automatically and within hard safety bounds. ${note}</div>
     <div class="sc-dials">${chips}</div>
   </div>`;
 }

@@ -23,7 +23,7 @@ const TRADING_STYLES = [
   { key: 'scalping', name: 'Scalping', icon: 'ph-lightning', hold: 'Seconds–minutes', freq: 'dozens+/day', status: 'na',
     note: 'Needs sub-minute tick data — the free 15-minute feed can’t support it. Available only with a paid real-time market-data feed.' },
   { key: 'swing', name: 'Swing', icon: 'ph-calendar-check', hold: '~1–5 days', freq: '~1–5/week', status: 'live',
-    note: 'The validated daily strategy running now — buys deeply oversold dips in uptrends (mean reversion) and rides established uptrends (trend-following), holding days. Auto-trades your paper account.' },
+    note: 'The validated daily strategy running now — buys deeply oversold dips in uptrends (mean reversion), holding days. A trend-following leg is currently paused from live trading pending re-validation in the lab (it lagged the recent choppy regime). Auto-trades your paper account.' },
   { key: 'position', name: 'Position', icon: 'ph-mountains', hold: 'Weeks–months', freq: 'a few/month', status: 'soon',
     note: 'Longer-hold trend/mean-reversion for multi-week moves. Planned — not yet separately validated, so it will also arrive labelled experimental.' },
 ];
