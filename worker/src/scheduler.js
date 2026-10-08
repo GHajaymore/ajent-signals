@@ -303,7 +303,10 @@ export async function runTick(env, store) {
       // it). Only CUTS size. Computed LAZILY — only when a leg will actually open (non-FX + an
       // actionable signal) — so it adds ~no CPU on the common NO_TRADE ticks (this laziness is what
       // keeps the scan under the Workers free-tier CPU budget). Sizes only NEW opens.
-      const wantsEntry = bothWays ? (mrSig.verdict === 'BUY' || mrSig.verdict === 'SELL') : (mrSig.verdict === 'BUY' || trendSig.verdict === 'BUY');
+      // Only count a trend BUY when the trend leg can actually open — while it's paused, a trend
+      // BUY opens nothing, so including it would run volSizeMult on every uptrending market for no
+      // reason and defeat this very CPU guard (the cause of the earlier stall).
+      const wantsEntry = bothWays ? (mrSig.verdict === 'BUY' || mrSig.verdict === 'SELL') : (mrSig.verdict === 'BUY' || (TREND_LIVE_AUTOTRADE && trendSig.verdict === 'BUY'));
       const volMult = (meta.cell === 'fx' || !wantsEntry) ? 1 : volSizeMult(candles);
       const mktDials = { ...dials, sizeMult: (meta.cell === 'fx') ? dials.sizeMult : volMult };
       // Express the evolved dials in the MR plan (stop by the global dial, size by the vol dial).
@@ -373,7 +376,9 @@ export async function runTick(env, store) {
       // server) so the client can show it WITHOUT the exit threshold, which /trades
       // strips. Only for a still-open position.
       // The board shows one signal (displaySig); read the CALL from the slot that produced it.
-      const openPos = dispStrat === 'trend' ? record.openTrend[symbol] : record.open[symbol];
+      // Fall back to the trend slot so a legacy open trend position (held while the leg is paused)
+      // still surfaces its "ride the trend" call on the board until it exits.
+      const openPos = dispStrat === 'trend' ? record.openTrend[symbol] : (record.open[symbol] || record.openTrend[symbol]);
       if (openPos) {
         const long = (openPos.side || 'LONG') === 'LONG';
         if (openPos.strat === 'trend') openPos.call = 'trend';
